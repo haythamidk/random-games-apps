@@ -15,6 +15,9 @@ import kotlin.math.sqrt
 
 enum class Temperament { PASSIVE, SKITTISH, DEFENSIVE, HOSTILE, BOSS }
 
+/** How a creature moves through the world. */
+enum class Loco { GROUND, AIR, WATER, AMPHIBIOUS }
+
 enum class CreatureType(
     val displayName: String,
     val maxHp: Float,
@@ -28,14 +31,28 @@ enum class CreatureType(
     val radius: Float,
     val height: Float,
     val xp: Int,
+    val loco: Loco = Loco.GROUND,
+    /** Steepest climbable rise per meter (1.0 = 45 degrees). */
+    val maxSlope: Float = 0.9f,
+    val flyHeight: Float = 0f,
 ) {
-    GRAZEHORN("Grazehorn", 40f, 1.8f, 9f, 0f, 0f, 22f, Temperament.PASSIVE, false, 0.7f, 1.5f, 12),
-    TUSKER("Tusker", 55f, 1.6f, 7.5f, 13f, 1.9f, 12f, Temperament.DEFENSIVE, false, 0.75f, 1.0f, 16),
-    STRIDER("Strider", 95f, 2.2f, 10f, 14f, 2.4f, 26f, Temperament.SKITTISH, true, 0.9f, 2.2f, 30),
+    GRAZEHORN("Grazehorn", 40f, 1.8f, 7.6f, 0f, 0f, 20f, Temperament.PASSIVE, false, 0.7f, 1.5f, 12),
+    TUSKER("Tusker", 55f, 1.6f, 6.8f, 13f, 1.9f, 12f, Temperament.DEFENSIVE, false, 0.75f, 1.0f, 16),
+    STRIDER("Strider", 95f, 2.2f, 8.5f, 14f, 2.4f, 26f, Temperament.SKITTISH, true, 0.9f, 2.2f, 30),
     SCUTTLER("Scuttler", 38f, 2.4f, 7f, 8f, 1.6f, 18f, Temperament.HOSTILE, true, 0.6f, 0.7f, 18),
     PROWLER("Prowler", 170f, 2.6f, 9.5f, 20f, 2.4f, 28f, Temperament.HOSTILE, true, 1.0f, 1.4f, 60),
     WARDEN("Warden", 360f, 1.8f, 4.2f, 26f, 3.6f, 40f, Temperament.HOSTILE, true, 1.4f, 4.2f, 140),
     COLOSSUS("The Colossus", 3200f, 1.5f, 2.6f, 34f, 9f, 90f, Temperament.BOSS, true, 4.5f, 12f, 1500),
+    HARE("Hare", 12f, 1.4f, 7.2f, 0f, 0f, 14f, Temperament.PASSIVE, false, 0.3f, 0.45f, 5),
+    FOX("Ember Fox", 26f, 1.8f, 7.4f, 0f, 0f, 18f, Temperament.PASSIVE, false, 0.4f, 0.6f, 8),
+    GOAT("Crag Goat", 45f, 1.5f, 6.5f, 10f, 1.6f, 16f, Temperament.DEFENSIVE, false, 0.6f, 1.1f, 12, maxSlope = 1.8f),
+    WOLF("Greywolf", 62f, 2.2f, 8.0f, 11f, 1.8f, 30f, Temperament.HOSTILE, false, 0.6f, 0.9f, 28),
+    BEAR("Ironhide Bear", 230f, 1.7f, 7.0f, 28f, 2.4f, 16f, Temperament.DEFENSIVE, false, 1.1f, 1.6f, 70),
+    BIRD("Songbird", 6f, 5f, 12f, 0f, 0f, 12f, Temperament.PASSIVE, false, 0.25f, 0.3f, 3, loco = Loco.AIR, flyHeight = 18f),
+    FISH("Silverfin", 8f, 1.5f, 5f, 0f, 0f, 5f, Temperament.PASSIVE, false, 0.3f, 0.3f, 3, loco = Loco.WATER),
+    SHARK("Reef Shark", 140f, 3f, 6.5f, 24f, 2.2f, 40f, Temperament.HOSTILE, false, 0.9f, 0.8f, 55, loco = Loco.WATER),
+    SKYRAY("Skyray", 70f, 7f, 15f, 15f, 2.0f, 45f, Temperament.HOSTILE, true, 1.2f, 0.6f, 45, loco = Loco.AIR, flyHeight = 14f),
+    TIDECRAWLER("Tidecrawler", 160f, 2f, 5.5f, 20f, 2.4f, 24f, Temperament.HOSTILE, true, 1.3f, 1.3f, 65, loco = Loco.AMPHIBIOUS, maxSlope = 1.1f),
 }
 
 enum class CState { IDLE, WANDER, ALERT, FLEE, CHASE, WINDUP, RECOVER, DEAD }
@@ -77,6 +94,12 @@ class Creature(val id: Int, val type: CreatureType, x: Float, z: Float, val vari
     var stompWarn = 0f
     var removed = false
     val rng = Rng(id.toLong() * 7919 + 17)
+    /** Sprint stamina for fleeing animals: they tire and slow down so they can be caught. */
+    var fleeStamina = 1f
+    var vy = 0f
+    var diveTimer = 4f
+    var diving = false
+    var leader: Creature? = null
 
     val alive get() = state != CState.DEAD
     val hostileNow get() = type.temperament == Temperament.HOSTILE || type.temperament == Temperament.BOSS || aggroTime > 0f
@@ -89,6 +112,9 @@ class Creature(val id: Int, val type: CreatureType, x: Float, z: Float, val vari
             CreatureType.PROWLER -> -0.4f to 1.35f
             CreatureType.WARDEN -> 0.5f to 3.4f
             CreatureType.COLOSSUS -> 2.6f to 8.2f
+            CreatureType.SKYRAY -> 0f to 0.45f
+            CreatureType.TIDECRAWLER -> -0.3f to 1.4f
+            CreatureType.BEAR, CreatureType.WOLF, CreatureType.GOAT, CreatureType.FOX -> type.radius * 0.9f to type.height * 0.85f
             else -> 0.6f to type.height * 0.8f
         }
         return out.set(pos.x + sin(yaw) * fx, pos.y + fy, pos.z + cos(yaw) * fx)
@@ -102,6 +128,7 @@ interface CreatureHost {
     val playerPos: Vec3
     val playerStealth: Float
     val isNight: Boolean
+    val playerSwimming: Boolean
     fun creatureMelee(c: Creature, damage: Float)
     fun creatureFireBolt(c: Creature, fromX: Float, fromY: Float, fromZ: Float, dirX: Float, dirY: Float, dirZ: Float, damage: Float)
     fun creatureStomp(c: Creature, radius: Float, damage: Float)
@@ -114,7 +141,14 @@ object CreatureAI {
 
     fun update(c: Creature, dt: Float, host: CreatureHost) {
         if (c.hitFlash > 0) c.hitFlash = max(0f, c.hitFlash - dt * 4f)
-        if (c.state == CState.DEAD) { c.deadTime += dt; return }
+        if (c.state == CState.DEAD) {
+            c.deadTime += dt
+            // flying creatures drop out of the sky, fish float up
+            val g = groundY(c)
+            if (c.type.loco == Loco.AIR && c.pos.y > g) { c.vy -= 18f * dt; c.pos.y = max(g, c.pos.y + c.vy * dt) }
+            if (c.type.loco == Loco.WATER) c.pos.y = min(WorldGen.WATER - 0.15f, c.pos.y + dt * 0.6f)
+            return
+        }
         c.stateTime += dt
         if (c.attackCd > 0) c.attackCd -= dt
         if (c.rangedCd > 0) c.rangedCd -= dt
@@ -138,6 +172,9 @@ object CreatureAI {
         val perceive = t.perception * host.playerStealth * nightMul
         val sees = dist < perceive && kotlin.math.abs(p.y - c.pos.y) < 25f
 
+        if (t.loco == Loco.AIR) { air(c, dt, sees, dx, dz, dist, host); return }
+        if (t.loco == Loco.WATER) { water(c, dt, sees, dx, dz, dist, host); return }
+        if (c.state != CState.FLEE) c.fleeStamina = min(1f, c.fleeStamina + dt * 0.08f)
         when (t.temperament) {
             Temperament.PASSIVE -> passive(c, dt, sees, dx, dz, dist)
             Temperament.SKITTISH -> skittish(c, dt, sees, dx, dz, dist, host)
@@ -192,7 +229,9 @@ object CreatureAI {
     }
 
     private fun fleeFrom(c: Creature, dx: Float, dz: Float, dt: Float) {
-        c.speed = c.type.runSpeed
+        // animals tire after a sprint and slow to a trot
+        if (!c.type.machine) c.fleeStamina = max(0f, c.fleeStamina - dt / 7f)
+        c.speed = if (c.fleeStamina > 0.05f || c.type.machine) c.type.runSpeed else c.type.walkSpeed * 1.6f
         val len = max(0.01f, sqrt(dx * dx + dz * dz))
         steerTo(c, c.pos.x - dx / len * 20f, c.pos.z - dz / len * 20f, dt)
     }
@@ -204,7 +243,7 @@ object CreatureAI {
         }
         if (c.state == CState.FLEE) {
             fleeFrom(c, dx, dz, dt)
-            if (c.stateTime > 7f && dist > c.type.perception * 1.3f) setState(c, CState.IDLE)
+            if (c.stateTime > 5f && dist > c.type.perception * 1.2f) setState(c, CState.IDLE)
             return
         }
         wander(c, dt, 30f)
@@ -357,6 +396,134 @@ object CreatureAI {
         if (hx * hx + hz * hz > maxR * maxR) c.speed = 0f
     }
 
+
+    fun groundY(c: Creature): Float {
+        val h = WorldGen.height(c.pos.x, c.pos.z)
+        return when (c.type.loco) {
+            Loco.WATER -> h
+            else -> max(h, if (c.type.loco == Loco.AIR) WorldGen.WATER else h)
+        }
+    }
+
+    private fun air(c: Creature, dt: Float, sees: Boolean, dx: Float, dz: Float, dist: Float, host: CreatureHost) {
+        val t = c.type
+        val ground = max(WorldGen.height(c.pos.x, c.pos.z), WorldGen.WATER)
+        var targetAlt = ground + t.flyHeight
+        if (t == CreatureType.SKYRAY) {
+            // circles above the player and swoops in for strikes
+            if (sees || c.aggroTime > 0f) {
+                if (c.state != CState.CHASE) { c.state = CState.CHASE; c.stateTime = 0f; host.creatureAlerted(c) }
+            } else if (c.state == CState.CHASE && dist > t.perception * 1.8f) { c.state = CState.WANDER; c.diving = false }
+            if (c.state == CState.CHASE) {
+                val p = host.playerPos
+                c.diveTimer -= dt
+                if (!c.diving && c.diveTimer <= 0f) { c.diving = true; c.diveTimer = 5f + c.rng.nextFloat() * 3f }
+                if (c.diving) {
+                    c.speed = t.runSpeed
+                    steerTo(c, p.x, p.z, dt * 2f)
+                    targetAlt = p.y + 1.2f
+                    if (dist < t.attackRange && kotlin.math.abs(c.pos.y - (p.y + 1.2f)) < 2f && c.attackCd <= 0f) {
+                        host.creatureMelee(c, t.damage * c.variant.dmgMul)
+                        c.attackCd = 2f
+                        c.diving = false
+                    }
+                    if (c.stateTime > 0f && dist < 1f) c.diving = false
+                } else {
+                    // orbit
+                    val ang = atan2(c.pos.x - p.x, c.pos.z - p.z) + 0.8f
+                    steerTo(c, p.x + sin(ang) * 16f, p.z + cos(ang) * 16f, dt)
+                    c.speed = t.walkSpeed * 1.6f
+                    targetAlt = max(ground, p.y) + 11f
+                }
+            } else {
+                if (c.state != CState.WANDER || c.stateTime > 10f || c.pos.distXZ(c.targetX, c.targetZ) < 6f) {
+                    c.state = CState.WANDER; c.stateTime = 0f
+                    val a = c.rng.nextFloat() * TWO_PI
+                    c.targetX = c.homeX + cos(a) * 60f; c.targetZ = c.homeZ + sin(a) * 60f
+                }
+                steerTo(c, c.targetX, c.targetZ, dt)
+                c.speed = t.walkSpeed
+            }
+        } else {
+            // birds: follow the flock leader, scatter upward when the player gets close
+            val lead = c.leader
+            if (sees && dist < 12f && c.state != CState.FLEE) { c.state = CState.FLEE; c.stateTime = 0f }
+            if (c.state == CState.FLEE) {
+                c.speed = t.runSpeed
+                val len = max(0.01f, dist)
+                steerTo(c, c.pos.x - dx / len * 40f, c.pos.z - dz / len * 40f, dt * 2f)
+                targetAlt = ground + t.flyHeight * 1.8f
+                if (c.stateTime > 6f) { c.state = CState.WANDER; c.stateTime = 0f }
+            } else if (lead != null && lead.alive && !lead.removed) {
+                val ox = sin(c.id * 1.7f) * 3f; val oz = cos(c.id * 2.3f) * 3f
+                steerTo(c, lead.pos.x + ox, lead.pos.z + oz, dt * 1.5f)
+                c.speed = lead.speed * (if (c.pos.distXZ(lead.pos) > 6f) 1.3f else 1f)
+                targetAlt = lead.pos.y + sin(c.id.toFloat()) * 1.5f
+            } else {
+                if (c.state != CState.WANDER || c.stateTime > 12f || c.pos.distXZ(c.targetX, c.targetZ) < 8f) {
+                    c.state = CState.WANDER; c.stateTime = 0f
+                    val a = c.rng.nextFloat() * TWO_PI
+                    c.targetX = c.homeX + cos(a) * 70f; c.targetZ = c.homeZ + sin(a) * 70f
+                }
+                steerTo(c, c.targetX, c.targetZ, dt * 0.7f)
+                c.speed = t.walkSpeed
+            }
+        }
+        val nx = c.pos.x + sin(c.yaw) * c.speed * dt
+        val nz = c.pos.z + cos(c.yaw) * c.speed * dt
+        if (WorldGen.inWorld(nx, nz)) { c.pos.x = nx; c.pos.z = nz } else c.yaw += 2f
+        val minAlt = max(WorldGen.height(c.pos.x, c.pos.z), WorldGen.WATER) + 0.8f
+        c.pos.y += (max(targetAlt, minAlt) - c.pos.y) * min(1f, dt * (if (c.diving) 2.5f else 1.2f))
+        c.pos.y = max(c.pos.y, minAlt)
+        c.walkPhase += dt * (if (t == CreatureType.BIRD) 18f else 4f)
+    }
+
+    private fun water(c: Creature, dt: Float, sees: Boolean, dx: Float, dz: Float, dist: Float, host: CreatureHost) {
+        val t = c.type
+        val p = host.playerPos
+        if (t == CreatureType.SHARK) {
+            val hunting = host.playerSwimming && dist < t.perception
+            if (hunting) {
+                if (c.state != CState.CHASE) { c.state = CState.CHASE; c.stateTime = 0f }
+                c.speed = t.runSpeed
+                steerTo(c, p.x, p.z, dt)
+                if (dist < t.attackRange && c.attackCd <= 0f) { host.creatureMelee(c, t.damage * c.variant.dmgMul); c.attackCd = 2.2f }
+            } else {
+                if (c.state == CState.CHASE) { c.state = CState.WANDER; c.stateTime = 0f }
+                swimWander(c, dt, 40f)
+            }
+        } else {
+            if (dist < 6f && sees) {
+                c.state = CState.FLEE; c.stateTime = 0f
+            }
+            if (c.state == CState.FLEE) {
+                c.speed = t.runSpeed
+                val len = max(0.01f, dist)
+                steerTo(c, c.pos.x - dx / len * 10f, c.pos.z - dz / len * 10f, dt * 2f)
+                if (c.stateTime > 3f) { c.state = CState.WANDER; c.stateTime = 0f }
+            } else swimWander(c, dt, 14f)
+        }
+        val nx = c.pos.x + sin(c.yaw) * c.speed * dt
+        val nz = c.pos.z + cos(c.yaw) * c.speed * dt
+        val nh = WorldGen.height(nx, nz)
+        val need = if (t == CreatureType.SHARK) -3.5f else -0.9f
+        if (nh > need || !WorldGen.inWorld(nx, nz)) { c.yaw += 2.5f + c.rng.nextFloat(); c.state = CState.WANDER; c.stateTime = 0f; return }
+        c.pos.x = nx; c.pos.z = nz
+        val depthTarget = if (t == CreatureType.SHARK) max(nh + 1.2f, WorldGen.WATER - 1.6f) else max(nh + 0.3f, WorldGen.WATER - 0.6f - (c.id % 3) * 0.3f)
+        c.pos.y += (depthTarget - c.pos.y) * min(1f, dt * 2f)
+        c.walkPhase += dt * (2f + c.speed * 2f)
+    }
+
+    private fun swimWander(c: Creature, dt: Float, radius: Float) {
+        if (c.state != CState.WANDER || c.stateTime > 8f || c.pos.distXZ(c.targetX, c.targetZ) < 2f) {
+            c.state = CState.WANDER; c.stateTime = 0f
+            val a = c.rng.nextFloat() * TWO_PI
+            c.targetX = c.homeX + cos(a) * radius * c.rng.nextFloat(); c.targetZ = c.homeZ + sin(a) * radius * c.rng.nextFloat()
+        }
+        c.speed = c.type.walkSpeed
+        steerTo(c, c.targetX, c.targetZ, dt)
+    }
+
     private fun move(c: Creature, dt: Float) {
         if (c.speed <= 0.01f) {
             c.walkPhase += dt * 0.5f
@@ -366,14 +533,19 @@ object CreatureAI {
         val nz = c.pos.z + cos(c.yaw) * c.speed * dt
         val nh = WorldGen.height(nx, nz)
         val canSwim = c.type == CreatureType.COLOSSUS
-        if ((nh < 0.2f && !canSwim) || !WorldGen.inWorld(nx, nz) || nh - c.pos.y > 2.5f) {
+        // look a little ahead: refuse to climb anything steeper than the creature can handle
+        val ahead = 1.2f + c.type.radius
+        val hAhead = WorldGen.height(c.pos.x + sin(c.yaw) * ahead, c.pos.z + cos(c.yaw) * ahead)
+        val tooSteep = (hAhead - c.pos.y) / ahead > c.type.maxSlope || (nh - c.pos.y) > c.type.maxSlope * c.speed * dt + 0.25f
+        val minH = if (c.type.loco == Loco.AMPHIBIOUS) -3.5f else 0.2f
+        if ((nh < minH && !canSwim) || !WorldGen.inWorld(nx, nz) || tooSteep) {
             // blocked: turn around and pick a new direction
             c.yaw += 2.2f + c.rng.nextFloat()
             if (c.state == CState.WANDER) c.state = CState.IDLE
             return
         }
         c.pos.x = nx; c.pos.z = nz
-        c.pos.y = nh
+        c.pos.y = if (c.type.loco == Loco.AMPHIBIOUS && nh < WorldGen.WATER - 0.6f) max(nh, WorldGen.WATER - 0.9f) else nh
         c.walkPhase += dt * c.speed * (if (c.type.machine) 2.2f else 2.6f) / max(0.6f, c.type.height * 0.6f)
     }
 
@@ -404,6 +576,16 @@ object CreatureAI {
                 if (roll(0.55f)) add(Item.LENS, 1)
             }
             CreatureType.COLOSSUS -> { add(Item.CORE, 5); add(Item.ALLOY, 15); add(Item.LENS, 3) }
+            CreatureType.HARE -> { add(Item.RAW_MEAT, 1); if (roll(0.6f)) add(Item.FUR, 1) }
+            CreatureType.FOX -> { add(Item.FUR, 2); if (roll(0.5f)) add(Item.RAW_MEAT, 1) }
+            CreatureType.GOAT -> { add(Item.RAW_MEAT, 2); add(Item.HIDE, 1); add(Item.FUR, 1) }
+            CreatureType.WOLF -> { add(Item.RAW_MEAT, 1); add(Item.FUR, 2) }
+            CreatureType.BEAR -> { add(Item.RAW_MEAT, 5); add(Item.FUR, 4); add(Item.HIDE, 2) }
+            CreatureType.BIRD -> { add(Item.FEATHER, 2 + rng.nextInt(3)); if (roll(0.5f)) add(Item.RAW_MEAT, 1) }
+            CreatureType.FISH -> { add(Item.RAW_FISH, 1) }
+            CreatureType.SHARK -> { add(Item.RAW_FISH, 4); add(Item.HIDE, 2) }
+            CreatureType.SKYRAY -> { add(Item.WIRE, 2); add(Item.ALLOY, 1); add(Item.FEATHER, 0); if (roll(0.35f)) add(Item.LENS, 1) }
+            CreatureType.TIDECRAWLER -> { add(Item.ALLOY, 3); add(Item.SCRAP, 3); if (roll(0.3f)) add(Item.CORE, 1) }
         }
         if (c.variant == Variant.FROST && c.type.machine) add(Item.CRYO_SHARD, 1 + rng.nextInt(2))
         return out

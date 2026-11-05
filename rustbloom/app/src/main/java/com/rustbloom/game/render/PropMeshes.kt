@@ -1,6 +1,8 @@
 package com.rustbloom.game.render
 
+import com.rustbloom.game.engine.MatClass
 import com.rustbloom.game.engine.MeshBuilder
+import com.rustbloom.game.engine.assignMaterials
 import com.rustbloom.game.engine.MeshData
 import com.rustbloom.game.engine.TWO_PI
 import com.rustbloom.game.game.BuildType
@@ -173,7 +175,7 @@ object PropMeshes {
                 mb.box(0.6f, 1.65f, 0.05f, 0.35f, 0.4f, 0.01f)
             }
         }
-        return Pair(mb.build(), glow?.build())
+        return Pair(mb.build().assignMaterials(MatClass::prop), glow?.build())
     }
 
     fun arrow(): MeshData {
@@ -286,6 +288,12 @@ object PropMeshes {
                 mb.color(1f, 0.9f, 0.4f, 1f)
                 mb.push().trs(0f, 0.42f, -0.05f).cylinder(0f, 0f, 0f, 0.035f, 0.0f, 0.14f, 4, caps = false, flat = true).pop()
             }
+            ToolKind.ROD -> {
+                mb.color(0x8a6a42).mat(com.rustbloom.game.engine.Mat.WOOD)
+                mb.push().trs(0f, 0.05f, -0.05f, 0f, -1.2f, 0f).cylinder(0f, 0f, 0f, 0.022f, 0.008f, 1.1f, 6).pop()
+                mb.color(0x5a4636)
+                mb.cylinder(0.03f, -0.02f, -0.02f, 0.045f, 0.045f, 0.04f, 8)
+            }
             ToolKind.WATERSKIN -> {
                 mb.color(0x8a6440)
                 mb.sphere(0f, 0.05f, -0.08f, 0.09f, 0.12f, 0.07f, 4, 6, 0.05f, 2)
@@ -298,6 +306,23 @@ object PropMeshes {
                 mb.box(0f, 0.04f, -0.1f, 0.09f, 0.09f, 0.09f)
             }
         }
+        return mb.build()
+    }
+
+    fun bobber(): MeshData {
+        val mb = MeshBuilder(64)
+        mb.color(0.9f, 0.2f, 0.15f, 0.3f)
+        mb.sphere(0f, 0.04f, 0f, 0.06f, 0.05f, 0.06f, 4, 8, 0f, 0)
+        mb.color(0.95f, 0.95f, 0.9f)
+        mb.sphere(0f, -0.02f, 0f, 0.055f, 0.04f, 0.055f, 3, 8, 0f, 1)
+        return mb.build()
+    }
+
+    /** Unit-length line along +Z centered on the origin; scaled to the needed length. */
+    fun fishingLine(): MeshData {
+        val mb = MeshBuilder(32)
+        mb.color(0.9f, 0.9f, 0.85f)
+        mb.box(0f, 0f, 0f, 0.006f, 0.006f, 1f)
         return mb.build()
     }
 

@@ -5,11 +5,35 @@ import com.rustbloom.game.world.Aabb
 import com.rustbloom.game.world.Interactable
 import com.rustbloom.game.world.Node
 
-enum class Sfx { CHOP, MINE, SWING, HIT_FLESH, HIT_METAL, BOW_DRAW, BOW_RELEASE, ARROW_HIT, PICKUP, CRAFT, EAT, DRINK, HURT, MACHINE_ALERT, MACHINE_DIE, BOLT, STOMP, BUILD, UI, LEVEL_UP, QUEST, THUNDER, SPIRE, STEP, SPLASH, ZAP, DEATH }
+enum class Sfx {
+    CHOP, MINE, SWING, HIT_FLESH, HIT_METAL, BOW_DRAW, BOW_RELEASE, ARROW_HIT, PICKUP, CRAFT, EAT, DRINK, HURT,
+    MACHINE_ALERT, MACHINE_DIE, BOLT, STOMP, BUILD, UI, LEVEL_UP, QUEST, THUNDER, SPIRE, STEP, SPLASH, ZAP, DEATH,
+    STEP_STONE, STEP_SAND, STEP_SNOW, STEP_WOOD, STEP_WATER, ANIMAL_HURT, GROWL, SCREECH, CAST, UI_OPEN,
+}
+
+/** Continuous sound environment around the listener; the engine turns this into beds and one-shot ambience. */
+class Ambience {
+    var wind = 0f        // 0..1 wind strength at the listener (exposure already applied)
+    var rain = 0f
+    var snow = false
+    var fire = 0f        // closeness to a fire 0..1
+    var ocean = 0f       // closeness to open water 0..1
+    var night = 0f
+    var forest = 0f      // tree density 0..1
+    var marsh = 0f
+    var cold = 0f
+    var desert = 0f
+    var sheltered = false
+    var underwater = false
+    var combat = false
+    var paused = false
+}
 
 interface SoundSink {
     fun play(s: Sfx, volume: Float = 1f, pitch: Float = 1f)
-    fun setAmbience(wind: Float, rain: Float, fire: Float, night: Float)
+    fun playAt(s: Sfx, x: Float, y: Float, z: Float, volume: Float = 1f, pitch: Float = 1f)
+    fun setListener(x: Float, y: Float, z: Float, yaw: Float)
+    fun setAmbience(a: Ambience)
 }
 
 interface GameUi {
@@ -93,4 +117,13 @@ class Target {
     var sub = ""
     var dist = 0f
     fun clear() { kind = TargetKind.NONE; node = null; creature = null; inter = null; placed = null; label = ""; sub = "" }
+}
+
+/** State of the fishing line while a rod is cast. */
+class Fishing {
+    var active = false
+    var x = 0f; var y = 0f; var z = 0f
+    var wait = 0f
+    var bite = false
+    var biteWindow = 0f
 }

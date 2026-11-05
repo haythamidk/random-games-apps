@@ -53,6 +53,7 @@ class GameState(val settings: Settings) : CreatureHost {
     val placed = ArrayList<Placed>()
     private var nextPlacedId = 1
     val beams = ArrayList<Beam>()
+    val fishing = Fishing()
 
     private val hudBuffers = arrayOf(HudData(), HudData())
     @Volatile var hud: HudData = hudBuffers[0]
@@ -251,9 +252,60 @@ class GameState(val settings: Settings) : CreatureHost {
         if (autosaveTimer <= 0f) { autosaveTimer = 120f; saveRequested = true }
 
         val fire = nearestFireDist()
-        sound?.setAmbience(env.wind, if (env.snowing) 0f else env.rain, clamp(1f - fire / 10f, 0f, 1f), env.nightFactor)
+        sound?.setListener(player.pos.x, player.pos.y + player.eyeHeight, player.pos.z, player.yaw)
+        ambTimer -= dt
+        if (ambTimer <= 0f) { ambTimer = 0.4f; updateAmbience(biome, fire) }
         fillHud()
     }
+
+    private val ambience = Ambience()
+    private var ambTimer = 0f
+
+    /** Describes the sound environment: exposure to wind, nearby sea, forest density, fire, threats. */
+    private fun updateAmbience(biome: Biome, fireDist: Float) {
+        val p = player.pos
+        var water = 0
+        for (k in 0 until 12) {
+            val a = k * TWO_PI / 12
+            val r = if (k % 2 == 0) 28f else 60f
+            if (WorldGen.height(p.x + cos(a) * r, p.z + sin(a) * r) < -1.5f) water++
+        }
+        var trees = 0
+        chunks.forEachNodeNear(p.x, p.z, 22f) { if (it.type.isTree) trees++ }
+        val forest = clamp(trees / 25f, 0f, 1f)
+        val altitude = clamp((p.y - 20f) / 80f, 0f, 1f)
+        val a = ambience
+        a.forest = forest
+        a.ocean = clamp(water / 6f, 0f, 1f) * (if (WorldGen.biomeAt(p.x, p.z) == Biome.MARSH) 0.3f else 1f)
+        a.wind = clamp(env.wind * (0.15f + altitude * 0.9f + (1f - forest) * 0.35f) + (if (env.weather == Weather.STORM) 0.25f else 0f), 0f, 1f)
+        a.rain = if (env.snowing) 0f else env.rain
+        a.snow = env.snowing
+        a.fire = clamp(1f - fireDist / 10f, 0f, 1f)
+        a.night = env.nightFactor
+        a.marsh = WorldGen.marshness(p.x, p.z)
+        a.cold = WorldGen.coldness(p.x, p.z)
+        a.desert = WorldGen.dryness(p.x, p.z)
+        a.sheltered = collision.covered(p.x, p.y, p.z)
+        a.underwater = player.underwater
+        a.combat = creatures.any { it.alive && it.type.machine && (it.state == CState.CHASE || it.state == CState.WINDUP) && it.pos.distXZ(p) < 50f }
+        a.paused = paused
+        sound?.setAmbience(a)
+    }
+
+    private fun footstepSound(): Sfx {
+        val p = player.pos
+        val h = WorldGen.height(p.x, p.z)
+        if (h < WorldGen.WATER - 0.05f) return Sfx.STEP_WATER
+        if (p.y > h + 0.25f) return Sfx.STEP_WOOD
+        WorldGen.splatWeights(p.x, p.z, h, stepSplat)
+        WorldGen.normal(p.x, p.z, stepNrm, 1f)
+        if (stepNrm[1] < 0.75f || WorldGen.poiClearance(p.x, p.z) < 0f) return Sfx.STEP_STONE
+        if (stepSplat[3] > 0.5f) return Sfx.STEP_SNOW
+        if (stepSplat[2] + stepSplat[4] > 0.5f) return Sfx.STEP_SAND
+        return Sfx.STEP
+    }
+    private val stepSplat = FloatArray(8)
+    private val stepNrm = FloatArray(3)
 
     private fun handleActions(dt: Float) {
         for (a in frame.actions) {
@@ -343,7 +395,7 @@ class GameState(val settings: Settings) : CreatureHost {
         // footsteps
         if (p.onGround && moving) {
             stepTimer -= dt * (if (p.sprinting) 1.6f else 1f)
-            if (stepTimer <= 0f) { stepTimer = 0.42f; sound?.play(Sfx.STEP, if (p.crouching) 0.15f else 0.35f, 0.9f + rng.nextFloat() * 0.2f) }
+            if (stepTimer <= 0f) { stepTimer = 0.42f; sound?.play(footstepSound(), if (p.crouching) 0.12f else 0.3f) }
         }
 
         // ---- survival stats
@@ -420,6 +472,10 @@ class GameState(val settings: Settings) : CreatureHost {
         val released = !attack && lastAttack
         lastAttack = attack
 
+        if (tool == ToolKind.ROD) {
+            updateFishing(dt, pressed)
+            return
+        } else if (fishing.active) fishing.active = false
         if (tool == ToolKind.BOW) {
             val drawTime = if (stack!!.item == Item.ALLOY_BOW) 0.55f else 0.85f
             if (attack && p.swingTime < 0f) {
@@ -458,6 +514,61 @@ class GameState(val settings: Settings) : CreatureHost {
             p.stamina -= if (tool == ToolKind.SPEAR) 9f else 6f
             p.staminaDelay = 0.7f
             sound?.play(Sfx.SWING, 0.45f, 0.9f + rng.nextFloat() * 0.2f)
+        }
+    }
+
+    private fun updateFishing(dt: Float, pressed: Boolean) {
+        val f = fishing
+        val p = player
+        if (pressed) {
+            if (!f.active) {
+                // cast: find water along the view direction
+                val eye = eyePos(tv); val dir = lookDir(tv2)
+                val hl = sqrt(dir.x * dir.x + dir.z * dir.z).coerceAtLeast(0.01f)
+                var d = 3f
+                var found = false
+                while (d <= 15f) {
+                    val x = eye.x + dir.x / hl * d; val z = eye.z + dir.z / hl * d
+                    if (WorldGen.height(x, z) < WorldGen.WATER - 0.4f) { f.x = x; f.z = z; found = true; break }
+                    d += 0.5f
+                }
+                if (!found) { note("Aim at water to cast", 0xffcccccc.toInt()); return }
+                f.y = WorldGen.WATER
+                f.active = true; f.bite = false
+                f.wait = rng.range(4f, 11f) * (if (env.rain > 0.3f) 0.7f else 1f) * (if (env.time in 5f..8f || env.time in 17f..20f) 0.7f else 1f)
+                sound?.play(Sfx.CAST, 0.6f)
+                sound?.playAt(Sfx.SPLASH, f.x, f.y, f.z, 0.4f, 1.5f)
+            } else if (f.bite) {
+                val n = if (rng.chance(0.15f)) 2 else 1
+                give(Item.RAW_FISH, n)
+                gainXp(6)
+                count("catch:FISH")
+                for (b in bounties) if (!b.claimed && b.kill == CreatureType.FISH) b.progress += n
+                wearSelected(1)
+                f.active = false
+                sound?.play(Sfx.SPLASH, 0.7f, 1.1f)
+            } else {
+                f.active = false
+                sound?.play(Sfx.SWING, 0.3f, 1.5f)
+            }
+            return
+        }
+        if (!f.active) return
+        if (p.pos.distXZ(f.x, f.z) > 18f) { f.active = false; note("The line snapped back", 0xffcccccc.toInt()); return }
+        if (!f.bite) {
+            f.wait -= dt
+            if (f.wait <= 0f) {
+                f.bite = true; f.biteWindow = 1.4f
+                sound?.play(Sfx.SPLASH, 0.8f, 1.6f)
+                if (settings.vibration) ui?.vibrate(50)
+            }
+        } else {
+            f.biteWindow -= dt
+            if (f.biteWindow <= 0f) {
+                f.bite = false
+                f.wait = rng.range(4f, 10f)
+                note("It got away...", 0xffcccccc.toInt())
+            }
         }
     }
 
@@ -555,6 +666,7 @@ class GameState(val settings: Settings) : CreatureHost {
         if (c.type.temperament == Temperament.PASSIVE) { c.state = CState.FLEE; c.stateTime = 0f }
         if (c.type.temperament == Temperament.SKITTISH && c.state != CState.WINDUP) { c.state = CState.FLEE; c.stateTime = 0f }
         sound?.play(if (c.type.machine) Sfx.HIT_METAL else Sfx.HIT_FLESH, if (weak) 1f else 0.7f, if (weak) 1.3f else 1f)
+        if (!c.type.machine && c.hp > 0f) playAt(if (c.type == CreatureType.WOLF || c.type == CreatureType.BEAR) Sfx.GROWL else Sfx.ANIMAL_HURT, c.pos, 0.7f)
         if (weak) note("Weak spot!", 0xffffe07a.toInt())
         if (c.hp <= 0f) onCreatureKilled(c)
     }
@@ -1179,6 +1291,7 @@ class GameState(val settings: Settings) : CreatureHost {
             return s
         }
     override val isNight: Boolean get() = env.isNight
+    override val playerSwimming: Boolean get() = player.swimming || player.pos.y < WorldGen.WATER - 0.6f
 
     override fun creatureMelee(c: Creature, damage: Float) {
         damagePlayer(damage, c)
@@ -1206,10 +1319,14 @@ class GameState(val settings: Settings) : CreatureHost {
     }
 
     override fun creatureAlerted(c: Creature) {
-        if (c.type.machine && alertSoundCd <= 0f) {
-            playAt(Sfx.MACHINE_ALERT, c.pos, 0.8f)
-            alertSoundCd = 2.5f
+        if (alertSoundCd > 0f) return
+        when {
+            c.type == CreatureType.SKYRAY -> playAt(Sfx.SCREECH, c.pos, 0.9f)
+            c.type.machine -> playAt(Sfx.MACHINE_ALERT, c.pos, 0.8f)
+            c.type == CreatureType.WOLF || c.type == CreatureType.BEAR -> playAt(Sfx.GROWL, c.pos, 0.9f)
+            else -> return
         }
+        alertSoundCd = 2.5f
     }
 
     override fun nearFire(x: Float, z: Float): Boolean = placed.any { it.type == BuildType.CAMPFIRE && abs(it.x - x) < 8f && abs(it.z - z) < 8f }
@@ -1225,9 +1342,7 @@ class GameState(val settings: Settings) : CreatureHost {
     }
 
     private fun playAt(s: Sfx, at: Vec3, vol: Float) {
-        val d = at.dist(player.pos)
-        if (d > 70f) return
-        sound?.play(s, vol * clamp(1f - d / 70f, 0f, 1f))
+        sound?.playAt(s, at.x, at.y + 1f, at.z, vol)
     }
 
     fun variantFor(x: Float, z: Float): Variant {
@@ -1274,7 +1389,8 @@ class GameState(val settings: Settings) : CreatureHost {
             val d = c.pos.distXZ(player.pos)
             val remove = c.removed ||
                 (!c.alive && (c.deadTime > 120f || (c.looted && c.deadTime > 118f))) ||
-                (d > 240f && c.type != CreatureType.COLOSSUS && !c.encounter)
+                (d > 240f && c.type != CreatureType.COLOSSUS && !c.encounter) ||
+                (d > 140f && (c.type == CreatureType.FISH || c.type == CreatureType.BIRD))
             if (remove) {
                 if (c.guardPoi >= 0) guardSpawned.remove(c.guardPoi)
                 if (c === boss) boss = null
@@ -1290,13 +1406,14 @@ class GameState(val settings: Settings) : CreatureHost {
         var wild = 0; var mach = 0
         for (c in creatures) {
             if (!c.alive || c.encounter || c.guardPoi >= 0) continue
+            if (c.type == CreatureType.BIRD || c.type == CreatureType.FISH || c.type == CreatureType.SHARK) continue
             if (c.type.machine) mach++ else wild++
         }
         val night = env.isNight
         val diffAdd = when (difficulty) { Difficulty.STORY -> -2; Difficulty.HARD -> 2; else -> 0 }
         var maxMach = 5 + diffAdd + (if (night) 3 else 0)
         if (bossDefeated) maxMach = (maxMach * 0.6f).toInt()
-        val maxWild = 7
+        val maxWild = 9
         // guardians near POIs
         for (poi in WorldGen.pois) {
             if (poi.kind != PoiKind.WRECK && !poi.kind.name.startsWith("SPIRE") && poi.kind != PoiKind.CROWN) continue
@@ -1321,6 +1438,7 @@ class GameState(val settings: Settings) : CreatureHost {
                 spawnCreature(t, poi.x + cos(a) * r, poi.z + sin(a) * r, if (poi.kind == PoiKind.CROWN) Variant.CORRUPT else v)?.guardPoi = poi.id
             }
         }
+        spawnAmbient()
         if (wild >= maxWild && mach >= maxMach) return
         val a = rng.range(0f, TWO_PI)
         val r = rng.range(70f, 150f)
@@ -1334,31 +1452,85 @@ class GameState(val settings: Settings) : CreatureHost {
         val nearBed = placed.any { it.type == BuildType.BED && abs(it.x - x) < 45f && abs(it.z - z) < 45f }
         val roll = rng.nextFloat()
         val v = variantFor(x, z)
-        val wantMachine = mach < maxMach && (wild >= maxWild || rng.chance(0.5f))
+        val wantMachine = mach < maxMach && (wild >= maxWild || rng.chance(0.45f))
         if (wantMachine) {
             if (nearBed) return
             val t = when (biome) {
-                Biome.MEADOW, Biome.BEACH -> if (roll < 0.6f) CreatureType.STRIDER else CreatureType.SCUTTLER
+                Biome.MEADOW -> if (roll < 0.5f) CreatureType.STRIDER else if (roll < 0.85f) CreatureType.SCUTTLER else CreatureType.SKYRAY
+                Biome.BEACH -> if (roll < 0.5f) CreatureType.SCUTTLER else CreatureType.TIDECRAWLER
                 Biome.FOREST -> if (roll < 0.3f) CreatureType.STRIDER else if (roll < 0.75f || nearVault) CreatureType.SCUTTLER else CreatureType.PROWLER
                 Biome.PINE, Biome.SNOW -> if (roll < 0.35f) CreatureType.STRIDER else if (roll < 0.7f) CreatureType.SCUTTLER else CreatureType.PROWLER
-                Biome.DESERT -> if (roll < 0.45f) CreatureType.STRIDER else if (roll < 0.93f) CreatureType.SCUTTLER else CreatureType.WARDEN
-                Biome.MARSH -> if (roll < 0.75f) CreatureType.SCUTTLER else CreatureType.PROWLER
+                Biome.DESERT -> if (roll < 0.4f) CreatureType.STRIDER else if (roll < 0.75f) CreatureType.SCUTTLER else if (roll < 0.93f) CreatureType.SKYRAY else CreatureType.WARDEN
+                Biome.MARSH -> if (roll < 0.6f) CreatureType.SCUTTLER else if (roll < 0.85f) CreatureType.TIDECRAWLER else CreatureType.PROWLER
                 else -> return
             }
-            val tt = if (nearVault && (t == CreatureType.PROWLER || t == CreatureType.WARDEN)) CreatureType.STRIDER else t
+            val dangerous = t == CreatureType.PROWLER || t == CreatureType.WARDEN || t == CreatureType.TIDECRAWLER || t == CreatureType.SKYRAY
+            val tt = if (nearVault && dangerous) CreatureType.STRIDER else t
             val group = when (tt) { CreatureType.STRIDER -> 2 + rng.nextInt(3); CreatureType.SCUTTLER -> if (night) 2 + rng.nextInt(2) else 1 + rng.nextInt(2); else -> 1 }
-            for (i in 0 until group) spawnCreature(tt, x + rng.range(-6f, 6f), z + rng.range(-6f, 6f), v)
+            for (i in 0 until group) {
+                val c = spawnCreature(tt, x + rng.range(-6f, 6f), z + rng.range(-6f, 6f), v) ?: continue
+                if (tt == CreatureType.SKYRAY) c.pos.y = h + 14f
+            }
         } else if (wild < maxWild) {
             val t = when (biome) {
-                Biome.MEADOW -> if (roll < 0.6f) CreatureType.GRAZEHORN else CreatureType.TUSKER
-                Biome.FOREST, Biome.MARSH -> if (roll < 0.35f) CreatureType.GRAZEHORN else CreatureType.TUSKER
-                Biome.PINE, Biome.SNOW -> CreatureType.GRAZEHORN
-                Biome.DESERT -> if (roll < 0.5f) CreatureType.TUSKER else return
-                Biome.BEACH -> CreatureType.TUSKER
+                Biome.MEADOW -> when { roll < 0.4f -> CreatureType.GRAZEHORN; roll < 0.6f -> CreatureType.HARE; roll < 0.8f -> CreatureType.TUSKER; else -> CreatureType.FOX }
+                Biome.FOREST -> when {
+                    roll < 0.25f -> CreatureType.GRAZEHORN; roll < 0.5f -> CreatureType.TUSKER; roll < 0.65f -> CreatureType.FOX
+                    roll < 0.8f && !nearVault -> CreatureType.BEAR; night && !nearVault -> CreatureType.WOLF; else -> CreatureType.HARE
+                }
+                Biome.MARSH -> if (roll < 0.5f) CreatureType.TUSKER else CreatureType.GRAZEHORN
+                Biome.PINE -> when { roll < 0.3f -> CreatureType.GRAZEHORN; roll < 0.5f -> CreatureType.GOAT; roll < 0.65f -> CreatureType.FOX; !nearVault && (night || roll < 0.8f) -> CreatureType.WOLF; else -> CreatureType.HARE }
+                Biome.SNOW -> if (roll < 0.55f) CreatureType.GOAT else if (!nearVault) CreatureType.WOLF else CreatureType.GOAT
+                Biome.DESERT -> if (roll < 0.5f) CreatureType.TUSKER else CreatureType.HARE
+                Biome.BEACH -> if (roll < 0.6f) CreatureType.TUSKER else CreatureType.FOX
                 else -> return
             }
-            val group = if (t == CreatureType.GRAZEHORN) 2 + rng.nextInt(3) else 1 + rng.nextInt(2)
+            val group = when (t) {
+                CreatureType.GRAZEHORN -> 2 + rng.nextInt(3)
+                CreatureType.WOLF -> 2 + rng.nextInt(3)
+                CreatureType.GOAT -> 2 + rng.nextInt(2)
+                CreatureType.BEAR, CreatureType.FOX -> 1
+                else -> 1 + rng.nextInt(2)
+            }
             for (i in 0 until group) spawnCreature(t, x + rng.range(-5f, 5f), z + rng.range(-5f, 5f), Variant.NORMAL)
+        }
+    }
+
+    /** Birds overhead and fish/sharks in nearby water. */
+    private fun spawnAmbient() {
+        val p = player.pos
+        var birds = 0; var fish = 0; var sharks = 0
+        for (c in creatures) {
+            if (!c.alive) continue
+            when (c.type) { CreatureType.BIRD -> birds++; CreatureType.FISH -> fish++; CreatureType.SHARK -> sharks++; else -> {} }
+        }
+        if (birds < 10 && !env.isNight && env.rain < 0.5f && rng.chance(0.35f)) {
+            val a = rng.range(0f, TWO_PI); val r = rng.range(50f, 110f)
+            val x = p.x + cos(a) * r; val z = p.z + sin(a) * r
+            if (WorldGen.inWorld(x, z)) {
+                val n = 3 + rng.nextInt(5)
+                var lead: Creature? = null
+                for (i in 0 until n) {
+                    val c = spawnCreature(CreatureType.BIRD, x + rng.range(-3f, 3f), z + rng.range(-3f, 3f), Variant.NORMAL, force = true) ?: continue
+                    c.pos.y = max(WorldGen.height(x, z), WorldGen.WATER) + 16f + rng.range(0f, 6f)
+                    if (lead == null) lead = c else c.leader = lead
+                }
+            }
+        }
+        if (fish < 10 || sharks < 1) {
+            for (k in 0 until 3) {
+                val a = rng.range(0f, TWO_PI); val r = rng.range(15f, 70f)
+                val x = p.x + cos(a) * r; val z = p.z + sin(a) * r
+                val h = WorldGen.height(x, z)
+                if (h < -1.5f && fish < 10) {
+                    val n = 2 + rng.nextInt(4)
+                    for (i in 0 until n) spawnCreature(CreatureType.FISH, x + rng.range(-2f, 2f), z + rng.range(-2f, 2f), Variant.NORMAL, force = true)?.let { it.pos.y = WorldGen.WATER - 0.8f }
+                    fish += n
+                } else if (h < -8f && sharks < 1 && rng.chance(0.3f) && WorldGen.biomeAt(x, z, h) == Biome.OCEAN) {
+                    spawnCreature(CreatureType.SHARK, x, z, Variant.NORMAL, force = true)?.let { it.pos.y = WorldGen.WATER - 2f }
+                    sharks++
+                }
+            }
         }
     }
 
@@ -1771,6 +1943,17 @@ class GameState(val settings: Settings) : CreatureHost {
             h.hotbarCount[i] = s?.count ?: 0
             h.hotbarDur[i] = if (s != null && s.item.hasDurability) s.durability.toFloat() / s.item.durability else -1f
             h.hotbarColor[i] = s?.item?.color ?: 0
+            h.hotbarItem[i] = s?.item?.ordinal ?: -1
+        }
+        h.fishing = if (!fishing.active) 0 else if (fishing.bite) 2 else 1
+        val sel = p.selectedStack()?.item
+        h.selectedConsumable = when {
+            sel == null -> ""
+            sel == Item.WATERSKIN -> "DRINK"
+            sel.category == Category.FOOD -> "EAT"
+            sel.category == Category.MEDICAL -> "HEAL"
+            sel.category == Category.ARMOR -> "WEAR"
+            else -> ""
         }
         h.selected = p.selected
         h.showAmmo = p.selectedTool() == ToolKind.BOW

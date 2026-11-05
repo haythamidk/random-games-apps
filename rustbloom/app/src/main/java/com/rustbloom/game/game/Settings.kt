@@ -25,6 +25,13 @@ class Settings {
     var fpsCap = 60
     var showFps = false
     var fov = 70f
+    var postFx = true          // HDR + bloom + filmic tonemapping
+    var fxaa = false
+    var dynamicRes = true      // scales resolution to hold the frame rate (post FX path only)
+    var texQuality = 2         // 0 flat colors, 1 textures, 2 textures + normal maps + triplanar
+    var foliage = 1            // 0 solid canopies, 1 leaf cutouts, 2 leaf cutouts in shadows too
+    var grassDistance = 50f
+    var bloom = 0.6f
 
     var controls = ControlScheme.TOUCH
     var lookSensitivity = 1f
@@ -38,17 +45,21 @@ class Settings {
     fun applyPreset(p: GraphicsPreset) {
         preset = p
         when (p) {
-            GraphicsPreset.LOW -> { renderScale = 0.6f; viewDistance = 3; shadowQuality = 0; shadowRes = 1024; decorDensity = 0.3f; waterQuality = 0; terrainDetail = 0; clouds = false; weatherParticles = true; fpsCap = 60 }
-            GraphicsPreset.MEDIUM -> { renderScale = 0.75f; viewDistance = 3; shadowQuality = 1; shadowRes = 1024; decorDensity = 0.55f; waterQuality = 1; terrainDetail = 0; clouds = true; weatherParticles = true; fpsCap = 60 }
-            GraphicsPreset.HIGH -> { renderScale = 0.85f; viewDistance = 4; shadowQuality = 2; shadowRes = 2048; decorDensity = 0.8f; waterQuality = 1; terrainDetail = 1; clouds = true; weatherParticles = true; fpsCap = 60 }
-            GraphicsPreset.ULTRA -> { renderScale = 1.0f; viewDistance = 5; shadowQuality = 2; shadowRes = 2048; decorDensity = 1f; waterQuality = 1; terrainDetail = 1; clouds = true; weatherParticles = true; fpsCap = 60 }
+            GraphicsPreset.LOW -> { renderScale = 0.6f; viewDistance = 3; shadowQuality = 0; shadowRes = 1024; decorDensity = 0.3f; waterQuality = 0; terrainDetail = 0; clouds = false; weatherParticles = true; fpsCap = 60
+                postFx = false; fxaa = false; dynamicRes = false; texQuality = 0; foliage = 0; grassDistance = 28f; bloom = 0.5f }
+            GraphicsPreset.MEDIUM -> { renderScale = 0.75f; viewDistance = 3; shadowQuality = 1; shadowRes = 1024; decorDensity = 0.5f; waterQuality = 1; terrainDetail = 0; clouds = true; weatherParticles = true; fpsCap = 60
+                postFx = false; fxaa = false; dynamicRes = false; texQuality = 1; foliage = 1; grassDistance = 38f; bloom = 0.5f }
+            GraphicsPreset.HIGH -> { renderScale = 0.85f; viewDistance = 4; shadowQuality = 2; shadowRes = 2048; decorDensity = 0.75f; waterQuality = 1; terrainDetail = 1; clouds = true; weatherParticles = true; fpsCap = 60
+                postFx = true; fxaa = false; dynamicRes = true; texQuality = 2; foliage = 1; grassDistance = 50f; bloom = 0.6f }
+            GraphicsPreset.ULTRA -> { renderScale = 1.0f; viewDistance = 6; shadowQuality = 3; shadowRes = 2048; decorDensity = 1f; waterQuality = 1; terrainDetail = 1; clouds = true; weatherParticles = true; fpsCap = 60
+                postFx = true; fxaa = true; dynamicRes = false; texQuality = 2; foliage = 2; grassDistance = 72f; bloom = 0.7f }
             GraphicsPreset.CUSTOM -> {}
         }
     }
 
     fun load(ctx: Context) {
         val p = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        if (!p.contains("preset")) { applyPreset(GraphicsPreset.HIGH); return }
+        if (!p.contains("preset") || !p.contains("postFx")) { applyPreset(GraphicsPreset.HIGH); return }
         preset = GraphicsPreset.entries.getOrElse(p.getInt("preset", 2)) { GraphicsPreset.HIGH }
         renderScale = p.getFloat("renderScale", renderScale)
         viewDistance = p.getInt("viewDistance", viewDistance)
@@ -62,6 +73,13 @@ class Settings {
         fpsCap = p.getInt("fpsCap", fpsCap)
         showFps = p.getBoolean("showFps", showFps)
         fov = p.getFloat("fov", fov)
+        postFx = p.getBoolean("postFx", postFx)
+        fxaa = p.getBoolean("fxaa", fxaa)
+        dynamicRes = p.getBoolean("dynamicRes", dynamicRes)
+        texQuality = p.getInt("texQuality", texQuality)
+        foliage = p.getInt("foliage", foliage)
+        grassDistance = p.getFloat("grassDistance", grassDistance)
+        bloom = p.getFloat("bloom", bloom)
         controls = ControlScheme.entries.getOrElse(p.getInt("controls", 0)) { ControlScheme.TOUCH }
         lookSensitivity = p.getFloat("lookSensitivity", lookSensitivity)
         invertY = p.getBoolean("invertY", invertY)
@@ -87,6 +105,13 @@ class Settings {
             .putInt("fpsCap", fpsCap)
             .putBoolean("showFps", showFps)
             .putFloat("fov", fov)
+            .putBoolean("postFx", postFx)
+            .putBoolean("fxaa", fxaa)
+            .putBoolean("dynamicRes", dynamicRes)
+            .putInt("texQuality", texQuality)
+            .putInt("foliage", foliage)
+            .putFloat("grassDistance", grassDistance)
+            .putFloat("bloom", bloom)
             .putInt("controls", controls.ordinal)
             .putFloat("lookSensitivity", lookSensitivity)
             .putBoolean("invertY", invertY)

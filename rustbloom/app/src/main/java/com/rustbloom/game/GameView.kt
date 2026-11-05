@@ -22,7 +22,7 @@ class GameView(ctx: Context, private val game: GameState, private val input: Inp
     private var renderer: WorldRenderer? = null
     private var last = 0L
     private var frameStart = 0L
-    private val io = Executors.newSingleThreadExecutor()
+    private val io = com.rustbloom.game.engine.Workers.io
     @Volatile var onSaved: ((Boolean) -> Unit)? = null
     @Volatile var onFatal: ((String) -> Unit)? = null
     private var surfaceW = 0
@@ -30,7 +30,7 @@ class GameView(ctx: Context, private val game: GameState, private val input: Inp
     private var appliedRate = 0
 
     init {
-        Thread { RenderAssets.prepare() }.apply { name = "asset-prep" }.start()
+        Thread { RenderAssets.prepare(ctx.cacheDir, com.rustbloom.game.engine.Workers.gen) }.apply { name = "asset-prep"; priority = Thread.NORM_PRIORITY - 1 }.start()
         setEGLContextClientVersion(3)
         setEGLConfigChooser(8, 8, 8, 0, 24, 0)
         preserveEGLContextOnPause = true
@@ -44,7 +44,8 @@ class GameView(ctx: Context, private val game: GameState, private val input: Inp
     fun applyRenderScale() {
         val w = width; val h = height
         if (w <= 0 || h <= 0) return
-        val s = game.settings.renderScale.coerceIn(0.4f, 1f)
+        // with post effects the scene renders to a scaled offscreen target, so the surface stays native
+        val s = if (game.settings.postFx) 1f else game.settings.renderScale.coerceIn(0.4f, 1f)
         holder.setFixedSize((w * s).toInt(), (h * s).toInt())
     }
 

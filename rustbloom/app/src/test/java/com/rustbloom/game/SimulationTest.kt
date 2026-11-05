@@ -95,6 +95,21 @@ class SimulationTest {
     }
 
     @Test
+    fun proceduralTextures() {
+        val t0 = System.currentTimeMillis()
+        val r = com.rustbloom.game.engine.ProceduralTextures.load(null, java.util.concurrent.Executors.newFixedThreadPool(4))
+        println("textures generated in ${System.currentTimeMillis() - t0} ms")
+        assertEquals(com.rustbloom.game.engine.Mat.COUNT, r.albedo.size)
+        for (a in r.albedo) assertEquals(512 * 512 * 4, a.size)
+        // leaves must have both transparent and opaque texels
+        val leaves = r.albedo[com.rustbloom.game.engine.Mat.LEAVES]
+        var opaque = 0
+        for (i in 0 until 512 * 512) if ((leaves[i * 4 + 3].toInt() and 255) > 128) opaque++
+        println("leaf coverage ${opaque * 100 / (512 * 512)}%")
+        assertTrue(opaque > 512 * 512 / 5 && opaque < 512 * 512 * 9 / 10)
+    }
+
+    @Test
     fun matrixMath() {
         val a = FloatArray(16); val inv = FloatArray(16); val r = FloatArray(16)
         Mat4.fromTRS(a, 1f, 2f, 3f, 0.5f, 0.3f, 0.1f, 2f, 2f, 2f)
@@ -167,6 +182,30 @@ class SimulationTest {
         }
         input.attackHeld = false
         println("after fight: hp=${p.hp} dead=${p.dead} creatures=${g.creatures.map { "${it.type}:${it.state}:${it.hp.toInt()}" }} projectiles=${g.projectiles.size}")
+
+        // wildlife: animals should not climb cliffs, fish stay in water, birds stay airborne
+        for (f in 0 until 60 * 30) g.update(1 / 30f, input)
+        for (c in g.creatures) {
+            if (!c.alive) continue
+            when (c.type.loco) {
+                com.rustbloom.game.game.Loco.WATER -> assertTrue("${c.type} out of water", WorldGen.height(c.pos.x, c.pos.z) < 0f)
+                com.rustbloom.game.game.Loco.AIR -> assertTrue("${c.type} grounded", c.pos.y >= WorldGen.height(c.pos.x, c.pos.z))
+                else -> assertTrue("${c.type} floating", kotlin.math.abs(c.pos.y - WorldGen.height(c.pos.x, c.pos.z)) < 2f)
+            }
+        }
+        println("species seen: ${g.creatures.map { it.type }.toSet()}")
+
+        // fishing: cast into the nearest water and catch something
+        val water = (0 until 360 step 10).map { a -> val r = 20f; Pair(p.pos.x + kotlin.math.cos(a * 0.01745f) * r, p.pos.z + kotlin.math.sin(a * 0.01745f) * r) }
+            .firstOrNull { WorldGen.height(it.first, it.second) < -1f }
+        if (water != null) {
+            p.inv.slots[0] = com.rustbloom.game.game.ItemStack(Item.FISHING_ROD, 1)
+            p.selected = 0
+            p.yaw = kotlin.math.atan2(water.first - p.pos.x, water.second - p.pos.z)
+            p.pitch = -0.2f
+            input.attackHeld = true; g.update(1 / 60f, input); input.attackHeld = false; g.update(1 / 60f, input)
+            println("fishing active=${g.fishing.active}")
+        }
 
         // run a long time to cycle day/night and weather
         for (f in 0 until 60 * 120) g.update(1 / 30f, input)

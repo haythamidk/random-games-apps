@@ -27,6 +27,9 @@ class MeshBuilder(initialVerts: Int = 256) {
     fun color(rgb: Int, emissive: Float = 0f): MeshBuilder =
         color(((rgb shr 16) and 255) / 255f, ((rgb shr 8) and 255) / 255f, (rgb and 255) / 255f, emissive)
 
+    /** Marks following vertices with a surface material (texture layer), see [Mat]. */
+    fun mat(m: Int): MeshBuilder { this.e = -(m + 1).toFloat(); return this }
+
     fun push(): MeshBuilder { stack.add(transform.copyOf()); return this }
     fun pop(): MeshBuilder { System.arraycopy(stack.removeAt(stack.size - 1), 0, transform, 0, 16); return this }
     fun reset(): MeshBuilder { Mat4.identity(transform); stack.clear(); return this }
@@ -227,4 +230,78 @@ class MeshBuilder(initialVerts: Int = 256) {
     fun vertexFloat(index: Int, offset: Int): Float = v[index * VERTEX_FLOATS + offset]
 
     fun build(): MeshData = MeshData(v, vertexCount, idx, indexCount)
+}
+
+/** Texture array layers; vertices reference them through a negative emissive channel. */
+object Mat {
+    const val GRASS = 0
+    const val FOREST = 1
+    const val ROCK = 2
+    const val SAND = 3
+    const val SNOW = 4
+    const val RUST_SAND = 5
+    const val MUD = 6
+    const val NEEDLE_GROUND = 7
+    const val BARK = 8
+    const val LEAVES = 9
+    const val PINE = 10
+    const val CONCRETE = 11
+    const val METAL = 12
+    const val RUST = 13
+    const val WOOD = 14
+    const val HIDE = 15
+    const val COUNT = 16
+    /** Special code for grass blades (no texture, height gradient). */
+    const val GRASS_BLADE = 19
+}
+
+/**
+ * Assigns texture materials to untextured, non-emissive vertices by classifying their color.
+ * [classify] gets sRGB r,g,b and returns a [Mat] layer or -1 to leave the vertex plain.
+ */
+fun MeshData.assignMaterials(classify: (Float, Float, Float) -> Int): MeshData {
+    for (i in 0 until vertexCount) {
+        val o = i * stride
+        if (vertices[o + 9] != 0f) continue
+        val m = classify(vertices[o + 6], vertices[o + 7], vertices[o + 8])
+        if (m >= 0) vertices[o + 9] = -(m + 1).toFloat()
+    }
+    return this
+}
+
+object MatClass {
+    private fun sat(r: Float, g: Float, b: Float) = maxOf(r, g, b) - minOf(r, g, b)
+
+    /** Ruins, vaults, spires: concrete, metal, rust and moss. */
+    fun structure(r: Float, g: Float, b: Float): Int {
+        val s = sat(r, g, b)
+        val lum = (r + g + b) / 3f
+        return when {
+            g > r + 0.04f && g > b + 0.05f -> Mat.GRASS
+            r > g + 0.06f && s > 0.12f -> Mat.RUST
+            lum > 0.37f -> Mat.CONCRETE
+            else -> Mat.METAL
+        }
+    }
+
+    fun machine(r: Float, g: Float, b: Float): Int {
+        val s = sat(r, g, b)
+        return if (r > g + 0.08f && s > 0.15f) Mat.RUST else if (s < 0.12f && (r + g + b) > 0.15f) Mat.METAL else -1
+    }
+
+    fun animal(r: Float, g: Float, b: Float): Int {
+        val lum = (r + g + b) / 3f
+        return if (lum < 0.12f || lum > 0.75f) -1 else Mat.HIDE
+    }
+
+    fun prop(r: Float, g: Float, b: Float): Int {
+        val s = sat(r, g, b)
+        val lum = (r + g + b) / 3f
+        return when {
+            r > g + 0.05f && g > b && s > 0.12f && lum < 0.6f -> Mat.WOOD
+            s < 0.06f && lum > 0.3f -> Mat.ROCK
+            s < 0.1f -> Mat.METAL
+            else -> -1
+        }
+    }
 }

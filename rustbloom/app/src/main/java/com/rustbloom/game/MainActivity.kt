@@ -16,7 +16,7 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
-import com.rustbloom.game.audio.SoundManager
+import com.rustbloom.game.audio.SoundEngine
 import com.rustbloom.game.game.Difficulty
 import com.rustbloom.game.game.GameState
 import com.rustbloom.game.game.GameUi
@@ -27,6 +27,7 @@ import com.rustbloom.game.game.Station
 import com.rustbloom.game.input.Action
 import com.rustbloom.game.input.InputState
 import com.rustbloom.game.ui.HudView
+import com.rustbloom.game.ui.ItemIcons
 import com.rustbloom.game.ui.MapImage
 import com.rustbloom.game.ui.UiManager
 import com.rustbloom.game.world.WorldGen
@@ -39,7 +40,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
     private lateinit var glView: GameView
     private lateinit var hud: HudView
     private lateinit var ui: UiManager
-    private lateinit var sound: SoundManager
+    private lateinit var sound: SoundEngine
     private lateinit var root: FrameLayout
     private var hatX = 0f
     private var hatY = 0f
@@ -51,12 +52,13 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         settings = Settings().also { it.load(this) }
         game = GameState(settings)
         input = InputState()
-        sound = SoundManager(this)
+        sound = SoundEngine(this)
         sound.master = settings.masterVolume
         game.sound = sound
         game.ui = this
         Thread { try { sound.loadAll() } catch (t: Throwable) { android.util.Log.e("Rustbloom", "audio", t) } }.start()
-        Thread { MapImage.generate() }.apply { priority = Thread.MIN_PRIORITY }.start()
+        com.rustbloom.game.engine.Workers.gen.execute { MapImage.generate() }
+        com.rustbloom.game.engine.Workers.gen.execute { ItemIcons.warmUp() }
 
         // menu backdrop: stand outside the vault and let the camera drift
         val v = WorldGen.vaultPoi
@@ -104,6 +106,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         super.onResume()
         resumed = true
         glView.onResume()
+        sound.resume()
         hideSystemUi()
     }
 
@@ -111,7 +114,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         resumed = false
         if (game.started && !ui.isOpen) openPause()
         glView.saveNowBlocking()
-        sound.pauseAmbience()
+        sound.pause()
         glView.onPause()
         super.onPause()
     }
@@ -190,7 +193,6 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         game.post { game.started = false; game.worldReady = false }
         game.paused = true
         hud.visibility = View.INVISIBLE
-        sound.pauseAmbience()
         ui.showMainMenu()
     }
 
@@ -275,6 +277,8 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
                 when (code) {
                     KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> { if (!ui.back() && ui.screen == "main") return super.dispatchKeyEvent(event); return true }
                     KeyEvent.KEYCODE_BUTTON_A -> { currentFocus?.performClick(); return true }
+                    KeyEvent.KEYCODE_BUTTON_L1 -> { if (ui.cycleTab(-1)) return true }
+                    KeyEvent.KEYCODE_BUTTON_R1 -> { if (ui.cycleTab(1)) return true }
                     KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> { if (ui.screen == "pause") onResumeGame(); return true }
                     KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_SELECT -> { if (ui.screen == "game") { onResumeGame(); return true } }
                 }

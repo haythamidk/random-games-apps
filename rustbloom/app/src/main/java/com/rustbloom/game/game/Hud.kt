@@ -20,6 +20,10 @@ class HudData {
     val hotbarCount = IntArray(6)
     val hotbarDur = FloatArray(6)
     val hotbarColor = IntArray(6)
+    val hotbarItem = IntArray(6) { -1 }
+    var fishing = 0
+    var selectedConsumable = ""
+    var promptIcon = -1
     var selected = 0
     var ammoName = ""
     var ammoCount = 0

@@ -16,6 +16,9 @@ const val ATTR_NORMAL = 1
 const val ATTR_COLOR = 2
 const val ATTR_INST0 = 3
 const val ATTR_INST1 = 4
+const val ATTR_EXTRA = 5
+/** Terrain layout: position(3) normal(3) splatA(4) splatB(4). */
+const val TERRAIN_FLOATS = 14
 
 object GLUtil {
     private const val TAG = "RustbloomGL"
@@ -94,13 +97,13 @@ class Shader(vs: String, fs: String, val name: String) {
 }
 
 /** CPU-side mesh data, buildable on any thread. */
-class MeshData(val vertices: FloatArray, val vertexCount: Int, val indices: IntArray, val indexCount: Int) {
+class MeshData(val vertices: FloatArray, val vertexCount: Int, val indices: IntArray, val indexCount: Int, val stride: Int = VERTEX_FLOATS) {
     var minX = Float.MAX_VALUE; var minY = Float.MAX_VALUE; var minZ = Float.MAX_VALUE
     var maxX = -Float.MAX_VALUE; var maxY = -Float.MAX_VALUE; var maxZ = -Float.MAX_VALUE
 
     init {
         for (i in 0 until vertexCount) {
-            val o = i * VERTEX_FLOATS
+            val o = i * stride
             val x = vertices[o]; val y = vertices[o + 1]; val z = vertices[o + 2]
             if (x < minX) minX = x; if (x > maxX) maxX = x
             if (y < minY) minY = y; if (y > maxY) maxY = y
@@ -125,13 +128,18 @@ class Mesh(data: MeshData, val primitive: Int = GL_TRIANGLES) {
     init {
         glBindVertexArray(vao)
         glBindBuffer(GL_ARRAY_BUFFER, vbo)
-        glBufferData(GL_ARRAY_BUFFER, data.vertexCount * VERTEX_STRIDE, GLUtil.floatBuffer(data.vertices, data.vertexCount * VERTEX_FLOATS), GL_STATIC_DRAW)
+        val strideB = data.stride * 4
+        glBufferData(GL_ARRAY_BUFFER, data.vertexCount * strideB, GLUtil.floatBuffer(data.vertices, data.vertexCount * data.stride), GL_STATIC_DRAW)
         glEnableVertexAttribArray(ATTR_POS)
-        glVertexAttribPointer(ATTR_POS, 3, GL_FLOAT, false, VERTEX_STRIDE, 0)
+        glVertexAttribPointer(ATTR_POS, 3, GL_FLOAT, false, strideB, 0)
         glEnableVertexAttribArray(ATTR_NORMAL)
-        glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, false, VERTEX_STRIDE, 12)
+        glVertexAttribPointer(ATTR_NORMAL, 3, GL_FLOAT, false, strideB, 12)
         glEnableVertexAttribArray(ATTR_COLOR)
-        glVertexAttribPointer(ATTR_COLOR, 4, GL_FLOAT, false, VERTEX_STRIDE, 24)
+        glVertexAttribPointer(ATTR_COLOR, 4, GL_FLOAT, false, strideB, 24)
+        if (data.stride >= TERRAIN_FLOATS) {
+            glEnableVertexAttribArray(ATTR_EXTRA)
+            glVertexAttribPointer(ATTR_EXTRA, 4, GL_FLOAT, false, strideB, 40)
+        }
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo)
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, data.indexCount * 4, GLUtil.intBuffer(data.indices, data.indexCount), GL_STATIC_DRAW)
         glBindVertexArray(0)
@@ -242,5 +250,80 @@ class ShadowMap(val size: Int) {
     fun release() {
         glDeleteFramebuffers(1, intArrayOf(fbo), 0)
         glDeleteTextures(1, intArrayOf(texture), 0)
+    }
+}
+
+
+object GLCaps {
+    var extensions = ""
+        private set
+    val halfFloatTargets get() = extensions.contains("GL_EXT_color_buffer_half_float") || extensions.contains("GL_EXT_color_buffer_float")
+    val anisotropy get() = extensions.contains("GL_EXT_texture_filter_anisotropic")
+    fun init() { extensions = glGetString(GL_EXTENSIONS) ?: "" }
+}
+
+/** 2D texture array built from equally sized RGBA layers. */
+class TextureArray(val size: Int, layers: List<ByteArray>, anisotropy: Float) {
+    val id: Int = GLUtil.genTexture()
+    init {
+        glBindTexture(GL_TEXTURE_2D_ARRAY, id)
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, size, size, layers.size, 0, GL_RGBA, GL_UNSIGNED_BYTE, null)
+        val bb = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder())
+        for ((i, l) in layers.withIndex()) {
+            bb.clear(); bb.put(l, 0, size * size * 4); bb.position(0)
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, size, size, 1, GL_RGBA, GL_UNSIGNED_BYTE, bb)
+        }
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glGenerateMipmap(GL_TEXTURE_2D_ARRAY)
+        if (anisotropy > 1f && GLCaps.anisotropy) glTexParameterf(GL_TEXTURE_2D_ARRAY, 0x84FE, anisotropy)
+        glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
+    }
+    fun release() = glDeleteTextures(1, intArrayOf(id), 0)
+}
+
+/** Offscreen color target with optional depth renderbuffer. */
+class RenderTarget(val width: Int, val height: Int, hdr: Boolean, withDepth: Boolean) {
+    val texture = GLUtil.genTexture()
+    val fbo: Int
+    private var depthRb = 0
+    init {
+        glBindTexture(GL_TEXTURE_2D, texture)
+        if (hdr) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_HALF_FLOAT, null)
+        else glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        val ids = IntArray(1)
+        glGenFramebuffers(1, ids, 0)
+        fbo = ids[0]
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0)
+        if (withDepth) {
+            glGenRenderbuffers(1, ids, 0)
+            depthRb = ids[0]
+            glBindRenderbuffer(GL_RENDERBUFFER, depthRb)
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height)
+            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRb)
+        }
+        val st = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+        if (st != GL_FRAMEBUFFER_COMPLETE) Log.e("RustbloomGL", "RenderTarget incomplete $st hdr=$hdr")
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+    }
+    val complete: Boolean get() {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+        val ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        return ok
+    }
+    fun bind() { glBindFramebuffer(GL_FRAMEBUFFER, fbo); glViewport(0, 0, width, height) }
+    fun release() {
+        glDeleteFramebuffers(1, intArrayOf(fbo), 0)
+        glDeleteTextures(1, intArrayOf(texture), 0)
+        if (depthRb != 0) glDeleteRenderbuffers(1, intArrayOf(depthRb), 0)
     }
 }

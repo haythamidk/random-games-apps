@@ -112,14 +112,42 @@ class UiManager(
     private fun lp(w: Int = ViewGroup.LayoutParams.MATCH_PARENT, h: Int = ViewGroup.LayoutParams.WRAP_CONTENT, weight: Float = 0f, margin: Float = 4f) =
         LinearLayout.LayoutParams(w, h, weight).apply { setMargins(dp(margin), dp(margin), dp(margin), dp(margin)) }
 
+    private var screenKey = ""
+
+    private fun collect(v: View, scrolls: MutableList<View>, buttons: MutableList<View>) {
+        if (v is ScrollView || v is HorizontalScrollView) scrolls.add(v)
+        if (v is Button) buttons.add(v)
+        if (v is ViewGroup) for (i in 0 until v.childCount) collect(v.getChildAt(i), scrolls, buttons)
+    }
+
+    /**
+     * Shows a screen. When the same screen is rebuilt (after crafting, changing a setting...), scroll positions and
+     * the focused button are kept so nothing jumps.
+     */
     private fun show(v: View, name: String, back: (() -> Unit)?) {
+        val key = name + ":" + tab + ":" + settingsTab
+        val oldScrolls = ArrayList<View>(); val oldButtons = ArrayList<View>()
+        val same = current != null && key == screenKey
+        if (same) collect(current!!, oldScrolls, oldButtons)
+        val scrollPos = oldScrolls.map { it.scrollX to it.scrollY }
+        val focusIdx = oldButtons.indexOfFirst { it.isFocused }
+        if (!same && name != "main") game.sound?.play(com.rustbloom.game.game.Sfx.UI_OPEN, 0.5f)
         current?.let { root.removeView(it) }
         current = v
         screen = name
+        screenKey = key
         isOpen = true
         backAction = back
         root.addView(v, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        v.post { focusFirst(v) }
+        v.post {
+            val newScrolls = ArrayList<View>(); val newButtons = ArrayList<View>()
+            collect(v, newScrolls, newButtons)
+            if (same) {
+                for (k in 0 until minOf(scrollPos.size, newScrolls.size)) newScrolls[k].scrollTo(scrollPos[k].first, scrollPos[k].second)
+                if (focusIdx >= 0 && focusIdx < newButtons.size && newButtons[focusIdx].isEnabled) { newButtons[focusIdx].requestFocus(); return@post }
+            }
+            focusFirst(v)
+        }
     }
 
     private fun focusFirst(v: View) {
@@ -129,6 +157,56 @@ class UiManager(
             if (c is Button && c.isEnabled && c.visibility == View.VISIBLE) { c.requestFocus(); return }
             if (c is ViewGroup) { focusFirst(c); if (c.findFocus() != null) return }
         }
+    }
+
+    /** Gamepad bumpers switch tabs in the pack menu and settings. */
+    fun cycleTab(dir: Int): Boolean {
+        if (screen == "game") {
+            val idx = tabs.indexOfFirst { it.first == tab }
+            showGameMenu(tabs[(idx + dir + tabs.size) % tabs.size].first)
+            return true
+        }
+        if (screen == "settings") {
+            settingsTab = (settingsTab + dir + 3) % 3
+            settingsBack?.let { showSettings(it) }
+            return true
+        }
+        return false
+    }
+
+    private fun iconButton(t: String, icon: android.graphics.Bitmap?, enabled: Boolean = true, size: Float = 11f, base: Int = CARD, iconDp: Float = 34f, onClick: () -> Unit): Button {
+        val b = button(t, enabled, size, base, onClick)
+        if (icon != null) {
+            val dr = android.graphics.drawable.BitmapDrawable(act.resources, icon)
+            dr.setBounds(0, 0, dp(iconDp), dp(iconDp))
+            if (!enabled) dr.alpha = 110
+            b.setCompoundDrawables(null, dr, null, null)
+            b.compoundDrawablePadding = dp(2f)
+        }
+        b.setPadding(dp(4f), dp(4f), dp(4f), dp(4f))
+        return b
+    }
+
+    private fun iconView(bmp: android.graphics.Bitmap, sizeDp: Float): android.widget.ImageView = android.widget.ImageView(act).apply {
+        setImageBitmap(bmp)
+        layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp)).apply { setMargins(dp(2f), dp(2f), dp(6f), dp(2f)) }
+    }
+
+    /** A small "icon count/need" chip used in recipe and cost lists. */
+    private fun costChip(item: com.rustbloom.game.game.Item, need: Int): View {
+        val have = game.player.inv.count(item)
+        val row = hbox().apply { setPadding(dp(4f), dp(2f), dp(8f), dp(2f)); background = bg(Color.argb(255, 18, 24, 26), 8f) }
+        row.addView(iconView(ItemIcons.get(item), 22f))
+        row.addView(label("$have/$need", 11.5f, if (have >= need) Color.rgb(150, 225, 150) else Color.rgb(235, 140, 120), true))
+        return row
+    }
+
+    private fun chipRow(items: List<Pair<com.rustbloom.game.game.Item, Int>>): View {
+        val sc = HorizontalScrollView(act).apply { isHorizontalScrollBarEnabled = false }
+        val row = hbox()
+        for ((it, n) in items) row.addView(costChip(it, n), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, dp(2f), dp(5f), dp(2f)) })
+        sc.addView(row)
+        return sc
     }
 
     fun close() {
@@ -239,19 +317,27 @@ class UiManager(
 
     // ------------------------------------------------------------------ game menu (tabs)
 
+    private val tabs = listOf("inventory" to "Pack", "craft" to "Craft", "build" to "Build", "skills" to "Skills", "journal" to "Journal", "map" to "Map")
+
     fun showGameMenu(t: String) {
         tab = t
         val o = overlay(Color.argb(200, 0, 0, 0))
         val col = vbox(10f)
-        // tab bar
-        val tabs = hbox()
-        val names = listOf("inventory" to "Pack", "craft" to "Craft", "build" to "Build", "skills" to "Skills", "journal" to "Journal", "map" to "Map")
-        for ((id, nm) in names) {
-            val b = button(if (id == t) "[ $nm ]" else nm, base = if (id == t) Color.argb(255, 40, 66, 64) else CARD) { selectedSlot = -1; moveFrom = -1; showGameMenu(id) }
-            tabs.addView(b, lp(0, weight = 1f, margin = 3f))
+        val bar = hbox()
+        for ((id, nm) in tabs) {
+            val active = id == t
+            val b = button(nm, size = 14f, base = if (active) Color.argb(255, 44, 78, 74) else CARD) { selectedSlot = -1; moveFrom = -1; showGameMenu(id) }
+            if (active) b.setTextColor(AMBER)
+            bar.addView(b, lp(0, weight = 1f, margin = 3f))
         }
-        tabs.addView(button("Close", base = Color.argb(255, 60, 36, 34)) { callbacks.onResumeGame() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 3f))
-        col.addView(tabs, lp(margin = 0f))
+        bar.addView(button("✕", base = Color.argb(255, 70, 38, 34)) { callbacks.onResumeGame() }, lp(dp(56f), margin = 3f))
+        col.addView(bar, lp(margin = 0f))
+        val hint = when (game.settings.controls) {
+            com.rustbloom.game.game.ControlScheme.CONTROLLER -> "LB / RB switch tabs  ·  A select  ·  B close"
+            com.rustbloom.game.game.ControlScheme.KEYBOARD_MOUSE -> "Click to select  ·  Esc or Tab to close"
+            else -> "Tap a tab above  ·  ✕ to go back to the game"
+        }
+        col.addView(label(hint, 11f, DIM).apply { setPadding(dp(6f), 0, 0, dp(4f)) })
         val body: View = when (t) {
             "inventory" -> inventoryView()
             "craft" -> craftView()
@@ -261,66 +347,91 @@ class UiManager(
             else -> mapView()
         }
         col.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        centeredPanel(o, col, 0.94f, 0.92f)
+        centeredPanel(o, col, 0.95f, 0.94f)
         show(o, "game") { callbacks.onResumeGame() }
     }
 
     private fun stackLabel(s: ItemStack?): String {
         if (s == null) return ""
-        val n = if (s.count > 1) " x${s.count}" else ""
-        val dur = if (s.item.hasDurability && s.item != Item.WATERSKIN) " ${(s.durability * 100 / s.item.durability)}%" else if (s.item == Item.WATERSKIN) " ${s.durability}/5" else ""
-        return "${s.item.displayName}$n$dur"
+        val n = if (s.count > 1) "x${s.count}" else ""
+        val dur = if (s.item == Item.WATERSKIN) "${s.durability}/5" else if (s.item.hasDurability) "${(s.durability * 100 / s.item.durability)}%" else ""
+        return listOf(n, dur).filter { it.isNotEmpty() }.joinToString(" ")
+    }
+
+    private var invFilter = 0
+    private val filters = listOf("All", "Resources", "Food & Meds", "Tools & Weapons", "Clothing")
+
+    private fun matchesFilter(item: Item): Boolean = when (invFilter) {
+        1 -> item.category == Category.RESOURCE || item.category == Category.KEY
+        2 -> item.category == Category.FOOD || item.category == Category.MEDICAL
+        3 -> item.category == Category.TOOL || item.category == Category.WEAPON || item.category == Category.AMMO
+        4 -> item.category == Category.ARMOR
+        else -> true
     }
 
     private fun inventoryView(): View {
         val p = game.player
         val inv = p.inv
         val row = hbox().apply { gravity = Gravity.TOP }
-        // slots grid
+        val left = vbox()
+        val fl = hbox()
+        for ((k, f) in filters.withIndex()) {
+            val b = button(f, size = 11.5f, base = if (k == invFilter) Color.argb(255, 44, 78, 74) else CARD) { invFilter = k; showGameMenu("inventory") }
+            if (k == invFilter) b.setTextColor(AMBER)
+            fl.addView(b, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 2f))
+        }
+        left.addView(HorizontalScrollView(act).apply { addView(fl); isHorizontalScrollBarEnabled = false })
+        left.addView(label("Hotbar (slots 1-6)", 11f, DIM).apply { setPadding(dp(4f), dp(4f), 0, 0) })
         val grid = GridLayout(act).apply { columnCount = 6 }
         for (i in 0 until inv.capacity) {
+            if (i == 6) {
+                // spacer row between hotbar and backpack
+                val sp = label("Backpack", 11f, DIM).apply { setPadding(dp(4f), dp(6f), 0, 0) }
+                grid.addView(sp, GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(0, 6)))
+            }
             val locked = i >= inv.size
             val s = inv.slots[i]
-            val txt = when {
-                locked -> "locked"
-                s == null -> if (i < 6) "${i + 1}" else ""
-                else -> stackLabel(s)
-            }
-            val b = button(txt, enabled = !locked, size = 10.5f, base = if (i < 6) Color.argb(255, 36, 44, 40) else CARD) {
+            val dim = s != null && !matchesFilter(s.item)
+            val b = iconButton(if (locked) "locked" else stackLabel(s), if (s != null) ItemIcons.get(s.item) else null, enabled = !locked, size = 10f,
+                base = if (i < 6) Color.argb(255, 34, 44, 40) else CARD) {
                 if (moveFrom >= 0) {
                     val from = moveFrom
                     moveFrom = -1
-                    onGame { inv.swap(from, i) }
                     selectedSlot = i
+                    onGame { inv.swap(from, i) }
                 } else {
                     selectedSlot = i
                     showGameMenu("inventory")
                 }
             }
-            if (s != null) b.setTextColor(Color.WHITE)
+            if (dim) b.alpha = 0.35f
             if (i == selectedSlot) b.background = bg(Color.argb(255, 60, 70, 50), 10f, AMBER)
             if (i == moveFrom) b.background = bg(Color.argb(255, 70, 50, 40), 10f, Color.rgb(255, 140, 90))
-            val glp = GridLayout.LayoutParams().apply { width = dp(92f); height = dp(52f); setMargins(dp(2f), dp(2f), dp(2f), dp(2f)) }
+            val glp = GridLayout.LayoutParams().apply { width = dp(76f); height = dp(70f); setMargins(dp(2f), dp(2f), dp(2f), dp(2f)) }
             grid.addView(b, glp)
         }
-        val gridScroll = ScrollView(act).apply { addView(grid) }
-        row.addView(gridScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        left.addView(ScrollView(act).apply { addView(grid) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 0, 1f))
+        row.addView(left, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT))
 
-        // details
-        val det = vbox(10f)
-        det.background = bg(CARD, 10f)
+        val det = vbox(12f)
+        det.background = bg(CARD, 12f)
         val armor = inv.armor
-        det.addView(label("Worn: ${armor?.item?.displayName ?: "nothing"}", 13f, AMBER, true))
-        if (armor != null) {
-            det.addView(label("Armor ${(armor.item.armor * 100).toInt()}%   Warmth +${armor.item.warmth.toInt()}", 12f, DIM))
-            det.addView(button("Take off") { onGame { game.unequipArmor() } }, lp())
-        }
-        det.addView(label("Temperature ${p.feltTemp.toInt()}°C   HP ${p.hp.toInt()}/${p.maxHp.toInt()}", 12f, DIM))
+        val wornRow = hbox()
+        if (armor != null) wornRow.addView(iconView(ItemIcons.get(armor.item), 36f))
+        wornRow.addView(label("Wearing: ${armor?.item?.displayName ?: "nothing"}" + if (armor != null) "\nArmor ${(armor.item.armor * 100).toInt()}%  ·  Warmth +${armor.item.warmth.toInt()}" else "", 13f, AMBER, true))
+        det.addView(wornRow)
+        if (armor != null) det.addView(button("Take off") { onGame { game.unequipArmor() } }, lp())
+        det.addView(label("Body ${p.feltTemp.toInt()}°C  ·  Health ${p.hp.toInt()}/${p.maxHp.toInt()}  ·  Free slots ${inv.freeSlots()}", 12f, DIM).apply { setPadding(0, dp(4f), 0, dp(8f)) })
         val s = if (selectedSlot >= 0) inv.slots[selectedSlot] else null
         if (s != null) {
             val it = s.item
-            det.addView(label(it.displayName, 17f, Color.WHITE, true))
-            det.addView(label(it.desc, 13f, DIM))
+            val head = hbox()
+            head.addView(iconView(ItemIcons.get(it), 64f))
+            val hv = vbox()
+            hv.addView(label(it.displayName, 18f, Color.WHITE, true))
+            hv.addView(label(it.desc, 13f, DIM))
+            head.addView(hv, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            det.addView(head)
             val stats = ArrayList<String>()
             if (it.hunger != 0f) stats.add("Food +${it.hunger.toInt()}")
             if (it.thirst != 0f) stats.add("Water +${it.thirst.toInt()}")
@@ -329,18 +440,22 @@ class UiManager(
             if (it.armor > 0f) stats.add("Armor ${(it.armor * 100).toInt()}%")
             if (it.warmth > 0f) stats.add("Warmth +${it.warmth.toInt()}")
             if (it.hasDurability && it != Item.WATERSKIN) stats.add("Durability ${s.durability}/${it.durability}")
-            if (stats.isNotEmpty()) det.addView(label(stats.joinToString("   "), 12f, ACCENT))
+            if (stats.isNotEmpty()) det.addView(label(stats.joinToString("   "), 12.5f, ACCENT).apply { setPadding(0, dp(6f), 0, dp(6f)) })
             val slot = selectedSlot
-            if (it.isConsumable || it == Item.WATERSKIN) det.addView(button(if (it == Item.WATERSKIN) "Drink" else if (it.category == Category.MEDICAL) "Use" else "Eat") { onGame { game.consume(slot) } }, lp())
-            if (it.category == Category.ARMOR) det.addView(button("Wear") { onGame { game.equipArmor(slot) } }, lp())
-            if (slot >= 6) det.addView(button("Move to hotbar slot ${p.selected + 1}") { onGame { inv.swap(slot, p.selected) } }, lp())
-            det.addView(button("Move / swap...") { moveFrom = slot; showGameMenu("inventory") }, lp())
-            det.addView(button("Drop", base = Color.argb(255, 60, 36, 34)) { onGame { inv.slots[slot] = null }; selectedSlot = -1 }, lp())
+            val actions = hbox()
+            fun action(t: String, base: Int = CARD, fn: () -> Unit) = actions.addView(button(t, base = base, size = 13f, onClick = fn), lp(0, weight = 1f, margin = 3f))
+            if (it.isConsumable || it == Item.WATERSKIN) action(if (it == Item.WATERSKIN) "Drink" else if (it.category == Category.MEDICAL) "Use" else "Eat") { onGame { game.consume(slot) } }
+            if (it.category == Category.ARMOR) action("Wear") { onGame { game.equipArmor(slot) } }
+            if (slot >= 6) action("To hotbar ${p.selected + 1}") { onGame { inv.swap(slot, p.selected) } }
+            det.addView(actions)
+            val actions2 = hbox()
+            actions2.addView(button("Move…", size = 13f) { moveFrom = slot; showGameMenu("inventory") }, lp(0, weight = 1f, margin = 3f))
+            actions2.addView(button("Drop", size = 13f, base = Color.argb(255, 70, 38, 34)) { selectedSlot = -1; onGame { inv.slots[slot] = null } }, lp(0, weight = 1f, margin = 3f))
+            det.addView(actions2)
         } else {
-            det.addView(label(if (moveFrom >= 0) "Pick a slot to swap with." else "Tap an item to see details.\nSlots 1-6 are your hotbar.", 13f, DIM))
+            det.addView(label(if (moveFrom >= 0) "Now pick the slot to swap with." else "Select an item to see what it does.\nItems in slots 1-6 are on your hotbar.", 13f, DIM))
         }
-        val detScroll = ScrollView(act).apply { addView(det) }
-        row.addView(detScroll, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { setMargins(dp(8f), 0, 0, 0) })
+        row.addView(ScrollView(act).apply { addView(det) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { setMargins(dp(8f), 0, 0, 0) })
         return row
     }
 
@@ -350,62 +465,70 @@ class UiManager(
         val stations = hbox()
         val all = listOf<Station?>(null) + Station.entries
         for (st in all) {
-            val nm = st?.displayName ?: "All"
             val near = st == null || game.stationNear(st)
-            val b = button(if (st == craftStation) "[ $nm ]" else nm + if (!near) " (far)" else "", size = 12f) { craftStation = st; showGameMenu("craft") }
+            val nm = (st?.displayName ?: "Everything") + if (st != null && st != Station.HAND) (if (near) "  ✓" else "") else ""
+            val b = button(nm, size = 12f, base = if (st == craftStation) Color.argb(255, 44, 78, 74) else CARD) { craftStation = st; showGameMenu("craft") }
+            if (st == craftStation) b.setTextColor(AMBER)
             stations.addView(b, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 3f))
         }
-        col.addView(HorizontalScrollView(act).apply { addView(stations) })
+        col.addView(HorizontalScrollView(act).apply { addView(stations); isHorizontalScrollBarEnabled = false })
+        col.addView(label("✓ = you are standing next to it. Recipes you can make right now are listed first.", 11f, DIM).apply { setPadding(dp(4f), 0, 0, dp(4f)) })
         val list = vbox(2f)
-        for (r in Recipes.all) {
-            if (craftStation != null && r.station != craftStation) continue
-            if (r.station == Station.TINKER && !game.tinkerUnlocked) continue
+        val recipes = Recipes.all.filter { (craftStation == null || it.station == craftStation) && !(it.station == Station.TINKER && !game.tinkerUnlocked) }
+            .sortedBy { r -> if (Recipes.canCraft(r, inv) && game.stationNear(r.station)) 0 else if (Recipes.canCraft(r, inv)) 1 else 2 }
+        for (r in recipes) {
             val can = Recipes.canCraft(r, inv)
             val near = game.stationNear(r.station)
-            val row = hbox().apply { background = bg(CARD, 8f); setPadding(dp(8f), dp(4f), dp(8f), dp(4f)) }
+            val row = hbox().apply { background = bg(CARD, 10f); setPadding(dp(8f), dp(6f), dp(8f), dp(6f)) }
+            row.addView(iconView(ItemIcons.get(r.output), 48f))
             val info = vbox()
-            info.addView(label("${r.output.displayName}${if (r.amount > 1) " x${r.amount}" else ""}", 14f, if (can && near) Color.WHITE else DIM, true))
-            val ins = r.inputs.joinToString("   ") { (i, n) -> "${i.displayName} ${inv.count(i)}/$n" }
-            info.addView(label(ins, 11.5f, if (can) Color.rgb(150, 220, 150) else Color.rgb(220, 150, 130)))
-            info.addView(label(r.station.displayName + if (!near) "  -  go to one to craft" else "", 11f, if (near) ACCENT else Color.rgb(200, 140, 110)))
+            info.addView(label("${r.output.displayName}${if (r.amount > 1) "  ×${r.amount}" else ""}", 14.5f, if (can && near) Color.WHITE else DIM, true))
+            info.addView(chipRow(r.inputs))
+            info.addView(label(if (near) r.station.displayName else "Needs a ${r.station.displayName} nearby", 11f, if (near) ACCENT else Color.rgb(220, 150, 110)))
             row.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(button("Craft", enabled = can && near) { onGame { game.craft(r) } }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-            list.addView(row, lp(margin = 2f))
+            row.addView(button("Craft", enabled = can && near) { onGame { game.craft(r) } }, lp(dp(96f)))
+            list.addView(row, lp(margin = 3f))
         }
-        if (!game.tinkerUnlocked) list.addView(label("More recipes are locked in the memory of a distant Spire...", 12f, DIM))
+        if (!game.tinkerUnlocked) list.addView(label("More recipes are locked in the memory of a distant Spire...", 12f, DIM).apply { setPadding(dp(6f), dp(6f), 0, 0) })
         col.addView(ScrollView(act).apply { addView(list) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         return col
     }
 
     private fun buildView(): View {
-        val list = vbox(4f)
+        val outer = vbox(2f)
         val inv = game.player.inv
-        list.addView(label("Choose a piece, then aim where you want it. Foundations, walls and roofs snap together.", 12f, DIM))
-        for (t in BuildType.entries) {
-            if ((t == BuildType.TINKER_BENCH || t == BuildType.SHOCK_PYLON) && !game.tinkerUnlocked) continue
+        outer.addView(label("Pick a piece, then aim where you want it. Foundations, walls and roofs snap together. Rotate before placing.", 12f, DIM).apply { setPadding(dp(4f), 0, 0, dp(4f)) })
+        val grid = GridLayout(act).apply { columnCount = 2 }
+        for (t in com.rustbloom.game.game.BuildType.entries) {
+            if ((t == com.rustbloom.game.game.BuildType.TINKER_BENCH || t == com.rustbloom.game.game.BuildType.SHOCK_PYLON) && !game.tinkerUnlocked) continue
             val can = t.cost.all { (i, n) -> inv.has(i, n) }
-            val row = hbox().apply { background = bg(CARD, 8f); setPadding(dp(8f), dp(4f), dp(8f), dp(4f)) }
+            val card = hbox().apply { background = bg(CARD, 10f); setPadding(dp(8f), dp(6f), dp(8f), dp(6f)) }
+            card.addView(iconView(ItemIcons.get(t), 52f))
             val info = vbox()
             info.addView(label(t.displayName, 14f, if (can) Color.WHITE else DIM, true))
-            info.addView(label(t.desc, 11.5f, DIM))
-            info.addView(label(t.cost.joinToString("   ") { (i, n) -> "${i.displayName} ${inv.count(i)}/$n" }, 11.5f, if (can) Color.rgb(150, 220, 150) else Color.rgb(220, 150, 130)))
-            row.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(button("Build", enabled = can) {
+            info.addView(label(t.desc, 11f, DIM))
+            info.addView(chipRow(t.cost))
+            card.addView(info, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            card.addView(button("Build", enabled = can) {
                 game.post { game.startBuild(t) }
                 callbacks.onResumeGame()
-            }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-            list.addView(row, lp(margin = 2f))
+            }, lp(dp(84f)))
+            val glp = GridLayout.LayoutParams(GridLayout.spec(GridLayout.UNDEFINED), GridLayout.spec(GridLayout.UNDEFINED, 1f)).apply { width = 0; setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) }
+            grid.addView(card, glp)
         }
-        list.addView(button("Demolish nearest piece (refunds half)", base = Color.argb(255, 60, 36, 34)) {
+        val list = vbox()
+        list.addView(grid)
+        list.addView(button("Demolish nearest piece (refunds half)", base = Color.argb(255, 70, 38, 34)) {
             onGame {
                 val p = game.player.pos
                 val near = game.placed.minByOrNull { (it.x - p.x) * (it.x - p.x) + (it.z - p.z) * (it.z - p.z) + (it.y - p.y) * (it.y - p.y) }
-                if (near != null && near.x.let { kotlin.math.abs(it - p.x) } < 4f && kotlin.math.abs(near.z - p.z) < 4f) {
+                if (near != null && kotlin.math.abs(near.x - p.x) < 4f && kotlin.math.abs(near.z - p.z) < 4f) {
                     game.demolish(near); game.note("Demolished ${near.type.displayName}", Color.rgb(255, 200, 150))
                 } else game.note("Nothing to demolish nearby", Color.rgb(200, 200, 200))
             }
         }, lp())
-        return ScrollView(act).apply { addView(list) }
+        outer.addView(ScrollView(act).apply { addView(list) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        return outer
     }
 
     private fun skillsView(): View {
@@ -504,14 +627,14 @@ class UiManager(
             val g = GridLayout(act).apply { columnCount = 4 }
             for (i in 0 until source.size) {
                 val s = source.slots[i]
-                val b = button(stackLabel(s), enabled = s != null, size = 10.5f) {
+                val b = iconButton(if (s != null) "${s.item.displayName} ${stackLabel(s)}" else "", s?.let { ItemIcons.get(it.item) }, enabled = s != null, size = 9.5f, iconDp = 28f) {
                     onGame {
                         val st = source.slots[i] ?: return@onGame
                         val left = target.add(st.item, st.count, st.durability)
                         if (left == 0) source.slots[i] = null else st.count = left
                     }
                 }
-                g.addView(b, GridLayout.LayoutParams().apply { width = dp(96f); height = dp(48f); setMargins(dp(2f), dp(2f), dp(2f), dp(2f)) })
+                g.addView(b, GridLayout.LayoutParams().apply { width = dp(96f); height = dp(66f); setMargins(dp(2f), dp(2f), dp(2f), dp(2f)) })
             }
             box.addView(ScrollView(act).apply { addView(g) })
             return box
@@ -573,7 +696,8 @@ class UiManager(
         val col = vbox(16f)
         col.addView(label("Controls", 20f, Color.WHITE, true))
         col.addView(label("Touch", 15f, AMBER, true))
-        col.addView(label("Left side: move (push to the edge to sprint)  -  Right side: look\nATK: attack / harvest (hold with a bow to draw, drag to aim)\nUSE: interact, pick up, drink  -  JUMP  -  CRCH: sneak\nTap hotbar slots to equip  -  PACK opens inventory, crafting and building", 12.5f, DIM))
+        col.addView(label("Bottom-left stick: move (push to the edge to sprint)  -  Drag anywhere else: look\nATTACK: hit / harvest (hold with a bow to draw, drag to aim)\nUSE appears when you can interact (pick up, drink, open, talk)  -  JUMP  -  SNEAK\nTap hotbar slots to equip  -  PACK opens inventory, crafting and building", 12.5f, DIM))
+        col.addView(label("Fishing: craft a Fishing Rod, hold it, aim at water and attack to cast. When it says BITE, attack again quickly to reel in.", 12.5f, DIM))
         col.addView(label("Controller (Xbox / PlayStation)", 15f, AMBER, true))
         col.addView(label("Left stick: move  -  Right stick: look  -  L3: sprint\nRT / R2: attack, draw bow  -  LT / L2: aim\nA / Cross: jump  -  X / Square: interact  -  B / Circle: crouch, back\nY / Triangle: use or eat held item  -  LB / RB: switch hotbar\nD-pad up: cycle arrows  -  D-pad down: map  -  D-pad left/right: rotate build\nStart: pause  -  Select / Share: pack", 12.5f, DIM))
         col.addView(label("Keyboard & Mouse", 15f, AMBER, true))
@@ -585,7 +709,11 @@ class UiManager(
 
     // ------------------------------------------------------------------ settings
 
+    private var settingsTab = 0
+    private var settingsBack: (() -> Unit)? = null
+
     fun showSettings(back: () -> Unit) {
+        settingsBack = back
         val s = game.settings
         val o = overlay()
         val col = vbox(14f)
@@ -593,61 +721,97 @@ class UiManager(
         head.addView(label("Settings", 20f, Color.WHITE, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         head.addView(button("Done") { s.save(act); callbacks.onSettingsChanged(); back() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(head)
-
-        fun section(t: String) { col.addView(label(t, 15f, AMBER, true).apply { setPadding(0, dp(10f), 0, dp(2f)) }) }
-        fun refreshSettings() { showSettings(back) }
-        fun stepper(name: String, value: String, dec: () -> Unit, inc: () -> Unit) {
-            val r = hbox().apply { background = bg(CARD, 8f); setPadding(dp(10f), 0, dp(4f), 0) }
-            r.addView(label(name, 13f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            r.addView(button("-") { dec(); refreshSettings() }, lp(dp(52f), margin = 2f))
-            r.addView(label(value, 13f, ACCENT, true).apply { gravity = Gravity.CENTER; minWidth = dp(90f) })
-            r.addView(button("+") { inc(); refreshSettings() }, lp(dp(52f), margin = 2f))
-            col.addView(r, lp(margin = 2f))
+        val tabBar = hbox()
+        for ((k, nm) in listOf("Graphics", "Controls", "Sound & Game").withIndex()) {
+            val b = button(nm, base = if (k == settingsTab) Color.argb(255, 44, 78, 74) else CARD) { settingsTab = k; showSettings(back) }
+            if (k == settingsTab) b.setTextColor(AMBER)
+            tabBar.addView(b, lp(0, weight = 1f, margin = 3f))
         }
-        fun cycle(name: String, value: String, next: () -> Unit) {
-            val r = hbox().apply { background = bg(CARD, 8f); setPadding(dp(10f), 0, dp(4f), 0) }
-            r.addView(label(name, 13f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            r.addView(button(value) { next(); refreshSettings() }, lp(dp(200f), margin = 2f))
-            col.addView(r, lp(margin = 2f))
+        col.addView(tabBar)
+        val body = vbox(2f)
+
+        fun desc(t: String) { body.addView(label(t, 11f, DIM).apply { setPadding(dp(10f), 0, dp(8f), dp(6f)) }) }
+        fun section(t: String) { body.addView(label(t, 14f, AMBER, true).apply { setPadding(dp(4f), dp(10f), 0, dp(2f)) }) }
+        fun custom() { s.preset = GraphicsPreset.CUSTOM; presetLabel?.text = "Preset: Custom" }
+        // value rows update in place: no rebuild, so the list never jumps
+        fun stepper(name: String, value: () -> String, dec: () -> Unit, inc: () -> Unit, info: String? = null) {
+            val r = hbox().apply { background = bg(CARD, 8f); setPadding(dp(12f), 0, dp(4f), 0) }
+            r.addView(label(name, 13.5f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val v = label(value(), 13.5f, ACCENT, true).apply { gravity = Gravity.CENTER; minWidth = dp(96f) }
+            r.addView(button("−") { dec(); v.text = value() }, lp(dp(54f), margin = 2f))
+            r.addView(v)
+            r.addView(button("+") { inc(); v.text = value() }, lp(dp(54f), margin = 2f))
+            body.addView(r, lp(margin = 2f))
+            if (info != null) desc(info)
         }
-        fun custom() { s.preset = GraphicsPreset.CUSTOM }
-
-        section("Graphics")
-        val presets = hbox()
-        for (p in GraphicsPreset.entries) {
-            if (p == GraphicsPreset.CUSTOM) continue
-            presets.addView(button(if (s.preset == p) "[ ${p.label} ]" else p.label, base = if (s.preset == p) Color.argb(255, 40, 66, 64) else CARD) { s.applyPreset(p); refreshSettings() }, lp(0, weight = 1f, margin = 3f))
+        fun cycle(name: String, value: () -> String, next: () -> Unit, info: String? = null) {
+            val r = hbox().apply { background = bg(CARD, 8f); setPadding(dp(12f), 0, dp(4f), 0) }
+            r.addView(label(name, 13.5f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            lateinit var b: Button
+            b = button(value()) { next(); b.text = value() }
+            r.addView(b, lp(dp(210f), margin = 2f))
+            body.addView(r, lp(margin = 2f))
+            if (info != null) desc(info)
         }
-        col.addView(presets)
-        col.addView(label("Preset: ${s.preset.label}. High is tuned for 60 FPS on phones like the Galaxy A54. Use Medium or Low if it gets hot.", 11.5f, DIM))
-        stepper("Render resolution", "${(s.renderScale * 100).toInt()}%", { custom(); s.renderScale = (s.renderScale - 0.05f).coerceAtLeast(0.5f) }, { custom(); s.renderScale = (s.renderScale + 0.05f).coerceAtMost(1f) })
-        stepper("View distance", "${s.viewDistance * 64}m", { custom(); s.viewDistance = (s.viewDistance - 1).coerceAtLeast(2) }, { custom(); s.viewDistance = (s.viewDistance + 1).coerceAtMost(6) })
-        cycle("Shadows", when (s.shadowQuality) { 0 -> "Off"; 1 -> "Hard"; else -> "Soft" }) { custom(); s.shadowQuality = (s.shadowQuality + 1) % 3 }
-        cycle("Shadow resolution", "${s.shadowRes}") { custom(); s.shadowRes = if (s.shadowRes == 1024) 2048 else 1024 }
-        stepper("Grass & flowers", "${(s.decorDensity * 100).toInt()}%", { custom(); s.decorDensity = (s.decorDensity - 0.1f).coerceAtLeast(0f) }, { custom(); s.decorDensity = (s.decorDensity + 0.1f).coerceAtMost(1f) })
-        col.addView(label("Grass density applies to newly loaded areas.", 11f, DIM))
-        cycle("Water", if (s.waterQuality == 0) "Simple" else "Reflective waves") { custom(); s.waterQuality = 1 - s.waterQuality }
-        cycle("Terrain detail", if (s.terrainDetail == 0) "Normal" else "High") { custom(); s.terrainDetail = 1 - s.terrainDetail }
-        cycle("Clouds", if (s.clouds) "On" else "Off") { custom(); s.clouds = !s.clouds }
-        cycle("Rain & snow particles", if (s.weatherParticles) "On" else "Off") { custom(); s.weatherParticles = !s.weatherParticles }
-        cycle("Frame rate cap", "${s.fpsCap} FPS") { s.fpsCap = when (s.fpsCap) { 30 -> 60; 60 -> 90; 90 -> 120; else -> 30 } }
-        stepper("Field of view", "${s.fov.toInt()}°", { s.fov = (s.fov - 5f).coerceAtLeast(55f) }, { s.fov = (s.fov + 5f).coerceAtMost(95f) })
-        cycle("Show FPS counter", if (s.showFps) "On" else "Off") { s.showFps = !s.showFps }
 
-        section("Controls")
-        cycle("Control scheme", s.controls.label) { s.controls = ControlScheme.entries[(s.controls.ordinal + 1) % ControlScheme.entries.size] }
-        col.addView(label("Controllers and keyboards work in every scheme. The scheme decides which on-screen controls and button prompts you see.", 11f, DIM))
-        stepper("Look sensitivity", String.format("%.1f", s.lookSensitivity), { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.2f) }, { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(4f) })
-        cycle("Invert look Y", if (s.invertY) "On" else "Off") { s.invertY = !s.invertY }
-        cycle("Auto sprint (touch)", if (s.autoSprint) "On" else "Off") { s.autoSprint = !s.autoSprint }
-        stepper("Touch button opacity", "${(s.touchOpacity * 100).toInt()}%", { s.touchOpacity = (s.touchOpacity - 0.1f).coerceAtLeast(0.2f) }, { s.touchOpacity = (s.touchOpacity + 0.1f).coerceAtMost(1f) })
-        cycle("Vibration", if (s.vibration) "On" else "Off") { s.vibration = !s.vibration }
-
-        section("Audio & Gameplay")
-        stepper("Volume", "${(s.masterVolume * 100).toInt()}%", { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f) }, { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f) })
-        cycle("Day length", "${s.dayLengthMinutes} min") { s.dayLengthMinutes = when (s.dayLengthMinutes) { 20 -> 30; 30 -> 45; 45 -> 60; else -> 20 } }
-
-        centeredPanel(o, ScrollView(act).apply { addView(col) }, 0.7f, 0.94f)
+        when (settingsTab) {
+            0 -> {
+                section("Quality preset")
+                val presets = hbox()
+                for (p in GraphicsPreset.entries) {
+                    if (p == GraphicsPreset.CUSTOM) continue
+                    val b = button(p.label, base = if (s.preset == p) Color.argb(255, 44, 78, 74) else CARD) { s.applyPreset(p); showSettings(back) }
+                    if (s.preset == p) b.setTextColor(AMBER)
+                    presets.addView(b, lp(0, weight = 1f, margin = 3f))
+                }
+                body.addView(presets)
+                presetLabel = label("Preset: ${s.preset.label}", 12f, ACCENT, true).apply { setPadding(dp(6f), dp(2f), 0, 0) }
+                body.addView(presetLabel)
+                desc("Low/Medium: smooth on any phone.  High: realistic look, holds 60 FPS on a Galaxy A54 by adjusting resolution.  Ultra: maximum realism (cascaded shadows, leaf shadows, anti-aliasing, far view), may run around 30-45 FPS.")
+                section("Image")
+                stepper("Render resolution", { "${(s.renderScale * 100).toInt()}%" }, { custom(); s.renderScale = (s.renderScale - 0.05f).coerceAtLeast(0.5f) }, { custom(); s.renderScale = (s.renderScale + 0.05f).coerceAtMost(1f) }, "Lower = faster. With dynamic resolution this is the maximum.")
+                cycle("Dynamic resolution", { if (s.dynamicRes) "On" else "Off" }, { custom(); s.dynamicRes = !s.dynamicRes }, "Drops resolution a little in heavy scenes to keep the frame rate steady.")
+                cycle("HDR, bloom & color grading", { if (s.postFx) "On" else "Off" }, { custom(); s.postFx = !s.postFx }, "Filmic lighting, glowing lights and the sun, water refraction.")
+                stepper("Bloom strength", { "${(s.bloom * 100).toInt()}%" }, { s.bloom = (s.bloom - 0.1f).coerceAtLeast(0f) }, { s.bloom = (s.bloom + 0.1f).coerceAtMost(1.5f) })
+                cycle("Anti-aliasing (FXAA)", { if (s.fxaa) "On" else "Off" }, { custom(); s.fxaa = !s.fxaa }, "Smooths jagged edges. Needs HDR on.")
+                cycle("Frame rate cap", { "${s.fpsCap} FPS" }, { s.fpsCap = when (s.fpsCap) { 30 -> 60; 60 -> 90; 90 -> 120; else -> 30 } }, "30 saves battery. Your A54 screen supports up to 120.")
+                stepper("Field of view", { "${s.fov.toInt()}°" }, { s.fov = (s.fov - 5f).coerceAtLeast(55f) }, { s.fov = (s.fov + 5f).coerceAtMost(95f) })
+                section("World")
+                stepper("View distance", { "${s.viewDistance * 64} m" }, { custom(); s.viewDistance = (s.viewDistance - 1).coerceAtLeast(2) }, { custom(); s.viewDistance = (s.viewDistance + 1).coerceAtMost(7) })
+                cycle("Textures", { when (s.texQuality) { 0 -> "Off (flat colors)"; 1 -> "On"; else -> "High (normal maps)" } }, { custom(); s.texQuality = (s.texQuality + 1) % 3 }, "Detailed ground, rock, bark and metal surfaces.")
+                cycle("Foliage", { when (s.foliage) { 0 -> "Simple"; 1 -> "Leafy"; else -> "Leafy + leaf shadows" } }, { custom(); s.foliage = (s.foliage + 1) % 3 }, "Leafy trees use cut-out leaves. Leaf shadows are the most expensive option.")
+                stepper("Grass density", { "${(s.decorDensity * 100).toInt()}%" }, { custom(); s.decorDensity = (s.decorDensity - 0.1f).coerceAtLeast(0f) }, { custom(); s.decorDensity = (s.decorDensity + 0.1f).coerceAtMost(1f) }, "Applies to newly loaded areas.")
+                stepper("Grass distance", { "${s.grassDistance.toInt()} m" }, { custom(); s.grassDistance = (s.grassDistance - 6f).coerceAtLeast(20f) }, { custom(); s.grassDistance = (s.grassDistance + 6f).coerceAtMost(90f) })
+                cycle("Terrain detail", { if (s.terrainDetail == 0) "Normal" else "High" }, { custom(); s.terrainDetail = 1 - s.terrainDetail })
+                section("Lighting & sky")
+                cycle("Shadows", { when (s.shadowQuality) { 0 -> "Off"; 1 -> "Hard"; 2 -> "Soft"; else -> "Soft + far cascade" } }, { custom(); s.shadowQuality = (s.shadowQuality + 1) % 4 })
+                cycle("Shadow resolution", { "${s.shadowRes}" }, { custom(); s.shadowRes = if (s.shadowRes == 1024) 2048 else 1024 })
+                cycle("Water", { if (s.waterQuality == 0) "Simple" else "Waves & refraction" }, { custom(); s.waterQuality = 1 - s.waterQuality })
+                cycle("Clouds", { if (s.clouds) "On" else "Off" }, { custom(); s.clouds = !s.clouds })
+                cycle("Rain & snow particles", { if (s.weatherParticles) "On" else "Off" }, { custom(); s.weatherParticles = !s.weatherParticles })
+                cycle("Show FPS counter", { if (s.showFps) "On" else "Off" }, { s.showFps = !s.showFps })
+            }
+            1 -> {
+                section("Input")
+                cycle("Control scheme", { s.controls.label }, { s.controls = ControlScheme.entries[(s.controls.ordinal + 1) % ControlScheme.entries.size] }, "Controllers and keyboards always work. This picks which on-screen controls and button hints you see.")
+                stepper("Look sensitivity", { String.format("%.1f", s.lookSensitivity) }, { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.2f) }, { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(4f) })
+                cycle("Invert look up/down", { if (s.invertY) "On" else "Off" }, { s.invertY = !s.invertY })
+                cycle("Auto sprint (touch)", { if (s.autoSprint) "On" else "Off" }, { s.autoSprint = !s.autoSprint }, "Push the stick all the way forward to run.")
+                stepper("Touch button opacity", { "${(s.touchOpacity * 100).toInt()}%" }, { s.touchOpacity = (s.touchOpacity - 0.1f).coerceAtLeast(0.2f) }, { s.touchOpacity = (s.touchOpacity + 0.1f).coerceAtMost(1f) })
+                cycle("Vibration", { if (s.vibration) "On" else "Off" }, { s.vibration = !s.vibration })
+                body.addView(button("Show all controls") { showControlsHelp { showSettings(back) } }, lp())
+            }
+            else -> {
+                section("Sound")
+                stepper("Volume", { "${(s.masterVolume * 100).toInt()}%" }, { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f); callbacks.onSettingsChanged() }, { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f); callbacks.onSettingsChanged() })
+                section("Game")
+                cycle("Day length", { "${s.dayLengthMinutes} min" }, { s.dayLengthMinutes = when (s.dayLengthMinutes) { 20 -> 30; 30 -> 45; 45 -> 60; else -> 20 } }, "Real minutes for one full day and night.")
+            }
+        }
+        col.addView(ScrollView(act).apply { addView(body) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        centeredPanel(o, col, 0.74f, 0.95f)
         show(o, "settings") { s.save(act); callbacks.onSettingsChanged(); back() }
     }
+
+    private var presetLabel: TextView? = null
 }

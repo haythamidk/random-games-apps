@@ -2,7 +2,7 @@ package com.rustbloom.game.game
 
 enum class Category { RESOURCE, FOOD, MEDICAL, TOOL, WEAPON, AMMO, ARMOR, KEY }
 
-enum class ToolKind { NONE, AXE, PICK, SPEAR, BOW, TORCH, WATERSKIN }
+enum class ToolKind { NONE, AXE, PICK, SPEAR, BOW, TORCH, WATERSKIN, ROD }
 
 /**
  * Every item in the game. Food values: hunger, thirst, health restored when consumed.
@@ -36,6 +36,8 @@ enum class Item(
     LENS("Optic Lens", Category.RESOURCE, 20, 0xff8fd8ff.toInt(), "A machine eye. Still focuses light."),
     CRYO_SHARD("Cryo Shard", Category.RESOURCE, 30, 0xffbfeaff.toInt(), "Frozen crystal that never melts."),
     HERB("Bloodmoss", Category.RESOURCE, 30, 0xffc23b4a.toInt(), "Medicinal moss from the Sunken Fen."),
+    FUR("Thick Fur", Category.RESOURCE, 30, 0xff8a7058.toInt(), "Dense fur from wild animals. Very warm."),
+    FEATHER("Feather", Category.RESOURCE, 50, 0xffe8e4d8.toInt(), "Fletching for straighter arrows."),
     MUSHROOM("Fen Cap", Category.FOOD, 20, 0xff7fc4b4.toInt(), "Glowing mushroom. Edible, mostly.", hunger = 7f, thirst = 2f),
 
     BERRIES("Redberries", Category.FOOD, 30, 0xffc8243c.toInt(), "Sweet and tart.", hunger = 7f, thirst = 4f),
@@ -43,6 +45,8 @@ enum class Item(
     RAW_MEAT("Raw Meat", Category.FOOD, 20, 0xffd0686a.toInt(), "Should really be cooked.", hunger = 10f, heal = -6f),
     COOKED_MEAT("Roast Meat", Category.FOOD, 20, 0xff9e5a32.toInt(), "Hot and filling.", hunger = 32f, heal = 4f),
     STEW("Hunter's Stew", Category.FOOD, 10, 0xffb7743a.toInt(), "A hearty meal for long journeys.", hunger = 55f, thirst = 25f, heal = 20f),
+    RAW_FISH("Raw Fish", Category.FOOD, 20, 0xffa8c0c8.toInt(), "Slippery. Better grilled.", hunger = 8f, thirst = 2f, heal = -3f),
+    COOKED_FISH("Grilled Fish", Category.FOOD, 20, 0xffd09a5a.toInt(), "Flaky and light.", hunger = 26f, thirst = 4f, heal = 6f),
 
     BANDAGE("Bandage", Category.MEDICAL, 10, 0xffe8e2d0.toInt(), "Stops bleeding. Restores health.", heal = 22f),
     SALVE("Herbal Salve", Category.MEDICAL, 10, 0xffd04a5a.toInt(), "Potent healing paste.", heal = 50f),
@@ -53,6 +57,7 @@ enum class Item(
     SCRAP_PICK("Scrap Pickaxe", Category.TOOL, 1, 0xffaa8a70.toInt(), "Mines faster and yields more.", tool = ToolKind.PICK, tier = 2, durability = 300, damage = 12f),
     TORCH("Torch", Category.TOOL, 1, 0xffffb24a.toInt(), "Light and warmth in the dark.", tool = ToolKind.TORCH, durability = 400, damage = 6f, warmth = 6f),
     WATERSKIN("Waterskin", Category.TOOL, 1, 0xff6aa8d8.toInt(), "Holds 5 drinks. Refill at any water.", tool = ToolKind.WATERSKIN, durability = 5),
+    FISHING_ROD("Fishing Rod", Category.TOOL, 1, 0xffb89a6a.toInt(), "Cast into water, wait for a bite, then reel in.", tool = ToolKind.ROD, durability = 150, damage = 3f),
 
     WOOD_SPEAR("Wooden Spear", Category.WEAPON, 1, 0xffb08a5a.toInt(), "Sharpened hardwood.", tool = ToolKind.SPEAR, tier = 1, durability = 100, damage = 16f),
     SCRAP_SPEAR("Scrap Spear", Category.WEAPON, 1, 0xffb59276.toInt(), "Barbed metal tip.", tool = ToolKind.SPEAR, tier = 2, durability = 250, damage = 28f),
@@ -65,6 +70,7 @@ enum class Item(
     SHOCK_ARROW("Shock Arrow", Category.AMMO, 30, 0xff6fd8ff.toInt(), "Stuns machines and deals bonus damage to them.", damage = 1.4f),
 
     HIDE_COAT("Hide Coat", Category.ARMOR, 1, 0xff9b6b44.toInt(), "Warm leather coat.", armor = 0.12f, warmth = 12f),
+    FUR_COAT("Fur Coat", Category.ARMOR, 1, 0xff8a7058.toInt(), "Heavy fur. Laughs at blizzards.", armor = 0.16f, warmth = 20f),
     SCRAP_PLATE("Scrap Plating", Category.ARMOR, 1, 0xff8e8478.toInt(), "Heavy riveted armor.", armor = 0.28f, warmth = 3f),
     FROST_CLOAK("Frost Cloak", Category.ARMOR, 1, 0xffc9ecff.toInt(), "Lined with cryo shards that hold heat.", armor = 0.15f, warmth = 26f),
     ALLOY_HARNESS("Lattice Harness", Category.ARMOR, 1, 0xff9fd0e0.toInt(), "Woven alloy armor.", armor = 0.42f, warmth = 8f),
@@ -163,13 +169,17 @@ object Recipes {
         r(Item.TORCH, 1, Station.HAND, Item.WOOD to 2, Item.FIBER to 2),
         r(Item.BANDAGE, 1, Station.HAND, Item.FIBER to 4),
         r(Item.ARROW, 5, Station.HAND, Item.WOOD to 2, Item.STONE to 1, Item.FIBER to 1),
+        r(Item.ARROW, 10, Station.HAND, Item.WOOD to 3, Item.STONE to 1, Item.FEATHER to 2),
+        r(Item.FISHING_ROD, 1, Station.HAND, Item.WOOD to 3, Item.FIBER to 5),
 
         r(Item.COOKED_MEAT, 1, Station.CAMPFIRE, Item.RAW_MEAT to 1),
+        r(Item.COOKED_FISH, 1, Station.CAMPFIRE, Item.RAW_FISH to 1),
         r(Item.STEW, 1, Station.CAMPFIRE, Item.RAW_MEAT to 2, Item.BERRIES to 3, Item.MUSHROOM to 2),
 
         r(Item.HUNTING_BOW, 1, Station.WORKBENCH, Item.WOOD to 5, Item.FIBER to 4, Item.HIDE to 1),
         r(Item.WATERSKIN, 1, Station.WORKBENCH, Item.HIDE to 2, Item.FIBER to 2),
         r(Item.HIDE_COAT, 1, Station.WORKBENCH, Item.HIDE to 5, Item.FIBER to 4),
+        r(Item.FUR_COAT, 1, Station.WORKBENCH, Item.FUR to 5, Item.HIDE to 2, Item.FIBER to 3),
         r(Item.SCRAP_AXE, 1, Station.WORKBENCH, Item.WOOD to 3, Item.SCRAP to 4, Item.WIRE to 1),
         r(Item.SCRAP_PICK, 1, Station.WORKBENCH, Item.WOOD to 3, Item.SCRAP to 4, Item.WIRE to 1),
         r(Item.SCRAP_SPEAR, 1, Station.WORKBENCH, Item.WOOD to 4, Item.SCRAP to 5, Item.WIRE to 2),

@@ -44,6 +44,8 @@ class Environment {
     val moonDir = FloatArray(3)
     val lightDir = FloatArray(3)
     val sunColor = FloatArray(3)
+    val sunset = FloatArray(3)
+    var golden = 0f
     val skyAmb = FloatArray(3)
     val groundAmb = FloatArray(3)
     val zenith = FloatArray(3)
@@ -116,7 +118,7 @@ class Environment {
         set(moonDir, -sunDir[0], -sunDir[1], -sunDir[2] * 0.6f + 0.2f)
         val elev = sunDir[1]
         val day = smoothstep(-0.12f, 0.25f, elev)
-        val golden = smoothstep(0.35f, 0.02f, elev) * smoothstep(-0.12f, 0.04f, elev)
+        golden = smoothstep(0.35f, 0.02f, elev) * smoothstep(-0.14f, 0.04f, elev)
         nightFactor = smoothstep(0.02f, -0.22f, elev)
         // the light direction switches to the moon at night
         if (elev > -0.05f) { lightDir[0] = sunDir[0]; lightDir[1] = max(sunDir[1], 0.06f); lightDir[2] = sunDir[2] }
@@ -135,11 +137,11 @@ class Environment {
         sunColor[0] += 0.10f * moon; sunColor[1] += 0.14f * moon; sunColor[2] += 0.24f * moon
 
         // sky dome
-        set(tA, 0.16f, 0.36f, 0.78f)  // day zenith
+        set(tA, 0.09f, 0.26f, 0.68f)  // day zenith
         set(tB, 0.012f, 0.018f, 0.045f) // night zenith
         mix(zenith, tB, tA, day)
-        set(tA, 0.62f, 0.74f, 0.9f)
-        set(tB, 0.025f, 0.035f, 0.07f)
+        set(tA, 0.58f, 0.7f, 0.86f)
+        set(tB, 0.02f, 0.03f, 0.065f)
         mix(horizon, tB, tA, day)
         // golden hour horizon
         horizon[0] = lerp(horizon[0], 1.0f, golden * 0.7f)
@@ -151,6 +153,11 @@ class Environment {
             zenith[i] = lerp(zenith[i], grey * 0.85f, overcast * 0.8f)
             horizon[i] = lerp(horizon[i], grey, overcast * 0.75f)
         }
+
+        // warm glow around the sun near the horizon at dawn and dusk
+        sunset[0] = 1.25f * golden * (1f - overcast * 0.7f)
+        sunset[1] = 0.48f * golden * (1f - overcast * 0.7f)
+        sunset[2] = 0.18f * golden * (1f - overcast * 0.7f)
 
         // ambient light
         for (i in 0..2) {

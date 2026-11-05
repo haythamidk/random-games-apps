@@ -6,6 +6,7 @@ import com.rustbloom.game.engine.Mesh
 import com.rustbloom.game.engine.MeshBuilder
 import com.rustbloom.game.engine.MeshData
 import com.rustbloom.game.engine.Rng
+import com.rustbloom.game.engine.TERRAIN_FLOATS
 import com.rustbloom.game.engine.TWO_PI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -83,7 +84,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
     val chunks = HashMap<Long, Chunk>()
     private val pending = ConcurrentHashMap.newKeySet<Long>()
     private val done = ConcurrentLinkedQueue<ChunkBuild>()
-    private val pool = Executors.newFixedThreadPool(2, ThreadFactory { r -> Thread(r, "chunk-gen").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 } })
+    private val pool = com.rustbloom.game.engine.Workers.gen
 
     var viewRadius = 4
     private val wanted = ArrayList<IntArray>()
@@ -260,11 +261,11 @@ class ChunkManager(private val harvest: HarvestRegistry) {
         done.clear()
     }
 
-    fun shutdown() { pool.shutdownNow() }
+    fun shutdown() {}
 
     // ------------------------------------------------------------------ generation (worker thread)
 
-    private fun buildChunk(cx: Int, cz: Int, lod: Int, withNodes: Boolean, density: Float): ChunkBuild {
+    internal fun buildChunk(cx: Int, cz: Int, lod: Int, withNodes: Boolean, density: Float): ChunkBuild {
         val n = when (lod) { 0 -> 64; 1 -> 32; else -> 16 }
         val step = CHUNK_SIZE / n
         val x0 = cx * CHUNK_SIZE
@@ -274,11 +275,15 @@ class ChunkManager(private val harvest: HarvestRegistry) {
         for (j in 0 until g) for (i in 0 until g) {
             hs[j * g + i] = WorldGen.height(x0 + (i - 1) * step, z0 + (j - 1) * step)
         }
-        val mb = MeshBuilder((n + 1) * (n + 1) + 4 * (n + 1))
-        val col = FloatArray(4)
+        // terrain vertices: position, normal, splat weights A and B
+        val row = n + 1
+        val vcount = row * row + 4 * row
+        val vb = FloatArray(vcount * TERRAIN_FLOATS)
+        val ib = IntArray(n * n * 6 + 4 * (row - 1) * 12)
+        val sp = FloatArray(8)
         var minY = Float.MAX_VALUE
         var maxY = -Float.MAX_VALUE
-        val base = mb.vertexCount
+        var vi = 0
         for (j in 0..n) for (i in 0..n) {
             val h = hs[(j + 1) * g + (i + 1)]
             val hl = hs[(j + 1) * g + i]; val hr = hs[(j + 1) * g + i + 2]
@@ -287,46 +292,51 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             val l = kotlin.math.sqrt(nx * nx + ny * ny + nz * nz)
             nx /= l; ny /= l; nz /= l
             val wx = x0 + i * step; val wz = z0 + j * step
-            WorldGen.terrainColor(wx, wz, h, col)
-            mb.rawVertex(wx, h, wz, nx, ny, nz, col[0], col[1], col[2], col[3])
+            WorldGen.splatWeights(wx, wz, h, sp)
+            val o = vi * TERRAIN_FLOATS
+            vb[o] = wx; vb[o + 1] = h; vb[o + 2] = wz
+            vb[o + 3] = nx; vb[o + 4] = ny; vb[o + 5] = nz
+            for (k in 0 until 8) vb[o + 6 + k] = sp[k]
+            vi++
             minY = min(minY, h); maxY = max(maxY, h)
         }
-        val row = n + 1
+        var ii = 0
         for (j in 0 until n) for (i in 0 until n) {
-            val a = base + j * row + i
+            val a = j * row + i
             val b = a + 1
             val d = a + row
             val c = d + 1
-            mb.tri(a, d, c)
-            mb.tri(a, c, b)
+            ib[ii++] = a; ib[ii++] = d; ib[ii++] = c
+            ib[ii++] = a; ib[ii++] = c; ib[ii++] = b
         }
-        // skirts to hide LOD cracks
+        // skirts hide cracks between LOD levels (double sided)
         val skirt = 1.5f + step
         fun edge(idx: IntArray) {
-            val first = mb.vertexCount
+            val first = vi
             for (k in idx) {
-                val o = k
-                val vx = tmpVert(mb, o)
-                mb.rawVertex(vx[0], vx[1] - skirt, vx[2], vx[3], vx[4], vx[5], vx[6], vx[7], vx[8], vx[9])
+                System.arraycopy(vb, k * TERRAIN_FLOATS, vb, vi * TERRAIN_FLOATS, TERRAIN_FLOATS)
+                vb[vi * TERRAIN_FLOATS + 1] -= skirt
+                vi++
             }
             for (k in 0 until idx.size - 1) {
                 val top0 = idx[k]; val top1 = idx[k + 1]
                 val bot0 = first + k; val bot1 = first + k + 1
-                // double sided so cracks are hidden from either side
-                mb.tri(top0, bot1, bot0); mb.tri(top0, top1, bot1)
-                mb.tri(top0, bot0, bot1); mb.tri(top0, bot1, top1)
+                ib[ii++] = top0; ib[ii++] = bot1; ib[ii++] = bot0
+                ib[ii++] = top0; ib[ii++] = top1; ib[ii++] = bot1
+                ib[ii++] = top0; ib[ii++] = bot0; ib[ii++] = bot1
+                ib[ii++] = top0; ib[ii++] = bot1; ib[ii++] = top1
             }
         }
-        edge(IntArray(row) { base + it })
-        edge(IntArray(row) { base + n * row + it })
-        edge(IntArray(row) { base + it * row })
-        edge(IntArray(row) { base + it * row + n })
-        val terrain = mb.build()
+        edge(IntArray(row) { it })
+        edge(IntArray(row) { n * row + it })
+        edge(IntArray(row) { it * row })
+        edge(IntArray(row) { it * row + n })
+        val terrain = MeshData(vb, vi, ib, ii, TERRAIN_FLOATS)
 
         // water surface where terrain dips below the water line
         var water: MeshData? = null
         if (minY < WorldGen.WATER + 0.3f) {
-            val wn = 16
+            val wn = 32
             val ws = CHUNK_SIZE / wn
             val wb = MeshBuilder((wn + 1) * (wn + 1))
             for (j in 0..wn) for (i in 0..wn) {
@@ -357,13 +367,6 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             decor = pair.second
         }
         return ChunkBuild(cx, cz, lod, terrain, water, nodes, decor, minY, maxY)
-    }
-
-    private val tmpV = ThreadLocal.withInitial { FloatArray(10) }
-    private fun tmpVert(mb: MeshBuilder, index: Int): FloatArray {
-        val out = tmpV.get()!!
-        mb.readVertex(index, out)
-        return out
     }
 
     private fun depthAt(mb: MeshBuilder, index: Int): Float = mb.vertexFloat(index, 6)
@@ -409,7 +412,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
         for (n in nodes) if (!harvest.isAlive(n.key, nowDays)) n.alive = false
         // decorative grass and flowers on a finer grid
         if (density > 0.01f) {
-            val dcell = 2.2f / kotlin.math.sqrt(density)
+            val dcell = 1.8f / kotlin.math.sqrt(density)
             val dc = (CHUNK_SIZE / dcell).toInt()
             val drng = Rng(Rng.hash(cx, cz, 4242))
             for (j in 0 until dc) for (i in 0 until dc) {
@@ -429,7 +432,12 @@ class ChunkManager(private val harvest: HarvestRegistry) {
                 if (WorldGen.poiClearance(x, z) < 2f) continue
                 WorldGen.normal(x, z, nrm, 1.5f)
                 if (nrm[1] < 0.8f) continue
-                val type = if (biome == Biome.MEADOW && roll < 0.06f) VegType.FLOWERS else VegType.GRASS
+                val type = when {
+                    biome == Biome.MEADOW && roll < 0.06f -> VegType.FLOWERS
+                    (biome == Biome.FOREST || biome == Biome.PINE) && roll < 0.07f -> VegType.FERN
+                    (biome == Biome.MEADOW || biome == Biome.FOREST) && roll < 0.085f -> VegType.SHRUB
+                    else -> VegType.GRASS
+                }
                 decor.add(Node(type, x, h - 0.05f, z, yaw, 0.8f + sv * 0.7f, drng.nextFloat(), 0L))
             }
         }

@@ -1,6 +1,8 @@
 package com.rustbloom.game.world
 
+import com.rustbloom.game.engine.MatClass
 import com.rustbloom.game.engine.MeshBuilder
+import com.rustbloom.game.engine.assignMaterials
 import com.rustbloom.game.engine.MeshData
 import com.rustbloom.game.engine.Rng
 import com.rustbloom.game.engine.TWO_PI
@@ -56,7 +58,7 @@ class StructureBuilder {
             PoiKind.CAMP -> camp()
         }
         if (p.kind.name.startsWith("SPIRE")) radius = 60f
-        geos.add(StructureGeo(p, mb.build(), glowMb?.build(), radius))
+        geos.add(StructureGeo(p, mb.build().assignMaterials(MatClass::structure), glowMb?.build(), radius))
     }
 
     private fun glow(): MeshBuilder {

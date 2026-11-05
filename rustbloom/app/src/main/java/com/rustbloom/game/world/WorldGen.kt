@@ -203,6 +203,34 @@ object WorldGen {
         out[3] = dry
     }
 
+    /**
+     * Terrain material weights in splat slot order: grass, forest floor, sand, snow, rust sand, mud, needles, spare.
+     * Rock is added in the shader from slope.
+     */
+    fun splatWeights(x: Float, z: Float, h: Float, w: FloatArray) {
+        for (i in 0 until 8) w[i] = 0f
+        w[0] = 1f
+        fun over(slot: Int, a0: Float) {
+            val a = clamp01(a0)
+            if (a <= 0f) return
+            for (i in 0 until 8) w[i] *= (1f - a)
+            w[slot] += a
+        }
+        val cold = coldness(x, z)
+        val dry = dryness(x, z)
+        val marsh = marshness(x, z)
+        val forest = forestness(x, z)
+        val patch = n3.noise(x * 0.02f, z * 0.02f) * 0.5f + 0.5f
+        over(1, smoothstep(0.35f, 0.75f, forest) * 0.85f + smoothstep(0.72f, 0.85f, patch) * 0.45f)
+        over(6, smoothstep(0.3f, 0.7f, cold) * (0.75f + patch * 0.25f))
+        over(4, smoothstep(0.2f, 0.6f, dry))
+        over(5, smoothstep(0.25f, 0.65f, marsh) * (0.6f + patch * 0.4f))
+        over(2, smoothstep(2.8f, 0.9f, h) * (1f - marsh * 0.8f))
+        over(2, smoothstep(0.5f, 0.9f, dry) * smoothstep(0.55f, 0.7f, patch) * 0.6f)
+        val snow = clamp01(smoothstep(95f, 115f, h) + smoothstep(40f, 60f, h) * smoothstep(0.5f, 0.8f, cold) + smoothstep(0.78f, 0.9f, cold) * smoothstep(4f, 9f, h))
+        over(3, snow)
+    }
+
     fun inWorld(x: Float, z: Float): Boolean = abs(x) < HALF && abs(z) < HALF
 
     // ----------------------------------------------------------------- POIs
