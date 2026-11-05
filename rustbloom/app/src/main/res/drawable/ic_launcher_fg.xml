@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- mountain silhouette -->
+    <path android:fillColor="#FF2E4A3A" android:pathData="M18,78 L40,46 L52,60 L66,38 L90,78 Z" />
+    <!-- spire -->
+    <path android:fillColor="#FF8A9AA0" android:pathData="M51,78 L54,24 L57,78 Z" />
+    <!-- glowing ring -->
+    <path android:fillColor="#FF4FE3D2" android:pathData="M46,44 L62,44 L60,48 L48,48 Z" />
+    <path android:fillColor="#FFFF8A3C" android:pathData="M54,20 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+    <!-- leaf bloom -->
+    <path android:fillColor="#FF6BC26B" android:pathData="M30,80 C34,70 44,68 50,72 C44,76 38,80 30,80 Z" />
+    <path android:fillColor="#FF6BC26B" android:pathData="M78,80 C74,70 64,68 58,72 C64,76 70,80 78,80 Z" />
+</vector>
