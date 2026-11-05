@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- light beam -->
+    <path android:fillColor="#40FFF2C0" android:pathData="M60,50 L96,34 L96,74 Z" />
+    <!-- submarine hull -->
+    <path android:fillColor="#FFF2B632" android:pathData="M28,54 C28,46 36,42 48,42 L56,42 C62,42 64,48 64,54 C64,60 62,66 56,66 L48,66 C36,66 28,62 28,54 Z" />
+    <path android:fillColor="#FFD08A1E" android:pathData="M40,42 L44,34 L54,34 L54,42 Z" />
+    <!-- viewport -->
+    <path android:fillColor="#FF8FE8FF" android:pathData="M56,54 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" />
+    <!-- prop -->
+    <path android:fillColor="#FF6A7880" android:pathData="M22,48 L28,52 L28,56 L22,60 Z" />
+    <!-- eyes in the dark -->
+    <path android:fillColor="#FFFF5A3C" android:pathData="M30,82 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+    <path android:fillColor="#FFFF5A3C" android:pathData="M40,84 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+</vector>
