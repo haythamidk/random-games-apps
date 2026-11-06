@@ -61,12 +61,12 @@ After the ending the sea stays open for free diving. You can keep hunting the 24
 
 Lantern Station is your home base.
 
-- **Fabricator.** Build 12 upgrade lines, from hull plating Mk1 to Mk5, plus the battery, thrusters, floodlamp, sonar, cargo hold, oxygen tanks, flare launcher, shock pulse, thermal tap, silent running and bio scanner.
+- **Workshop.** Build 15 upgrade lines in folding sections: hull plating Mk1 to Mk5, battery, thrusters, floodlamp, sonar, cargo hold, oxygen tanks, flare launcher, shock pulse, thermal tap, silent running and bio scanner, plus three more after your first outpost.
 - **Finding things.** Open Home at the station and tap a material (or data cores, echo stones, beacons, the Choir). A blue circle shows on the map and a blue dot on the compass. The thing is somewhere inside the circle, so use sonar to pin it down. Your current story goal always has a gold circle and a gold dot, with a plain explanation of how to do it.
-- **Drones.** Build up to three survey drones. They fly out of the station on their own, search for materials and bring them back to storage, even while you dive. Three fleet upgrades (thrusters, cargo pods and range) make them faster, let them carry more and send them further. Give a drone a Target and it goes after one material: the trip takes twice as long but brings back about 60% more. Deeper water gives rarer finds, but a drone can be ambushed there and goes offline for a while.
+- **Drones.** Build up to three survey drones at each base (nine with two outposts). They fly out of the station on their own, search for materials and bring them back to storage, even while you dive. Three fleet upgrades (thrusters, cargo pods and range) make them faster, let them carry more and send them further. Give a drone a Target and it goes after one material: the trip takes twice as long but brings back about 60% more. Deeper water gives rarer finds, but a drone can be ambushed there and goes offline for a while.
 - **Outposts.** Build an outpost kit in the Workshop, carry it to flat sea floor and press the house button to place a second home (up to two). Each outpost has its own dock, shares the one storage with the station, adds three drone bays that search around it (so they can reach other zones) and unlocks the Outpost systems upgrades: armor, stealth coating and a deeper hold.
 - **Comforts.** Build warm lamps, a hydroponic garden, an aquarium, a record player, a proper bunk, a kettle, pearl chimes and an echo stone shelf. The more you build, the cozier the station feels.
-- **Logbook and Biodex.** Read every recovered crew log and every species you have scanned.
+- **Journal.** Read every recovered crew log, every species you have scanned and what is in storage.
 
 The game is meant to last weeks. Materials come from different depths and grow back slowly, and every upgrade opens up somewhere new.
 
@@ -85,6 +85,7 @@ The game is meant to last weeks. Materials come from different depths and grow b
 | Flare / shock pulse | Buttons | L1 / R1 | G / V |
 | Repair kit | Plus button | D-pad down | H |
 | Camera (chase / cockpit) | Camera button | Press right stick | T |
+| Place an outpost | House button (when carrying a kit) | D-pad left | B |
 | Map / pause | Buttons | D-pad up / Start | M / Esc |
 
 ## Graphics settings
