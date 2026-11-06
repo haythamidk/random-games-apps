@@ -271,6 +271,33 @@ object Models {
         return b.build()
     }
 
+    /** A small survey drone: white shell, amber band, a cyan eye and a pair of side thrusters. */
+    fun drone(): MeshData {
+        val b = MeshBuilder(1024)
+        b.color(0.92f, 0.92f, 0.9f).mat(Mat.PAINT)
+        b.sphere(0f, 0f, 0f, 0.45f, 0.36f, 0.75f, 8, 14)
+        b.color(0.95f, 0.65f, 0.12f).mat(Mat.PAINT)
+        b.push().trs(0f, 0f, -0.05f, 0f, PI_F / 2f).cylinder(0f, -0.14f, 0f, 0.47f, 0.47f, 0.28f, 14, caps = false).pop()
+        b.color(0.25f, 0.27f, 0.3f).mat(Mat.METAL)
+        for (side in listOf(-1f, 1f)) {
+            b.push().trs(side * 0.52f, 0f, -0.35f, 0f, PI_F / 2f).cylinder(0f, -0.3f, 0f, 0.1f, 0.1f, 0.55f, 8).pop()
+            b.color(0.3f, 0.9f, 1f, 1.6f)
+            b.push().trs(side * 0.52f, 0f, -0.66f, 0f, PI_F / 2f).cylinder(0f, 0f, 0f, 0.08f, 0.08f, 0.02f, 8).pop()
+            b.color(0.25f, 0.27f, 0.3f).mat(Mat.METAL)
+        }
+        b.color(0.3f, 0.9f, 1f, 3f)
+        b.sphere(0f, 0.05f, 0.62f, 0.14f, 0.14f, 0.1f, 5, 8)
+        // collection basket and claw
+        b.color(0.25f, 0.27f, 0.3f).mat(Mat.METAL)
+        b.box(0f, -0.4f, 0.1f, 0.5f, 0.12f, 0.5f)
+        b.box(0.18f, -0.45f, 0.45f, 0.05f, 0.08f, 0.3f)
+        b.box(-0.18f, -0.45f, 0.45f, 0.05f, 0.08f, 0.3f)
+        b.cylinder(0f, 0.3f, -0.2f, 0.02f, 0.015f, 0.5f, 4)
+        b.color(1f, 0.3f, 0.2f, 2.4f)
+        b.sphere(0f, 0.82f, -0.2f, 0.04f, 0.04f, 0.04f, 3, 4)
+        return b.build()
+    }
+
     fun flareMesh(): MeshData {
         val b = MeshBuilder(64)
         b.color(0.3f, 0.3f, 0.3f).mat(Mat.METAL)

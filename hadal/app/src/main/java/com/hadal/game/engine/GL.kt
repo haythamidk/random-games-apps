@@ -152,6 +152,13 @@ class Mesh(data: MeshData, val primitive: Int = GL_TRIANGLES) {
         glDrawElements(primitive, indexCount, GL_UNSIGNED_INT, 0)
     }
 
+    /** Draws only the first [count] indices (used to skip terrain skirts in the shadow pass). */
+    fun drawIndices(count: Int) {
+        if (count <= 0) return
+        glBindVertexArray(vao)
+        glDrawElements(primitive, minOf(count, indexCount), GL_UNSIGNED_INT, 0)
+    }
+
     fun drawArrays(mode: Int, count: Int = vertexCount) {
         if (count <= 0) return
         glBindVertexArray(vao)

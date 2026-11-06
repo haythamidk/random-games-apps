@@ -23,6 +23,7 @@ Copy `release/Hadal.apk` to your phone and open it. You need to allow installs f
   - Hull, power and oxygen.
   - Depth ratings, noise and detectability.
   - 12 species: boid schools, ambushers, a sound-hunting charger and the Pale stalker director.
+  - A drone fleet that runs abstract search trips by zone, with fleet upgrades and ambush risk.
   - A 7-chapter story with 12 logs and 24 echo stones.
   - A JSON save with atomic writes and a backup.
 - **Audio:**

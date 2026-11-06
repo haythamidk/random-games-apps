@@ -19,6 +19,8 @@ import com.hadal.game.game.ControlScheme
 import com.hadal.game.game.Costs
 import com.hadal.game.game.Decor
 import com.hadal.game.game.Difficulty
+import com.hadal.game.game.DroneStats
+import com.hadal.game.game.DroneUpgrade
 import com.hadal.game.game.GameState
 import com.hadal.game.game.GraphicsPreset
 import com.hadal.game.game.Item
@@ -251,7 +253,7 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
 
     // ------------------------------------------------------------------ station (docked)
 
-    private val stationTabs = listOf("fab" to "Fabricator", "supplies" to "Supplies", "comforts" to "Comforts", "biodex" to "Biodex", "logs" to "Logs", "storage" to "Storage")
+    private val stationTabs = listOf("fab" to "Fabricator", "supplies" to "Supplies", "drones" to "Drones", "comforts" to "Comforts", "biodex" to "Biodex", "logs" to "Logs", "storage" to "Storage")
 
     fun showStation(t: String? = null) {
         if (t != null) tab = t
@@ -270,6 +272,7 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         when (tab) {
             "fab" -> fabricator(body)
             "supplies" -> supplies(body)
+            "drones" -> drones(body)
             "comforts" -> comforts(body)
             "biodex" -> biodexList(body)
             "logs" -> logList(body)
@@ -334,6 +337,69 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         k.addView(label(Item.REPAIR_KIT.desc, 12.5f, DIM))
         k.addView(costRow(Costs.repairKit))
         body.addView(k, lp())
+    }
+
+    private val droneStatus = ArrayList<Pair<Int, TextView>>()
+    private val droneTicker = object : Runnable {
+        override fun run() {
+            if (screen != "station" || tab != "drones") return
+            synchronized(game) { for ((i, tv) in droneStatus) tv.text = game.fleet.statusText(i) }
+            root.postDelayed(this, 1000)
+        }
+    }
+
+    private fun drones(body: LinearLayout) {
+        val fleet = game.fleet
+        droneStatus.clear()
+        body.addView(label("Drones fly out of the station on their own, search for materials and bring them back to storage. They keep working while you dive. Deeper water gives rarer finds, but they can be ambushed there. Upgrades apply to the whole fleet.", 12.5f, DIM))
+        for (u in DroneUpgrade.entries) {
+            val lvl = fleet.levels[u.ordinal]
+            val card = vbox(10f).apply { background = bg(CARD, 12f) }
+            val top = hbox()
+            top.addView(label("${u.title}  Mk$lvl / Mk${DroneStats.MAX_LEVEL}", 15f, Color.WHITE, true), lp(0, weight = 1f))
+            val detail = when (u) {
+                DroneUpgrade.SPEED -> "${DroneStats.speed[lvl]} m/s now" + if (lvl < DroneStats.MAX_LEVEL) ", ${DroneStats.speed[lvl + 1]} next." else "."
+                DroneUpgrade.CAPACITY -> "${DroneStats.capacity[lvl]} materials per trip now" + if (lvl < DroneStats.MAX_LEVEL) ", ${DroneStats.capacity[lvl + 1]} next." else "."
+                DroneUpgrade.RANGE -> "${DroneStats.range[lvl].toInt()} m now" + if (lvl < DroneStats.MAX_LEVEL) ", ${DroneStats.range[lvl + 1].toInt()} m next." else "."
+            }
+            if (lvl < DroneStats.MAX_LEVEL) {
+                val cost = DroneStats.upgradeCost(u, lvl)
+                top.addView(button("Upgrade", game.storageHas(cost), 13f) { synchronized(game) { game.upgradeDrones(u) }; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+                card.addView(top)
+                card.addView(label(u.desc + " " + detail, 12.5f, DIM))
+                card.addView(costRow(cost))
+            } else {
+                card.addView(top)
+                card.addView(label(u.desc + " " + detail + " Fully upgraded.", 12.5f, GOOD))
+            }
+            body.addView(card, lp())
+        }
+        for (i in 0 until DroneStats.MAX_DRONES) {
+            val card = vbox(10f).apply { background = bg(if (i < fleet.drones.size) Color.argb(255, 18, 36, 40) else CARD, 12f) }
+            when {
+                i < fleet.drones.size -> {
+                    card.addView(label("Drone ${i + 1}", 15f, Color.WHITE, true))
+                    val st = label(fleet.statusText(i), 12.5f, ACCENT)
+                    droneStatus.add(i to st)
+                    card.addView(st)
+                }
+                i == fleet.drones.size -> {
+                    val cost = DroneStats.buildCost(i)
+                    val top = hbox()
+                    top.addView(label("Drone ${i + 1}  not built", 15f, Color.WHITE, true), lp(0, weight = 1f))
+                    top.addView(button("Build", game.storageHas(cost), 13f) { synchronized(game) { game.buildDrone() }; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+                    card.addView(top)
+                    card.addView(costRow(cost))
+                }
+                else -> {
+                    card.addView(label("Drone ${i + 1}", 15f, DIM, true))
+                    card.addView(label("Build the previous drone first.", 12.5f, DIM))
+                }
+            }
+            body.addView(card, lp())
+        }
+        root.removeCallbacks(droneTicker)
+        root.postDelayed(droneTicker, 1000)
     }
 
     private fun comforts(body: LinearLayout) {

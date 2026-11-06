@@ -323,7 +323,7 @@ out vec3 v_n;
 out vec4 v_splat;
 out float v_cav;
 void main() {
-    v_wp = a_pos;
+    v_wp = a_pos + vec3(0.0, a_extra.y, 0.0);
     v_n = a_normal;
     v_splat = a_splat;
     v_cav = a_extra.x;
@@ -615,7 +615,7 @@ void main() {
                 vec3 p = sp.xyz / sp.w * 0.5 + 0.5;
                 if (sp.w > 0.0 && p.x > 0.0 && p.x < 1.0 && p.y > 0.0 && p.y < 1.0 && p.z < 1.0) sh = texture(u_lampShadow, vec3(p.xy, p.z - 0.001));
             }
-            float att = 1.0 / (1.0 + dl * dl * 0.02) * smoothstep(u_lampRange * 1.2, u_lampRange * 0.3, dl);
+            float att = 1.0 / (1.0 + dl * dl * 0.02) * smoothstep(u_lampRange * 1.2, u_lampRange * 0.3, dl) * smoothstep(0.8, 9.0, dl);
             float ph = hg(dot(rd, -ld), 0.55) * 6.0 + 0.15;
             acc += u_lampColor * cone * att * sh * ph * exp(-u_ext * (dl + t) * 0.55);
         }
@@ -637,7 +637,10 @@ void main() {
             acc += u_lightColors[k] * a * exp(-u_ext * dp) * camT * 0.5;
         }
     }
-    fragColor = vec4(acc * stepLen * u_density, 1.0);
+    vec3 v = acc * stepLen * u_density;
+    // soft limit: a dense beam glows but can never blow the whole frame out
+    v = v / (1.0 + dot(v, vec3(0.33)) * 3.0);
+    fragColor = vec4(v, 1.0);
 }
 """
 

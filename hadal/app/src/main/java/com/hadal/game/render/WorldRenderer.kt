@@ -56,6 +56,7 @@ object RenderAssets {
     lateinit var prop: MeshData
     lateinit var flare: MeshData
     lateinit var echo: MeshData
+    lateinit var drone: MeshData
 
     @Synchronized fun prepare(cacheDir: File?, pool: ExecutorService?) {
         if (ready) return
@@ -66,7 +67,7 @@ object RenderAssets {
         flora = Array(FloraType.entries.size) { FloraMeshes.get(FloraType.entries[it]) }
         creatures = Species.entries.associateWith { Models.creature(it) }
         segments = listOf(Species.PALE, Species.RIBBON_EEL).associateWith { Models.segment(it) }
-        sub = Models.sub(); prop = Models.propeller(); flare = Models.flareMesh(); echo = Structures.echoStoneMesh()
+        sub = Models.sub(); prop = Models.propeller(); flare = Models.flareMesh(); echo = Structures.echoStoneMesh(); drone = Models.drone()
         ready = true
     }
 }
@@ -101,6 +102,7 @@ class WorldRenderer(private val game: GameState) {
     private lateinit var propMesh: Mesh
     private lateinit var flareMesh: Mesh
     private lateinit var echoMesh: Mesh
+    private lateinit var droneMesh: Mesh
     private lateinit var quad: Mesh
     private var snowVao = 0
     private var snowVbo = 0
@@ -183,7 +185,7 @@ class WorldRenderer(private val game: GameState) {
         for (g in Structures.geos) structMeshes.add(g to Mesh(g.mesh))
         for ((s, m) in a.creatures) creatureMeshes[s] = Mesh(m)
         for ((s, m) in a.segments) segmentMeshes[s] = Mesh(m)
-        subMesh = Mesh(a.sub); propMesh = Mesh(a.prop); flareMesh = Mesh(a.flare); echoMesh = Mesh(a.echo)
+        subMesh = Mesh(a.sub); propMesh = Mesh(a.prop); flareMesh = Mesh(a.flare); echoMesh = Mesh(a.echo); droneMesh = Mesh(a.drone)
         quad = Mesh(MeshData(floatArrayOf(-1f, -1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f, 1f, -1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f,
             1f, 1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f, -1f, 1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f), 4, intArrayOf(0, 1, 2, 0, 2, 3), 6))
         buildSnow(4000)
@@ -308,6 +310,7 @@ class WorldRenderer(private val game: GameState) {
             val d = sqrt(dx * dx + dy * dy + dz * dz)
             if (d - r < 90f) list.add(L(x, y, z, r, cr, cg, cb, max(0f, d - r * 0.5f)))
         }
+        for (d in g.fleet.drones) if (d.state != com.hadal.game.game.DroneState.LOST) add(d.pos.x, d.pos.y, d.pos.z, 7f, 0.3f, 0.8f, 1f)
         // the Wren's own hull lights so the sub reads in the dark
         if (!g.dead) {
             val sp = g.sub.pos
@@ -500,6 +503,19 @@ class WorldRenderer(private val game: GameState) {
 
         drawCreatures(opaque = true)
 
+        // the drone fleet
+        for (d in g.fleet.drones) {
+            if (d.state == com.hadal.game.game.DroneState.LOST) continue
+            if (!frustum.sphere(d.pos.x, d.pos.y, d.pos.z, 2f)) continue
+            if (d.pos.dist(g.camPos) > 140f) continue
+            val bob = if (d.state == com.hadal.game.game.DroneState.WORKING) sin(time * 1.5f + d.index) * 0.2f else 0f
+            Mat4.fromTRS(model, d.pos.x, d.pos.y + bob, d.pos.z, if (d.state == com.hadal.game.game.DroneState.IDLE) 0f else d.yaw, 0f, 0f, 1f, 1f, 1f)
+            lit.m4("u_model", model)
+            lit.f1("u_wet", 0.5f)
+            droneMesh.draw()
+        }
+        lit.f1("u_wet", 0f)
+
         // the sub
         if (!(s.cockpitCamera && !g.docked)) drawSub()
         // flares
@@ -644,6 +660,11 @@ class WorldRenderer(private val game: GameState) {
             }
         }
         for (f in g.flares) sprite(f.pos.x, f.pos.y, f.pos.z, 1.6f, 4f, 1.3f, 0.5f, 0.3f)
+        for (d in g.fleet.drones) {
+            if (d.state == com.hadal.game.game.DroneState.LOST) continue
+            val pulse = 0.7f + 0.3f * sin(time * 4f + d.index * 2f)
+            sprite(d.pos.x, d.pos.y + 0.85f, d.pos.z, 0.3f, 1.8f * pulse, 0.5f * pulse, 0.4f * pulse)
+        }
         for ((geo, _) in structMeshes) for (fx in geo.fixtures) {
             if (!fixtureOn(fx)) continue
             var k = 1f
@@ -695,7 +716,8 @@ class WorldRenderer(private val game: GameState) {
             val m = c.terrain ?: continue
             val x0 = c.cx * CHUNK_SIZE; val z0 = c.cz * CHUNK_SIZE
             if (!lampFrustum.box(x0, c.minY - 3f, z0, x0 + CHUNK_SIZE, c.maxY + 30f, z0 + CHUNK_SIZE)) continue
-            m.draw()
+            // skirts only hide cracks for the camera; in the shadow map they would cause acne along chunk edges
+            m.drawIndices(c.mainIdx)
         }
         for ((_, m) in structMeshes) if (lampFrustum.box(m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ)) m.draw()
         for (c in g.ecology.list) {
@@ -742,12 +764,13 @@ class WorldRenderer(private val game: GameState) {
             volume.m4("u_invVP", invVP)
             volume.f3("u_camPos", g.camPos.x, g.camPos.y, g.camPos.z)
             volume.f3("u_lampPos", lampPos.x, lampPos.y, lampPos.z); volume.f3("u_lampDir", lampDir.x, lampDir.y, lampDir.z)
-            volume.f3("u_lampColor", lampColor); volume.f2("u_lampCone", lampCosO, lampCosI); volume.f1("u_lampRange", lampRange)
+            // the visible beam is narrower than the area the lamp lights, like a real floodlight in turbid water
+            volume.f3("u_lampColor", lampColor); volume.f2("u_lampCone", min(0.97f, lampCosO + 0.1f), min(0.99f, lampCosI + 0.06f)); volume.f1("u_lampRange", lampRange)
             volume.f3("u_sunAmb", sunAmb); volume.f3("u_ext", ext)
             volume.f1("u_time", time)
             volume.i1("u_steps", if (s.volumetrics >= 2) 20 else 12)
             volume.f1("u_maxDist", 70f)
-            volume.f1("u_density", 0.022f * exposure * outScale)
+            volume.f1("u_density", 0.006f * exposure * outScale)
             volume.f4v("u_lights", volLights, 4); volume.f3v("u_lightColors", volLightColors, 4)
             volume.f2("u_noiseOffset", (time * 7.3f) % 1f, (time * 3.1f) % 1f)
             quad.draw()

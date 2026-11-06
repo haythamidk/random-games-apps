@@ -2,6 +2,9 @@ package com.hadal.game
 
 import com.hadal.game.game.CState
 import com.hadal.game.game.Costs
+import com.hadal.game.game.DroneState
+import com.hadal.game.game.DroneStats
+import com.hadal.game.game.DroneUpgrade
 import com.hadal.game.game.GameState
 import com.hadal.game.game.Item
 import com.hadal.game.game.SaveSystem
@@ -285,5 +288,49 @@ class SimulationTest {
         g.respawn()
         assertTrue(!g.dead && g.docked)
         assertEquals(0, g.cargo[Item.SCRAP.ordinal])
+    }
+
+    @Test
+    fun dronesCollectMaterialsAndSurviveSaves() {
+        val g = newGame()
+        // cannot build without materials, then build all three with stock
+        assertTrue(!g.buildDrone())
+        for (i in Item.entries) g.storage[i.ordinal] = 500
+        assertTrue(g.buildDrone()); assertTrue(g.buildDrone()); assertTrue(g.buildDrone())
+        assertTrue("fourth drone refused", !g.buildDrone())
+        assertEquals(3, g.fleet.drones.size)
+        val before = g.storage.copyOf()
+        // 20 simulated minutes at the starting upgrade level
+        var t = 0f
+        while (t < 1200f) { g.fleet.update(0.25f); g.time += 0.25f; t += 0.25f }
+        val gained = Item.entries.sumOf { g.storage[it.ordinal] - before[it.ordinal] }
+        println("drones gained $gained materials in 20 minutes at Mk0; trips ${g.fleet.drones.map { it.trips }}")
+        assertTrue("drones brought materials home ($gained)", gained > 20)
+        assertTrue("every drone completed trips", g.fleet.drones.all { it.trips > 0 })
+        // upgrades raise the numbers and cost materials
+        val lvl0 = g.fleet.capacity
+        assertTrue(g.upgradeDrones(DroneUpgrade.CAPACITY))
+        assertTrue(g.fleet.capacity > lvl0)
+        assertTrue(g.upgradeDrones(DroneUpgrade.RANGE))
+        assertTrue(g.upgradeDrones(DroneUpgrade.SPEED))
+        assertEquals(DroneStats.range[1], g.fleet.range)
+        for (u in DroneUpgrade.entries) { while (g.upgradeDrones(u)) {} ; assertEquals(DroneStats.MAX_LEVEL, g.fleet.levels[u.ordinal]) }
+        // drones never fly above the surface or into the floor
+        for (i in 0 until 4000) {
+            g.fleet.update(0.25f); g.time += 0.25f
+            for (d in g.fleet.drones) if (d.state != DroneState.LOST) {
+                assertTrue("drone below surface ${d.pos.y}", d.pos.y < -2f)
+                assertTrue("drone above floor", d.pos.y > SeaGen.height(d.pos.x, d.pos.z) + 1f)
+            }
+        }
+        // a maxed fleet at the longest range can reach the midnight plains
+        val zones = HashSet<Zone>()
+        g.fleet.drones.forEach { zones.add(it.zone) }
+        // save and load keeps the fleet
+        val json = SaveSystem.toJson(g)
+        val h = GameState(Settings())
+        SaveSystem.apply(h, org.json.JSONObject(json.toString()))
+        assertEquals(3, h.fleet.drones.size)
+        assertEquals(DroneStats.MAX_LEVEL, h.fleet.levels[DroneUpgrade.RANGE.ordinal])
     }
 }

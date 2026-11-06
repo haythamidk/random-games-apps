@@ -32,6 +32,7 @@ class GameState(val settings: Settings) {
     val chunks = ChunkManager(harvest)
     val ecology = Ecology(this)
     val story = Story()
+    val fleet = DroneFleet(this)
 
     /** Items carried in the sub (lost on death) and stored at the station. */
     val cargo = IntArray(Item.entries.size)
@@ -115,7 +116,7 @@ class GameState(val settings: Settings) {
 
     fun newGame() {
         cargo.fill(0); storage.fill(0); upgrades.fill(0); decor.fill(false)
-        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear()
+        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear(); fleet.reset()
         storage[Item.SCRAP.ordinal] = 2
         sub.hull = 100f; sub.power = 100f; sub.oxygen = 240f; sub.flares = 0; sub.repairKits = 1
         sub.applyUpgrades(upgrades)
@@ -174,6 +175,7 @@ class GameState(val settings: Settings) {
             return
         }
         playTime += dt
+        if (Structures.built) fleet.update(dt)
         if (dead) {
             deathTimer += dt
             sub.vel.scale(0.98f); sub.pos.y -= dt * 1.5f
@@ -716,6 +718,31 @@ class GameState(val settings: Settings) {
     fun craftKit(): Boolean {
         if (sub.repairKits >= 3 || !storageHas(Costs.repairKit)) return false
         pay(Costs.repairKit); sub.repairKits++; sound.play(Sfx.CRAFT, 0.7f); requestSave(); return true
+    }
+
+    fun buildDrone(): Boolean {
+        val n = fleet.drones.size
+        if (n >= DroneStats.MAX_DRONES) return false
+        val cost = DroneStats.buildCost(n)
+        if (!storageHas(cost)) return false
+        pay(cost)
+        fleet.addDrone()
+        sound.play(Sfx.CRAFT)
+        if (n == 0) say(Message("ARIA", "Drone one is awake. It will fly out on its own, look around and bring back whatever it finds.", 6f))
+        requestSave()
+        return true
+    }
+
+    fun upgradeDrones(u: DroneUpgrade): Boolean {
+        val lvl = fleet.levels[u.ordinal]
+        if (lvl >= DroneStats.MAX_LEVEL) return false
+        val cost = DroneStats.upgradeCost(u, lvl)
+        if (!storageHas(cost)) return false
+        pay(cost)
+        fleet.levels[u.ordinal]++
+        sound.play(Sfx.CRAFT, 0.8f)
+        requestSave()
+        return true
     }
 
     fun buildDecor(d: Decor): Boolean {

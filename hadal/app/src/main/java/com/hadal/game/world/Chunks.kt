@@ -48,6 +48,7 @@ class Chunk(val cx: Int, val cz: Int) {
     var terrain: Mesh? = null
     var lod = -1
     var requestedLod = -1
+    var mainIdx = 0
     var minY = 0f
     var maxY = 0f
     val inst = arrayOfNulls<InstanceBuffer>(FloraType.entries.size)
@@ -59,7 +60,7 @@ class Chunk(val cx: Int, val cz: Int) {
     }
 }
 
-class ChunkBuild(val cx: Int, val cz: Int, val lod: Int, val terrain: MeshData, val nodes: List<Node>?, val minY: Float, val maxY: Float)
+class ChunkBuild(val cx: Int, val cz: Int, val lod: Int, val terrain: MeshData, val nodes: List<Node>?, val minY: Float, val maxY: Float, val mainIdx: Int = 0)
 
 /** Streams sea floor chunks around the sub; meshes are generated on worker threads and uploaded on the GL thread. */
 class ChunkManager(private val harvest: HarvestRegistry) {
@@ -120,6 +121,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             c.terrain?.release()
             c.terrain = Mesh(b.terrain)
             c.lod = b.lod
+            c.mainIdx = b.mainIdx
             c.minY = b.minY; c.maxY = b.maxY
             if (b.nodes != null && !c.nodesReady) {
                 c.nodes = b.nodes
@@ -241,11 +243,14 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             ib[ii++] = a; ib[ii++] = c; ib[ii++] = b
         }
         val skirt = 2f + step
+        val mainIdx = ii
         fun edge(idx: IntArray) {
             val first = vi
             for (k in idx) {
                 System.arraycopy(vb, k * TERRAIN_FLOATS, vb, vi * TERRAIN_FLOATS, TERRAIN_FLOATS)
                 vb[vi * TERRAIN_FLOATS + 1] -= skirt
+                // skirts are shaded as if they sat on the surface, so a crack never shows as a dark line
+                vb[vi * TERRAIN_FLOATS + 11] = skirt
                 vi++
             }
             for (k in 0 until idx.size - 1) {
@@ -260,7 +265,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
         edge(IntArray(row) { it * row }); edge(IntArray(row) { it * row + n })
         val terrain = MeshData(vb, vi, ib, ii, TERRAIN_FLOATS)
         val nodes = if (withNodes) generateNodes(cx, cz, density) else null
-        return ChunkBuild(cx, cz, lod, terrain, nodes, minY, maxY)
+        return ChunkBuild(cx, cz, lod, terrain, nodes, minY, maxY, mainIdx)
     }
 
     private fun nearPoi(x: Float, z: Float, pad: Float): Boolean {

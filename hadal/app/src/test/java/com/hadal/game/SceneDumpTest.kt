@@ -50,6 +50,7 @@ class SceneDumpTest {
             for (s in Species.entries) mesh(out, "cr_${s.name}", Models.creature(s))
             mesh(out, "seg_PALE", Models.segment(Species.PALE))
             mesh(out, "echo", Structures.echoStoneMesh())
+            mesh(out, "drone", Models.drone())
         }
         val x0 = System.getenv("HADAL_X")?.toFloat() ?: 0f
         val z0 = System.getenv("HADAL_Z")?.toFloat() ?: 20f
@@ -66,7 +67,8 @@ class SceneDumpTest {
             val b = cm.buildChunk(pcx + dx, pcz + dz, if (dist <= 1) 0 else 1, true, 1f)
             floats(File(sd, "t$k.v"), b.terrain.vertices, b.terrain.vertexCount * b.terrain.stride)
             ints(File(sd, "t$k.i"), b.terrain.indices, b.terrain.indexCount)
-            chunks.put(JSONObject().put("id", k).put("idx", b.terrain.indexCount))
+            val nn = if (dist <= 1) 32 else 16
+            chunks.put(JSONObject().put("id", k).put("idx", b.terrain.indexCount).put("main", nn * nn * 6))
             for (n in b.nodes ?: emptyList()) {
                 if (dist > 1 && (n.type == FloraType.SEAGRASS || n.type == FloraType.CORAL_BRANCH || n.type == FloraType.TUBEWORMS || n.type == FloraType.ANEMONE)) continue
                 inst.getOrPut(n.type) { ArrayList() }.addAll(listOf(n.x, n.y, n.z, n.yaw, n.scale, n.tint, n.type.sway, (n.key and 1023).toFloat()))
