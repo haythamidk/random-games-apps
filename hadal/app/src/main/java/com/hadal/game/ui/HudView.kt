@@ -325,6 +325,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
                 2 -> Color.argb(a, 255, 80, 70)
                 3 -> Color.argb(a, 255, 220, 120)
                 4 -> Color.argb(a, 140, 230, 255)
+                6 -> Color.argb(a, 255, 130, 255)
                 else -> Color.argb(a, 255, 190, 80)
             }
             val s = if (kind >= 3) 4f * dp else 2.6f * dp

@@ -110,7 +110,7 @@ class Story {
             listOf(Message("ARIA", "The Meridian was our support ship. If the crew left logs, they will be on its data cores. Grab them with the arm.", 5f)),
             listOf(
                 Step({ g -> "Find the wreck of the Meridian (${poiDist(g, PoiType.MERIDIAN).toInt()} m)" }, { g -> poiDist(g, PoiType.MERIDIAN) < 70f }),
-                Step({ g -> "Recover the Meridian data cores (${(1..3).count { g.story.logsFound.contains(it) }}/3)" }, { g -> (1..3).all { g.story.logsFound.contains(it) } }),
+                Step({ g -> "Recover the Meridian data cores (${(1..3).count { g.story.logsFound.contains(it) }}/3)${g.coreHint(1..3)}" }, { g -> (1..3).all { g.story.logsFound.contains(it) } }),
                 Step({ "Dock at the station to read the cores" }, { g -> g.docked && (1..3).all { g.story.logsRead.contains(it) } }),
             ),
             listOf(Message("ARIA", "They followed a sound into the trench. I am going to need you to go a lot deeper.", 5f)),
@@ -136,7 +136,7 @@ class Story {
             listOf(
                 upgradeStep(Upgrade.HULL, 3, "Fabricate Hull Plating Mk3 (rated 1000 m)"),
                 Step({ g -> "Find Cinder Outpost in the vent field (${poiDist(g, PoiType.CINDER).toInt()} m)" }, { g -> poiDist(g, PoiType.CINDER) < 50f }),
-                Step({ g -> "Recover Dr. Brandt's data cores (${(6..7).count { g.story.logsFound.contains(it) }}/2)" }, { g -> (6..7).all { g.story.logsFound.contains(it) } }),
+                Step({ g -> "Recover Dr. Brandt's data cores (${(6..7).count { g.story.logsFound.contains(it) }}/2)${g.coreHint(6..7)}" }, { g -> (6..7).all { g.story.logsFound.contains(it) } }),
                 countStep(Item.CRYSTAL, 6, "Collect"),
                 Step({ "Dock at the station to read the cores" }, { g -> g.docked && (6..7).all { g.story.logsRead.contains(it) } }),
             ),

@@ -57,6 +57,7 @@ object RenderAssets {
     lateinit var flare: MeshData
     lateinit var echo: MeshData
     lateinit var drone: MeshData
+    lateinit var core: MeshData
 
     @Synchronized fun prepare(cacheDir: File?, pool: ExecutorService?) {
         if (ready) return
@@ -67,7 +68,7 @@ object RenderAssets {
         flora = Array(FloraType.entries.size) { FloraMeshes.get(FloraType.entries[it]) }
         creatures = Species.entries.associateWith { Models.creature(it) }
         segments = listOf(Species.PALE, Species.RIBBON_EEL).associateWith { Models.segment(it) }
-        sub = Models.sub(); prop = Models.propeller(); flare = Models.flareMesh(); echo = Structures.echoStoneMesh(); drone = Models.drone()
+        sub = Models.sub(); prop = Models.propeller(); flare = Models.flareMesh(); echo = Structures.echoStoneMesh(); drone = Models.drone(); core = Models.core()
         ready = true
     }
 }
@@ -103,6 +104,7 @@ class WorldRenderer(private val game: GameState) {
     private lateinit var flareMesh: Mesh
     private lateinit var echoMesh: Mesh
     private lateinit var droneMesh: Mesh
+    private lateinit var coreMesh: Mesh
     private lateinit var quad: Mesh
     private var snowVao = 0
     private var snowVbo = 0
@@ -185,7 +187,7 @@ class WorldRenderer(private val game: GameState) {
         for (g in Structures.geos) structMeshes.add(g to Mesh(g.mesh))
         for ((s, m) in a.creatures) creatureMeshes[s] = Mesh(m)
         for ((s, m) in a.segments) segmentMeshes[s] = Mesh(m)
-        subMesh = Mesh(a.sub); propMesh = Mesh(a.prop); flareMesh = Mesh(a.flare); echoMesh = Mesh(a.echo); droneMesh = Mesh(a.drone)
+        subMesh = Mesh(a.sub); propMesh = Mesh(a.prop); flareMesh = Mesh(a.flare); echoMesh = Mesh(a.echo); droneMesh = Mesh(a.drone); coreMesh = Mesh(a.core)
         quad = Mesh(MeshData(floatArrayOf(-1f, -1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f, 1f, -1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f,
             1f, 1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f, -1f, 1f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 0f), 4, intArrayOf(0, 1, 2, 0, 2, 3), 6))
         buildSnow(4000)
@@ -500,6 +502,16 @@ class WorldRenderer(private val game: GameState) {
             echoMesh.draw()
         }
         lit.f1("u_glow", 1f)
+        // crew data cores waiting to be recovered
+        for (it in Structures.interacts) {
+            if (it.kind != com.hadal.game.world.InteractKind.LOG || g.story.logsFound.contains(g.logIndex(it))) continue
+            if (!frustum.sphere(it.x, it.y, it.z, 2f)) continue
+            Mat4.fromTRS(model, it.x, it.y, it.z, time * 0.8f + it.id, 0.2f, 0f, 1.2f, 1.2f, 1.2f)
+            lit.m4("u_model", model)
+            lit.f1("u_glow", 0.8f + 0.2f * sin(time * 2.5f + it.id))
+            coreMesh.draw()
+        }
+        lit.f1("u_glow", 1f)
 
         drawCreatures(opaque = true)
 
@@ -641,12 +653,13 @@ class WorldRenderer(private val game: GameState) {
             // the water eats the glow with distance, red first
             val tr = kotlin.math.exp(-ext[0] * d); val tg = kotlin.math.exp(-ext[1] * d); val tb = kotlin.math.exp(-ext[2] * d)
             val k = exposure * 0.6f
-            glow.f3("u_center", x, y, z); glow.f1("u_size", size * (1f + d * 0.01f))
+            // never let a sprite grow larger than a fraction of its distance, or one close to the camera fills the screen
+            glow.f3("u_center", x, y, z); glow.f1("u_size", min(size * (1f + d * 0.01f), d * 0.45f))
             glow.f3("u_color", r * tr * k, gg * tg * k, b * tb * k); glow.f1("u_streak", streak)
             quad.draw()
         }
         val sub = g.sub
-        if (lampColor[0] > 0.1f) {
+        if (lampColor[0] > 0.1f && !(g.settings.cockpitCamera && !g.docked)) {
             Mat4.fromTRS(model, sub.pos.x, sub.pos.y, sub.pos.z, sub.bodyYaw, -sub.bodyPitch, sub.bodyRoll, 1f, 1f, 1f)
             // lamp lenses flare when they face the camera
             val f = Vec3(); sub.forward(f)
@@ -660,6 +673,11 @@ class WorldRenderer(private val game: GameState) {
             }
         }
         for (f in g.flares) sprite(f.pos.x, f.pos.y, f.pos.z, 1.6f, 4f, 1.3f, 0.5f, 0.3f)
+        for (it in Structures.interacts) {
+            if (it.kind != com.hadal.game.world.InteractKind.LOG || g.story.logsFound.contains(g.logIndex(it))) continue
+            val pulse = 0.65f + 0.35f * sin(time * 2.5f + it.id)
+            sprite(it.x, it.y, it.z, 1.4f, 2.4f * pulse, 1.5f * pulse, 0.5f * pulse)
+        }
         for (d in g.fleet.drones) {
             if (d.state == com.hadal.game.game.DroneState.LOST) continue
             val pulse = 0.7f + 0.3f * sin(time * 4f + d.index * 2f)

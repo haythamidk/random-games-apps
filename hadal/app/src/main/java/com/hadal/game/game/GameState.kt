@@ -307,13 +307,15 @@ class GameState(val settings: Settings) {
     private val nrm = FloatArray(3)
 
     private fun collide(dt: Float, speedBefore: Float) {
-        val rad = 1.5f
+        // the hull is about 2.5 m across and 2.3 m tall, so a 1.3 m sphere hugs it; the skids sit 1.45 m below the center
+        val rad = 1.3f
+        val floorRad = 1.45f
         var hit = 0f
         // floor
         val h = SeaGen.height(sub.pos.x, sub.pos.z)
-        if (sub.pos.y - rad < h) {
+        if (sub.pos.y - floorRad < h) {
             SeaGen.normal(sub.pos.x, sub.pos.z, nrm)
-            val pen = h - (sub.pos.y - rad)
+            val pen = h - (sub.pos.y - floorRad)
             sub.pos.y += pen
             val vn = sub.vel.x * nrm[0] + sub.vel.y * nrm[1] + sub.vel.z * nrm[2]
             if (vn < 0f) { hit = max(hit, -vn); sub.vel.x -= vn * nrm[0] * 1.3f; sub.vel.y -= vn * nrm[1] * 1.3f; sub.vel.z -= vn * nrm[2] * 1.3f }
@@ -325,7 +327,9 @@ class GameState(val settings: Settings) {
         if (sub.pos.y > -1.2f) { sub.pos.y = -1.2f; if (sub.vel.y > 0f) sub.vel.y = 0f }
         // structures
         for (c in Structures.colliders) {
-            if (sub.pos.x < c.minX - rad || sub.pos.x > c.maxX + rad || sub.pos.z < c.minZ - rad || sub.pos.z > c.maxZ + rad) continue
+            val ddx = sub.pos.x - c.cx; val ddz = sub.pos.z - c.cz
+            val near = (if (c.cylinder) c.radius else c.reach) + rad
+            if (ddx * ddx + ddz * ddz > near * near) continue
             if (sub.pos.y < c.minY - rad || sub.pos.y > c.maxY + rad) continue
             if (c.cylinder) {
                 val dx = sub.pos.x - c.cx; val dz = sub.pos.z - c.cz
@@ -344,16 +348,25 @@ class GameState(val settings: Settings) {
                     else { sub.pos.y -= bot; if (sub.vel.y > 0f) { hit = max(hit, sub.vel.y); sub.vel.y *= -0.3f } }
                 }
             } else {
-                val px = clamp(sub.pos.x, c.minX, c.maxX); val py = clamp(sub.pos.y, c.minY, c.maxY); val pz = clamp(sub.pos.z, c.minZ, c.maxZ)
-                var dx = sub.pos.x - px; var dy = sub.pos.y - py; var dz = sub.pos.z - pz
+                // work in the box's own frame so turned wrecks get a tight, correct hit box
+                val cs = c.cosY; val sn = c.sinY
+                val lx = ddx * cs - ddz * sn; val lz = ddx * sn + ddz * cs
+                val px = clamp(lx, -c.hx, c.hx); val py = clamp(sub.pos.y, c.minY, c.maxY); val pz = clamp(lz, -c.hz, c.hz)
+                var dx = lx - px; var dy = sub.pos.y - py; var dz = lz - pz
                 val d2 = dx * dx + dy * dy + dz * dz
                 if (d2 < rad * rad) {
                     var d = sqrt(d2)
                     if (d < 1e-3f) { dy = 1f; dx = 0f; dz = 0f; d = 1f }
                     val pen = rad - d
-                    sub.pos.add(dx / d * pen, dy / d * pen, dz / d * pen)
-                    val vn = (sub.vel.x * dx + sub.vel.y * dy + sub.vel.z * dz) / d
-                    if (vn < 0f) { hit = max(hit, -vn); sub.vel.x -= vn * dx / d * 1.3f; sub.vel.y -= vn * dy / d * 1.3f; sub.vel.z -= vn * dz / d * 1.3f }
+                    val pdx = dx / d * pen; val pdz = dz / d * pen
+                    sub.pos.add(pdx * cs + pdz * sn, dy / d * pen, -pdx * sn + pdz * cs)
+                    var vlx = sub.vel.x * cs - sub.vel.z * sn; var vlz = sub.vel.x * sn + sub.vel.z * cs
+                    val vn = (vlx * dx + sub.vel.y * dy + vlz * dz) / d
+                    if (vn < 0f) {
+                        hit = max(hit, -vn)
+                        vlx -= vn * dx / d * 1.3f; sub.vel.y -= vn * dy / d * 1.3f; vlz -= vn * dz / d * 1.3f
+                        sub.vel.x = vlx * cs + vlz * sn; sub.vel.z = -vlx * sn + vlz * cs
+                    }
                 }
             }
         }
@@ -361,8 +374,10 @@ class GameState(val settings: Settings) {
         chunks.forEachNodeNear(sub.pos.x, sub.pos.z, 12f) { n ->
             val t = n.type
             if (t.collide <= 0f) return@forEachNodeNear
-            val cr = t.collide * n.scale + rad
             val top = n.y + t.collideHeight * n.scale
+            // tall rock towers and chimneys narrow toward the top, so their hit box does too
+            val taper = if (t == FloraType.PILLAR || t == FloraType.CHIMNEY) 1f - 0.55f * clamp((sub.pos.y - n.y) / (t.collideHeight * n.scale), 0f, 1f) else 1f
+            val cr = t.collide * n.scale * taper + rad
             if (sub.pos.y > top + rad * 0.5f) return@forEachNodeNear
             val dx = sub.pos.x - n.x; val dz = sub.pos.z - n.z
             val d = sqrt(dx * dx + dz * dz)
@@ -518,6 +533,12 @@ class GameState(val settings: Settings) {
             val d = sub.pos.distXZ(e.x, e.z)
             if (d < range * 1.5f) blips.add(Blip(e.x, e.y, e.z, 4, min(d, range) / speed))
         }
+        // unrecovered crew data cores show up on the sonar too
+        for (it in Structures.interacts) {
+            if (it.kind != InteractKind.LOG || story.logsFound.contains(logIndex(it))) continue
+            val d = sub.pos.distXZ(it.x, it.z)
+            if (d < range * 1.5f) blips.add(Blip(it.x, it.y, it.z, 6, min(d, range) / speed))
+        }
         // songwhales answer the sonar
         for (c in ecology.list) if (c.species == Species.SONGWHALE && c.pos.dist(sub.pos) < range * 1.5f) { c.cool = 0f }
         ecology.paleThreat = clamp01(ecology.paleThreat + 0.12f)
@@ -593,6 +614,19 @@ class GameState(val settings: Settings) {
             if (label.isEmpty()) continue
             bi = d; useInteract = it; useLabel = label
         }
+    }
+
+    /** Distance hint to the nearest unrecovered data core among [indices], or an empty string. */
+    fun coreHint(indices: IntRange): String {
+        var best = Float.MAX_VALUE
+        for (it in Structures.interacts) {
+            if (it.kind != InteractKind.LOG) continue
+            val li = logIndex(it)
+            if (li !in indices || story.logsFound.contains(li)) continue
+            val dx = it.x - sub.pos.x; val dy = it.y - sub.pos.y; val dz = it.z - sub.pos.z
+            best = min(best, sqrt(dx * dx + dy * dy + dz * dz))
+        }
+        return if (best < 400f) "  nearest ${best.toInt()} m" else ""
     }
 
     fun logIndex(it: com.hadal.game.world.Interact): Int = when (it.poi.type) {

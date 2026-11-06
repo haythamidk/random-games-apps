@@ -298,6 +298,19 @@ object Models {
         return b.build()
     }
 
+    /** A recoverable crew data core: a rugged canister with an amber light band. */
+    fun core(): MeshData {
+        val b = MeshBuilder(256)
+        b.color(0.82f, 0.82f, 0.8f).mat(Mat.PAINT)
+        b.cylinder(0f, -0.5f, 0f, 0.38f, 0.38f, 1f, 10)
+        b.color(1f, 0.7f, 0.2f, 2.6f)
+        b.cylinder(0f, -0.1f, 0f, 0.4f, 0.4f, 0.14f, 10, caps = false)
+        b.color(0.25f, 0.27f, 0.3f).mat(Mat.METAL)
+        b.box(0f, 0.55f, 0f, 0.22f, 0.1f, 0.22f)
+        b.box(0f, -0.58f, 0f, 0.5f, 0.1f, 0.5f)
+        return b.build()
+    }
+
     fun flareMesh(): MeshData {
         val b = MeshBuilder(64)
         b.color(0.3f, 0.3f, 0.3f).mat(Mat.METAL)

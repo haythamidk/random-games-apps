@@ -333,4 +333,47 @@ class SimulationTest {
         assertEquals(3, h.fleet.drones.size)
         assertEquals(DroneStats.MAX_LEVEL, h.fleet.levels[DroneUpgrade.RANGE.ordinal])
     }
+
+    @Test
+    fun everyDataCoreCanBeReached() {
+        Structures.buildAll()
+        val rad = 1.3f
+        var checked = 0
+        for (it in Structures.interacts.filter { it.kind == InteractKind.LOG }) {
+            // the arm works within radius + 2 of the core; find any spot there where the sub fits
+            var free = 0
+            var best = Float.MAX_VALUE
+            for (i in 0 until 4000) {
+                val a = i * 2.399963f
+                val u = ((i * 0.618034f) % 1f) * 2f - 1f
+                val r = (it.radius + 1.5f) * (0.35f + 0.65f * ((i * 0.381966f) % 1f))
+                val q = kotlin.math.sqrt(1f - u * u)
+                val x = it.x + kotlin.math.cos(a) * q * r; val z = it.z + kotlin.math.sin(a) * q * r; val y = it.y + u * r
+                if (y > -3f || y < SeaGen.height(x, z) + 1.45f) continue
+                if (Structures.colliders.any { c -> c.touches(x, y, z, rad) }) continue
+                free++
+            }
+            println("core ${it.poi.name} #${it.index}: ${free} free positions in reach")
+            assertTrue("core ${it.poi.name} #${it.index} has free positions in reach ($free)", free > 200)
+            checked++
+        }
+        assertEquals(7, checked)
+    }
+
+    @Test
+    fun wreckHitBoxFollowsTheHull() {
+        Structures.buildAll()
+        val mer = SeaGen.poi(PoiType.MERIDIAN)
+        val hull = Structures.colliders.filter { c -> c.yaw != 0f && c.hx > 10f }
+        assertEquals(2, hull.size)
+        // the hull is 12 m wide, so a point 9 m to the side of the hull axis must be clear even near the middle of a half
+        val c = hull[0]
+        val sideX = c.cx + c.sinY * (c.hz + 3f)   // local z axis in world
+        val sideZ = c.cz + c.cosY * (c.hz + 3f)
+        assertTrue("clear beside the hull", !c.touches(sideX, mer.y + 3f, sideZ, 1.3f))
+        // and the old axis-aligned box would have covered it
+        val oldHz = kotlin.math.abs(c.sinY) * c.hx + kotlin.math.abs(c.cosY) * c.hz
+        println("hull half width now ${c.hz} m, an axis aligned box would have been ${oldHz} m")
+        assertTrue(oldHz > c.hz + 2f)
+    }
 }

@@ -8,12 +8,33 @@ import com.hadal.game.engine.Rng
 import com.hadal.game.engine.TWO_PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 
-/** Axis aligned box or vertical cylinder used for sub collisions. */
-class Collider(val minX: Float, val minY: Float, val minZ: Float, val maxX: Float, val maxY: Float, val maxZ: Float, val cylinder: Boolean = false) {
-    val cx get() = (minX + maxX) * 0.5f
-    val cz get() = (minZ + maxZ) * 0.5f
+/**
+ * Box or vertical cylinder used for sub collisions. A box can be turned by [yaw] around its center: the min/max values
+ * then describe it in its own frame (centered on the middle of min/max), so rotated wrecks get tight hit boxes.
+ */
+class Collider(val minX: Float, val minY: Float, val minZ: Float, val maxX: Float, val maxY: Float, val maxZ: Float, val cylinder: Boolean = false, val yaw: Float = 0f) {
+    val cx = (minX + maxX) * 0.5f
+    val cz = (minZ + maxZ) * 0.5f
+    val hx = (maxX - minX) * 0.5f
+    val hz = (maxZ - minZ) * 0.5f
     val radius get() = (maxX - minX) * 0.5f
+    val cosY = cos(yaw)
+    val sinY = sin(yaw)
+    /** Radius of a circle around the center that contains the whole box. */
+    val reach = sqrt(hx * hx + hz * hz)
+
+    /** True if a sphere of radius [pad] at the world point touches the collider. */
+    fun touches(x: Float, y: Float, z: Float, pad: Float): Boolean {
+        if (y < minY - pad || y > maxY + pad) return false
+        val dx = x - cx; val dz = z - cz
+        if (cylinder) { val rr = radius + pad; return dx * dx + dz * dz < rr * rr }
+        val lx = dx * cosY - dz * sinY; val lz = dx * sinY + dz * cosY
+        val px = lx.coerceIn(-hx, hx); val pz = lz.coerceIn(-hz, hz); val py = y.coerceIn(minY, maxY)
+        val ex = lx - px; val ey = y - py; val ez = lz - pz
+        return ex * ex + ey * ey + ez * ez < pad * pad
+    }
 }
 
 /** A light fixture on a structure. [group] lets the game switch sets of lights (e.g. relay repaired). */
@@ -61,9 +82,12 @@ object Structures {
                 }
                 PoiType.MERIDIAN -> {
                     ship(b, cols, fx, p.x, y, p.z, 0.35f, 1f, Rng(77))
-                    interacts.add(Interact(iid++, InteractKind.LOG, p.x - 18f, y + 6f, p.z + 3f, 5f, p, 0))
-                    interacts.add(Interact(iid++, InteractKind.LOG, p.x + 4f, y + 14f, p.z - 1f, 5f, p, 1))
-                    interacts.add(Interact(iid++, InteractKind.LOG, p.x + 34f, y + 4f, p.z + 8f, 5f, p, 2))
+                    // the three cores sit above the wreck in its own frame: the stern deck, over the bridge and the bow
+                    for ((i, c) in listOf(Triple(-24f, 0f, 9f), Triple(4f, 0f, 19.5f), Triple(27f, 0f, 15f)).withIndex()) {
+                        val wx = p.x + c.first * cos(0.35f) + c.second * sin(0.35f)
+                        val wz = p.z - c.first * sin(0.35f) + c.second * cos(0.35f)
+                        interacts.add(Interact(iid++, InteractKind.LOG, wx, y + c.third, wz, 5f, p, i))
+                    }
                 }
                 PoiType.WRECK -> {
                     ship(b, cols, fx, p.x, y, p.z, if (p.x > 0) -0.6f else 1.1f, 0.55f, Rng(p.id.toLong() * 13))
@@ -238,15 +262,16 @@ object Structures {
         b.sphere(len * 0.12f, h + 9.6f * s, 0f, 0.25f, 0.25f, 0.25f, 4, 6)
         b.pop()
         val c = cos(yaw); val sn = sin(yaw)
-        // colliders for each half (axis aligned approximation of the rotated hull)
-        for (half in listOf(-1f, 1f)) {
-            val hx = x + c * half * len * 0.27f; val hz = z - sn * half * len * 0.27f
-            val ex = kotlin.math.abs(c) * len * 0.23f + kotlin.math.abs(sn) * w * 0.5f
-            val ez = kotlin.math.abs(sn) * len * 0.23f + kotlin.math.abs(c) * w * 0.5f
-            cols.add(Collider(hx - ex, y - 2f, hz - ez, hx + ex, y + h + 0.5f, hz + ez))
+        // one tight oriented box per hull half (the gap in the middle is open), following the ship's heading
+        val inner = 0.06f * len; val outer = 0.52f * len
+        val half = (outer - inner) * 0.5f; val mid = (outer + inner) * 0.5f
+        for (sign in listOf(-1f, 1f)) {
+            val lx = sign * mid
+            val hx = x + lx * c; val hz = z - lx * sn
+            cols.add(Collider(hx - half, y - 2f, hz - w * 0.5f, hx + half, y + h + 0.5f, hz + w * 0.5f, yaw = yaw))
         }
         val bx = x + c * len * 0.12f; val bz = z - sn * len * 0.12f
-        cols.add(Collider(bx - 5f * s, y + h, bz - 5f * s, bx + 5f * s, y + h + 9.5f * s, bz + 5f * s))
+        cols.add(Collider(bx - 5f * s, y + h, bz - w * 0.37f, bx + 5f * s, y + h + 9.5f * s, bz + w * 0.37f, yaw = yaw))
         fx.add(Fixture(bx, y + h + 9.6f * s, bz, 1f, 0.3f, 0.15f, 10f, blink = 2.3f))
     }
 
