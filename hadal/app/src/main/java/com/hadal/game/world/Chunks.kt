@@ -294,6 +294,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             val roll = rng.nextFloat()
             when (zone) {
                 Zone.SHELF -> when {
+                    roll > 0.965f -> add(FloraType.SCRAP, x, z, 1f)
                     !steep && d1 > 0.55f && roll < 0.55f -> add(FloraType.KELP, x, z, rng.range(0.7f, 1.35f), 0f)
                     !steep && roll < 0.3f -> add(FloraType.SEAGRASS, x, z, rng.range(0.7f, 1.3f), 0f)
                     d2 > 0.5f && roll < 0.42f -> add(listOf(FloraType.CORAL_FAN, FloraType.CORAL_BRAIN, FloraType.CORAL_BRANCH)[rng.nextInt(3)], x, z, rng.range(0.6f, 1.4f))
@@ -305,6 +306,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
                     roll < 0.523f -> add(FloraType.CLAM, x, z, 1f, 0f)
                 }
                 Zone.TWILIGHT -> when {
+                    roll > 0.965f -> add(FloraType.SCRAP, x, z, 1f)
                     d1 > 0.5f && roll < 0.2f -> add(FloraType.SPONGE, x, z, rng.range(0.6f, 1.5f))
                     d2 > 0.55f && roll < 0.3f -> add(FloraType.CORAL_FAN, x, z, rng.range(0.8f, 1.8f))
                     roll < 0.38f -> add(FloraType.ROCK, x, z, rng.range(0.6f, 2f), 0.3f)
@@ -317,6 +319,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
                     roll < 0.474f -> add(FloraType.CLAM, x, z, 1f, 0f)
                 }
                 Zone.MIDNIGHT -> when {
+                    roll > 0.975f -> add(FloraType.SCRAP, x, z, 1f)
                     d1 > 0.45f && roll < 0.14f -> add(FloraType.NODULE, x, z, rng.range(0.8f, 1.3f), 0f)
                     roll < 0.2f -> add(FloraType.SEA_LILY, x, z, rng.range(0.7f, 1.5f), 0f)
                     roll < 0.24f -> add(FloraType.ANEMONE, x, z, rng.range(0.7f, 1.4f), 0f)

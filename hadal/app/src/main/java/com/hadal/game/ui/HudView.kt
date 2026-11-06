@@ -337,7 +337,9 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         path.reset(); path.moveTo(cx, cy - 6 * dp); path.lineTo(cx - 4 * dp, cy + 4 * dp); path.lineTo(cx + 4 * dp, cy + 4 * dp); path.close()
         c.drawPath(path, paint)
         text.textSize = 9 * dp; text.color = Color.argb(150, 160, 220, 255)
-        c.drawText("SONAR ${d.sonarRange.toInt()} m", cx - r * 0.6f, cy + r + 12 * dp, text)
+        text.textAlign = Paint.Align.CENTER
+        c.drawText("SONAR ${d.sonarRange.toInt()} m", cx, cy + r - 12 * dp, text)
+        text.textAlign = Paint.Align.LEFT
     }
 
     private fun wrap(s: String, p: Paint, maxW: Float): List<String> {
