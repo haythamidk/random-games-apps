@@ -3,7 +3,7 @@ package com.hadal.game.input
 import kotlin.math.abs
 import kotlin.math.sqrt
 
-enum class Action { LAMP, SONAR, USE, FLARE, PULSE, REPAIR, MENU, CAMERA, SKIP }
+enum class Action { LAMP, SONAR, USE, FLARE, PULSE, REPAIR, MENU, CAMERA, SKIP, DEPLOY }
 
 /** Unified input from touch, gamepad and keyboard/mouse. Written by the UI thread, consumed by the game thread. */
 class InputState {

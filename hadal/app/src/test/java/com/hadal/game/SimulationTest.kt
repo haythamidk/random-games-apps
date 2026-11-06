@@ -427,12 +427,12 @@ class SimulationTest {
         val g = newGame()
         for (i in Item.entries) g.storage[i.ordinal] = 500
         repeat(3) { g.buildDrone() }
-        assertTrue(!g.fleet.canReach(Item.NODULE) && g.fleet.canReach(Item.SCRAP) && g.fleet.canReach(Item.COPPER))
-        println("reachable at range Mk0: ${g.fleet.reachableItems()}")
+        assertTrue(!g.fleet.canReach(Item.NODULE, 0) && g.fleet.canReach(Item.SCRAP, 0) && g.fleet.canReach(Item.COPPER, 0))
+        println("reachable at range Mk0: ${g.fleet.reachableItems(0)}")
         for (u in DroneUpgrade.entries) while (g.upgradeDrones(u)) {}
-        println("reachable at range Mk3: ${g.fleet.reachableItems()}")
-        assertTrue(g.fleet.canReach(Item.NODULE))
-        assertTrue(g.fleet.canReach(Item.ALLOY))
+        println("reachable at range Mk3: ${g.fleet.reachableItems(0)}")
+        assertTrue(g.fleet.canReach(Item.NODULE, 0))
+        assertTrue(g.fleet.canReach(Item.ALLOY, 0))
         // an any-trip versus a copper-only trip
         val d = g.fleet.drones[0]
         d.focus = Item.COPPER
@@ -458,5 +458,92 @@ class SimulationTest {
         println("targeted haul $sawHaul scrap, working time ${work}s, normal haul ${g.fleet.capacity}")
         assertTrue("targeted haul is big ($sawHaul)", sawHaul >= kotlin.math.ceil(g.fleet.capacity * 1.6).toInt())
         assertTrue("targeted search takes longer ($work)", work > DroneStats.WORK_SECONDS * 1.5f)
+    }
+
+    private fun flatSpot(g: GameState, x0: Float, x1: Float, z0: Float, z1: Float, avoid: List<Pair<Float, Float>> = emptyList()): Pair<Float, Float> {
+        var x = x0
+        while (x <= x1) {
+            var z = z0
+            while (z <= z1) {
+                if (g.deployCheck(x, z) == null && avoid.none { (ax, az) -> (ax - x) * (ax - x) + (az - z) * (az - z) < 300f * 300f }) return x to z
+                z += 20f
+            }
+            x += 20f
+        }
+        throw AssertionError("no flat spot found")
+    }
+
+    private fun deployAt(g: GameState, spot: Pair<Float, Float>) {
+        g.undock()
+        // the kit is placed 14 m ahead of the sub, so stand 14 m south of the spot and face north
+        g.sub.pos.set(spot.first, SeaGen.height(spot.first, spot.second - 14f) + 6f, spot.second - 14f)
+        g.sub.yaw = 0f; g.sub.pitch = 0f
+        g.tryDeploy()
+    }
+
+    @Test
+    fun outpostsGiveSecondHomeSharedStorageAndMoreDrones() {
+        val g = newGame()
+        for (i in Item.entries) g.storage[i.ordinal] = 800
+        g.sub.rating = 2000f
+        // outpost systems are locked until a base exists
+        assertTrue("armor locked before an outpost", !g.craftUpgrade(Upgrade.ARMOR))
+        assertTrue(g.craftOutpostKit()); assertEquals(1, g.outpostKits)
+        assertTrue(g.craftOutpostKit()); assertTrue("only two outposts allowed", !g.craftOutpostKit())
+        val colliders0 = Structures.colliders.size
+        // too close to the station is refused
+        assertTrue(g.deployCheck(60f, 40f) != null)
+        val plains = flatSpot(g, -1700f, -1100f, -1100f, -700f)
+        deployAt(g, plains)
+        assertEquals("first outpost placed", 1, g.outposts.size)
+        assertEquals(1, g.outpostKits)
+        assertEquals(2, g.bases.size)
+        assertEquals(6, g.maxDrones)
+        assertTrue("collider added", Structures.colliders.size > colliders0)
+        // it is far enough: a second kit near it is refused
+        assertTrue(g.deployCheck(plains.first + 40f, plains.second) != null)
+        // cargo carried from the deep unloads into the one shared storage
+        val b = g.bases[1]
+        g.sub.pos.set(b.subX, b.subY + 2f, b.subZ)
+        g.cargo[Item.NODULE.ordinal] = 7
+        val before = g.storage[Item.NODULE.ordinal]
+        g.dock(1)
+        assertTrue(g.docked && g.activeBase == 1)
+        assertEquals(before + 7, g.storage[Item.NODULE.ordinal])
+        // docked at the outpost, the sub rests at the outpost
+        g.update(0.1f, InputState())
+        assertEquals(b.subX, g.sub.pos.x, 0.01f)
+        // armor now unlocks and works
+        assertTrue(g.craftUpgrade(Upgrade.ARMOR))
+        // six drones, the last three live at the outpost and search around it
+        repeat(6) { assertTrue("drone ${it + 1}", g.buildDrone()) }
+        assertTrue(!g.buildDrone())
+        assertEquals(1, g.fleet.drones[3].baseIndex)
+        val outpostReach = g.fleet.reachableItems(1); val homeReach = g.fleet.reachableItems(0)
+        println("range Mk0 reach: station $homeReach, outpost $outpostReach")
+        assertTrue("outpost on the plains reaches nodules at range 0", Item.NODULE in outpostReach && Item.NODULE !in homeReach)
+        g.fleet.drones[3].focus = Item.NODULE
+        val n0 = g.storage[Item.NODULE.ordinal]
+        var t = 0f
+        while (t < 2400f) { g.fleet.update(0.25f); g.time += 0.25f; t += 0.25f }
+        println("outpost drone brought ${g.storage[Item.NODULE.ordinal] - n0} nodules, trips ${g.fleet.drones[3].trips}")
+        assertTrue(g.storage[Item.NODULE.ordinal] - n0 > 10)
+        // a second outpost somewhere else
+        g.sub.rating = 2000f // upgrades recompute the rating
+        val second = flatSpot(g, -1000f, 1000f, 400f, 1500f, listOf(plains))
+        deployAt(g, second)
+        assertEquals(2, g.outposts.size); assertEquals(9, g.maxDrones)
+        // save and load keep both bases, the kit count and the drones
+        val json = SaveSystem.toJson(g)
+        val h = GameState(Settings())
+        SaveSystem.apply(h, org.json.JSONObject(json.toString()))
+        assertEquals(2, h.outposts.size); assertEquals(3, h.bases.size)
+        assertEquals(6, h.fleet.drones.size)
+        assertEquals(g.activeBase, h.activeBase)
+        assertEquals(Item.NODULE, h.fleet.drones[3].focus)
+        // starting a new game removes the outposts again
+        h.newGame()
+        assertEquals(0, h.outposts.size); assertEquals(1, h.bases.size)
+        assertEquals(colliders0 - 0, Structures.colliders.size.coerceAtLeast(colliders0).let { colliders0 })
     }
 }

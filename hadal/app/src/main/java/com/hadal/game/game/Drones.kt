@@ -21,7 +21,9 @@ enum class DroneUpgrade(val title: String, val desc: String) {
 }
 
 object DroneStats {
-    const val MAX_DRONES = 3
+    /** Bays per base: the station and each outpost host this many drones. */
+    const val PER_BASE = 3
+    const val MAX_DRONES = PER_BASE * (1 + OutpostRules.MAX_OUTPOSTS)
     const val MAX_LEVEL = 3
     const val WORK_SECONDS = 25f
     const val LOST_SECONDS = 90f
@@ -33,10 +35,15 @@ object DroneStats {
     val capacity = intArrayOf(2, 4, 6, 9)
     val range = floatArrayOf(300f, 600f, 1000f, 1700f)
 
-    fun buildCost(n: Int): Map<Item, Int> = when (n) {
-        0 -> mapOf(Item.SCRAP to 12, Item.COPPER to 6)
-        1 -> mapOf(Item.SCRAP to 16, Item.COPPER to 10, Item.BIOSAMPLE to 4)
-        else -> mapOf(Item.NODULE to 12, Item.COPPER to 12, Item.CRYSTAL to 4)
+    fun buildCost(n: Int): Map<Item, Int> {
+        val base = when (n % PER_BASE) {
+            0 -> mapOf(Item.SCRAP to 12, Item.COPPER to 6)
+            1 -> mapOf(Item.SCRAP to 16, Item.COPPER to 10, Item.BIOSAMPLE to 4)
+            else -> mapOf(Item.NODULE to 12, Item.COPPER to 12, Item.CRYSTAL to 4)
+        }
+        // drones for an outpost bay cost more
+        val k = 1f + 0.5f * (n / PER_BASE)
+        return base.mapValues { (it.value * k).toInt() }
     }
 
     fun upgradeCost(u: DroneUpgrade, lvl: Int): Map<Item, Int> = when (u) {
@@ -80,6 +87,8 @@ object DroneStats {
 enum class DroneState { IDLE, OUT, WORKING, BACK, LOST }
 
 class Drone(val index: Int) {
+    /** Which base this drone lives at (0 = Lantern Station). */
+    val baseIndex = index / DroneStats.PER_BASE
     var state = DroneState.IDLE
     var timer = 2f + index * 4f
     var travel = 1f
@@ -111,7 +120,7 @@ class DroneFleet(private val g: GameState) {
     val capacity get() = DroneStats.capacity[levels[DroneUpgrade.CAPACITY.ordinal]]
     val range get() = DroneStats.range[levels[DroneUpgrade.RANGE.ordinal]]
 
-    fun reset() { drones.clear(); levels.fill(0) }
+    fun reset() { drones.clear(); levels.fill(0); reachCache.clear() }
 
     fun addDrone(): Drone {
         val d = Drone(drones.size)
@@ -123,7 +132,8 @@ class DroneFleet(private val g: GameState) {
 
     private fun placeHome(d: Drone) {
         // a little row of docking cradles beside the Wren
-        d.home.set(Structures.dockX + (d.index - 1) * 3.2f, Structures.dockY - 4.2f, Structures.dockZ + 5.5f)
+        val b = g.base(d.baseIndex)
+        d.home.set(b.subX + (d.index % DroneStats.PER_BASE - 1) * 3.2f, b.subY - 0.7f, b.subZ + 5.5f)
     }
 
     fun update(dt: Float) {
@@ -160,39 +170,44 @@ class DroneFleet(private val g: GameState) {
 
     private val reachCache = HashMap<Long, Boolean>()
 
-    /** True if some place where [item] can be found lies within the drones' current range. */
-    fun canReach(item: Item): Boolean {
-        val key = item.ordinal * 10L + levels[DroneUpgrade.RANGE.ordinal]
-        return reachCache.getOrPut(key) { candidates(item).isNotEmpty() }
+    /** True if some place where [item] can be found lies within range of base [baseIdx]. */
+    fun canReach(item: Item, baseIdx: Int): Boolean {
+        val key = (item.ordinal * 10L + levels[DroneUpgrade.RANGE.ordinal]) * 10L + baseIdx
+        return reachCache.getOrPut(key) { candidates(item, baseIdx).isNotEmpty() }
     }
 
-    private fun candidates(item: Item): List<FloatArray> {
+    /** True if any base can reach it. */
+    fun canReachAny(item: Item): Boolean = (0 until g.bases.size).any { canReach(item, it) }
+
+    private fun candidates(item: Item, baseIdx: Int): List<FloatArray> {
+        val b = g.base(baseIdx)
         val r2 = range * range
         val out = ArrayList<FloatArray>()
         for (z in Locator.zonesFor(item)) for (p in Locator.zonePoints(z)) {
-            val dx = p[0] - Structures.dockX; val dz = p[1] - Structures.dockZ
+            val dx = p[0] - b.subX; val dz = p[1] - b.subZ
             if (dx * dx + dz * dz <= r2 && dx * dx + dz * dz > 50f * 50f) out.add(p)
         }
         return out
     }
 
-    fun reachableItems(): List<Item> = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && canReach(it) }
+    fun reachableItems(baseIdx: Int): List<Item> = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && canReach(it, baseIdx) }
 
     private fun launch(d: Drone) {
         var x: Float; var z: Float
         var focus = d.focus
-        if (focus != null && !canReach(focus)) { focus = null; d.focus = null }
+        val base = g.base(d.baseIndex)
+        if (focus != null && !canReach(focus, d.baseIndex)) { focus = null; d.focus = null }
         if (focus != null) {
             // head for a random area where the chosen material can be found
-            val c = candidates(focus)
+            val c = candidates(focus, d.baseIndex)
             val p = c[rng.nextInt(c.size)]
             x = p[0] + rng.range(-50f, 50f); z = p[1] + rng.range(-50f, 50f)
         } else {
             val dist = 60f + (range - 60f) * sqrt(rng.nextFloat())
             val a = rng.range(0f, TWO_PI)
-            x = Structures.dockX + sin(a) * dist; z = Structures.dockZ + cos(a) * dist
+            x = base.subX + sin(a) * dist; z = base.subZ + cos(a) * dist
         }
-        val dist = sqrt((x - Structures.dockX) * (x - Structures.dockX) + (z - Structures.dockZ) * (z - Structures.dockZ))
+        val dist = sqrt((x - base.subX) * (x - base.subX) + (z - base.subZ) * (z - base.subZ))
         val floor = SeaGen.height(x, z)
         d.target.set(x, floor + 2.5f, z)
         d.zone = SeaGen.zone(x, z, floor)

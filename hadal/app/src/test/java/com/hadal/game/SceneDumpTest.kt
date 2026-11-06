@@ -51,6 +51,15 @@ class SceneDumpTest {
             mesh(out, "seg_PALE", Models.segment(Species.PALE))
             mesh(out, "echo", Structures.echoStoneMesh())
             mesh(out, "drone", Models.drone())
+            run {
+                val ox = 40f; val oz = 80f
+                var oy = -1e9f
+                for (gx in listOf(-4f, 0f, 4f)) for (gz in listOf(-4f, 2f, 8f, 12f)) oy = maxOf(oy, SeaGen.height(ox + gx, oz + gz))
+                val geo = Structures.addOutpost(1, "Outpost 1", ox, oy, oz)
+                mesh(out, "outpost", geo.mesh)
+                File(out, "outpost.txt").writeText("$ox $oy $oz")
+                Structures.clearOutposts()
+            }
         }
         val x0 = System.getenv("HADAL_X")?.toFloat() ?: 0f
         val z0 = System.getenv("HADAL_Z")?.toFloat() ?: 20f

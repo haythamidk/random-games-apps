@@ -42,6 +42,7 @@ class Sub {
     var sonarRange = 90f
     var cargoCap = 16
     var silent = false
+    var stealth = 0
     var scanRange = 9f
     var scanSpeed = 1f
 
@@ -55,7 +56,8 @@ class Sub {
         lampRange = Costs.lampRange[lvl(Upgrade.LAMP)]
         lampCos = 0.82f - lvl(Upgrade.LAMP) * 0.035f
         sonarRange = Costs.sonarRange[lvl(Upgrade.SONAR)]
-        cargoCap = Costs.cargoCap[lvl(Upgrade.CARGO)]
+        cargoCap = Costs.cargoCap[lvl(Upgrade.CARGO)] + 8 * lvl(Upgrade.HOLD)
+        stealth = lvl(Upgrade.STEALTH)
         silent = lvl(Upgrade.SILENT) > 0
         scanRange = 9f + lvl(Upgrade.SCANNER) * 4f
         scanSpeed = 1f + lvl(Upgrade.SCANNER) * 0.5f
@@ -90,7 +92,7 @@ class Sub {
     }
 
     /** Multiplier on how far predators notice the sub: light and noise make it louder in the dark. */
-    fun detectability(): Float = clamp(0.55f + (if (lampOn) 0.35f else 0f) + noise * 0.6f, 0.4f, 1.6f)
+    fun detectability(): Float = clamp(0.55f + (if (lampOn) 0.35f else 0f) + noise * 0.6f, 0.4f, 1.6f) * (1f - 0.1f * stealth)
 
     fun addNoise(n: Float) { noise = max(noise, n) }
 }

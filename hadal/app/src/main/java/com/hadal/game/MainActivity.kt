@@ -74,6 +74,7 @@ class MainActivity : Activity(), UiManager.Callbacks {
         root.addView(hud, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
         ui = UiManager(this, root, game, this)
+        ui.onOpenChanged = { open -> hud.menuOpen = open }
         glView.setOnCapturedPointerListener { _, e -> onCapturedPointer(e) }
         hideSystemUi()
         hud.visibility = View.INVISIBLE
@@ -272,6 +273,7 @@ class MainActivity : Activity(), UiManager.Callbacks {
             KeyEvent.KEYCODE_V, KeyEvent.KEYCODE_BUTTON_R1 -> act(Action.PULSE)
             KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_DPAD_DOWN -> act(Action.REPAIR)
             KeyEvent.KEYCODE_T, KeyEvent.KEYCODE_BUTTON_THUMBR -> act(Action.CAMERA)
+            KeyEvent.KEYCODE_B, KeyEvent.KEYCODE_DPAD_LEFT -> act(Action.DEPLOY)
             KeyEvent.KEYCODE_ENTER -> act(Action.SKIP)
             KeyEvent.KEYCODE_BUTTON_R2 -> input.keyUp = down
             KeyEvent.KEYCODE_BUTTON_L2 -> input.keyDown = down

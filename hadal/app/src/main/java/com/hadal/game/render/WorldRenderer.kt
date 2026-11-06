@@ -98,6 +98,7 @@ class WorldRenderer(private val game: GameState) {
     private var dummyShadow: ShadowMap? = null
     private val floraMeshes = arrayOfNulls<Mesh>(FloraType.entries.size)
     private val structMeshes = ArrayList<Pair<com.hadal.game.world.StructureGeo, Mesh>>()
+    private val outpostMeshes = HashMap<Int, Mesh>()
     private val creatureMeshes = HashMap<Species, Mesh>()
     private val segmentMeshes = HashMap<Species, Mesh>()
     private lateinit var subMesh: Mesh
@@ -328,6 +329,11 @@ class WorldRenderer(private val game: GameState) {
                 add(fx.x, fx.y, fx.z, fx.range, fx.r * k, fx.g * k, fx.b * k)
             }
         }
+        for (o in g.outposts) for (fx in o.fixtures) {
+            var k = 1.6f
+            if (fx.blink > 0f) k *= if (sin(time * 6.28f / fx.blink) > 0.2f) 1f else 0.08f
+            add(fx.x, fx.y, fx.z, fx.range, fx.r * k, fx.g * k, fx.b * k)
+        }
         for (c in g.ecology.list) {
             when (c.species) {
                 Species.ANGLER -> { val k = c.glow * 1.4f; headPoint(c, 0f, 1.6f * c.size, 1.25f * c.size, tmpV); add(tmpV.x, tmpV.y, tmpV.z, 9f, 0.4f * k, 0.85f * k, 1f * k) }
@@ -489,6 +495,14 @@ class WorldRenderer(private val game: GameState) {
                 com.hadal.game.world.PoiType.STATION -> 1f + g.decor.count { it } * 0.05f
                 else -> 1f
             })
+            m.draw()
+        }
+        // player outposts
+        for (o in g.outposts) {
+            val m = outpostMeshes.getOrPut(o.base.index) { Mesh(o.mesh) }
+            if (!frustum.box(m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ)) continue
+            Mat4.identity(model); lit.m4("u_model", model)
+            lit.f1("u_glow", 1f + g.decor.count { it } * 0.03f)
             m.draw()
         }
         lit.f1("u_glow", 1f)
@@ -684,6 +698,11 @@ class WorldRenderer(private val game: GameState) {
             val pulse = 0.7f + 0.3f * sin(time * 4f + d.index * 2f)
             sprite(d.pos.x, d.pos.y + 0.85f, d.pos.z, 0.3f, 1.8f * pulse, 0.5f * pulse, 0.4f * pulse)
         }
+        for (o in g.outposts) for (fx in o.fixtures) {
+            var k = 1f
+            if (fx.blink > 0f) k = if (sin(time * 6.28f / fx.blink) > 0.2f) 1f else 0.05f
+            sprite(fx.x, fx.y, fx.z, 1.2f, fx.r * 2f * k, fx.g * 2f * k, fx.b * 2f * k)
+        }
         for ((geo, _) in structMeshes) for (fx in geo.fixtures) {
             if (!fixtureOn(fx)) continue
             var k = 1f
@@ -739,6 +758,7 @@ class WorldRenderer(private val game: GameState) {
             m.drawIndices(c.mainIdx)
         }
         for ((_, m) in structMeshes) if (lampFrustum.box(m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ)) m.draw()
+        for (m in outpostMeshes.values) if (lampFrustum.box(m.minX, m.minY, m.minZ, m.maxX, m.maxY, m.maxZ)) m.draw()
         for (c in g.ecology.list) {
             if (c.species == Species.MOON_JELLY || c.species == Species.WISP) continue
             if (!lampFrustum.sphere(c.pos.x, c.pos.y, c.pos.z, c.species.radius * 3f * c.size)) continue
@@ -861,6 +881,8 @@ class WorldRenderer(private val game: GameState) {
         for (m in floraMeshes) m?.release()
         for ((_, m) in structMeshes) m.release()
         structMeshes.clear()
+        for (m in outpostMeshes.values) m.release()
+        outpostMeshes.clear()
         for (m in creatureMeshes.values) m.release()
         for (m in segmentMeshes.values) m.release()
         lampShadow?.release(); dummyShadow?.release()

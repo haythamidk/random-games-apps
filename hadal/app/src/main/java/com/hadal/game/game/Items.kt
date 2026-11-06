@@ -26,7 +26,13 @@ enum class Upgrade(val title: String, val desc: String, val maxLevel: Int) {
     PULSE("Shock Pulse", "Electric discharge that drives attackers away.", 2),
     THERMAL("Thermal Tap", "Recharge power by hovering near hydrothermal vents.", 1),
     SILENT("Silent Running", "Dampened thrusters make far less noise.", 1),
-    SCANNER("Bio Scanner", "Scan faster and from further away.", 2);
+    SCANNER("Bio Scanner", "Scan faster and from further away.", 2),
+    ARMOR("Armor Plating", "The hull takes 15% less damage from bites and impacts per level.", 2),
+    STEALTH("Stealth Coating", "Quieter thrusters and harder for predators to notice.", 2),
+    HOLD("Deep Hold", "Eight more cargo slots per level.", 2);
+
+    /** Upgrades that only become available once an outpost has been built. */
+    val needsOutpost: Boolean get() = this == ARMOR || this == STEALTH || this == HOLD
 }
 
 object Costs {
@@ -75,6 +81,9 @@ object Costs {
         Upgrade.THERMAL -> mapOf(Item.CRYSTAL to 6, Item.COPPER to 8)
         Upgrade.SILENT -> mapOf(Item.NODULE to 10, Item.BIOSAMPLE to 6, Item.PEARL to 1)
         Upgrade.SCANNER -> if (lvl == 0) mapOf(Item.COPPER to 4, Item.BIOSAMPLE to 4) else mapOf(Item.PEARL to 2, Item.CRYSTAL to 3)
+        Upgrade.ARMOR -> if (lvl == 0) mapOf(Item.ALLOY to 4, Item.SCRAP to 20, Item.NODULE to 8) else mapOf(Item.ALLOY to 8, Item.CRYSTAL to 6, Item.PEARL to 2)
+        Upgrade.STEALTH -> if (lvl == 0) mapOf(Item.BIOSAMPLE to 8, Item.NODULE to 8, Item.COPPER to 10) else mapOf(Item.PEARL to 3, Item.CRYSTAL to 6, Item.BIOSAMPLE to 10)
+        Upgrade.HOLD -> if (lvl == 0) mapOf(Item.SCRAP to 20, Item.NODULE to 10, Item.COPPER to 10) else mapOf(Item.NODULE to 16, Item.ALLOY to 4, Item.CRYSTAL to 4)
     }
 
     val flare = mapOf(Item.SCRAP to 1, Item.BIOSAMPLE to 1)

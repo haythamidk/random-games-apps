@@ -70,6 +70,8 @@ class ChunkManager(private val harvest: HarvestRegistry) {
     private val pool = Workers.gen
 
     var viewRadius = 3
+    /** Circles (x, z, radius) kept clear of plants and rocks, for player outposts. */
+    val exclusions = ArrayList<FloatArray>()
     var density = 1f
     @Volatile var now = 0.0
     private val wanted = ArrayList<IntArray>()
@@ -126,6 +128,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             if (b.nodes != null && !c.nodesReady) {
                 c.nodes = b.nodes
                 for (n in c.nodes) if (n.type.harvestable && !harvest.isAlive(n.key, now)) n.alive = false
+                for (e in exclusions) for (n in c.nodes) { val dx = n.x - e[0]; val dz = n.z - e[1]; if (dx * dx + dz * dz < e[2] * e[2]) n.alive = false }
                 c.nodesReady = true; c.instDirty = true
             }
             uploads++

@@ -60,6 +60,69 @@ object Structures {
     @Volatile var built = false
         private set
 
+    private var baseColliderCount = 0
+    private var baseInteractCount = 0
+
+    /** Removes every outpost (new game or load): only the original world structures stay. */
+    fun clearOutposts() {
+        while (colliders.size > baseColliderCount) colliders.removeAt(colliders.size - 1)
+        while (interacts.size > baseInteractCount) interacts.removeAt(interacts.size - 1)
+    }
+
+    /** Builds an outpost on the sea floor at (x, z). [y] is the highest ground under it. Runs on the game thread. */
+    fun addOutpost(index: Int, name: String, x: Float, y: Float, z: Float): com.hadal.game.game.OutpostGeo {
+        val b = MeshBuilder(2048)
+        val cols = ArrayList<Collider>()
+        val fx = ArrayList<Fixture>()
+        habitat(b, cols, fx, x, y, z)
+        val base = com.hadal.game.game.Base(index, name, x, y, z, x, y + 3.0f, z + 8f)
+        val poi = Poi(3000 + index, PoiType.STATION, name, x, z, 12f)
+        colliders.addAll(cols)
+        interacts.add(Interact(5000 + index, InteractKind.DOCK, base.subX, base.subY, base.subZ, 6f, poi, index))
+        return com.hadal.game.game.OutpostGeo(base, b.build(), cols, fx)
+    }
+
+    private fun habitat(b: MeshBuilder, cols: ArrayList<Collider>, fx: ArrayList<Fixture>, x: Float, y: Float, z: Float) {
+        b.push().trs(x, y, z)
+        // legs sink into the ground so the base sits level on uneven floor
+        b.color(0.5f, 0.5f, 0.5f).mat(Mat.METAL)
+        for (sx in listOf(-2.3f, 2.3f)) for (sz in listOf(-2.3f, 2.3f)) b.cylinder(sx, -6f, sz, 0.34f, 0.28f, 7.6f, 8)
+        for (sx in listOf(-3.4f, 3.4f)) for (sz in listOf(4f, 12f)) b.cylinder(sx, -6f, sz, 0.3f, 0.26f, 7.1f, 8)
+        // living module
+        b.color(0.92f, 0.9f, 0.85f).mat(Mat.PAINT)
+        b.cylinder(0f, 1.4f, 0f, 3.2f, 3.2f, 3.2f, 20, caps = false)
+        b.color(0.85f, 0.62f, 0.12f).mat(Mat.PAINT)
+        b.cylinder(0f, 1.2f, 0f, 3.35f, 3.35f, 0.4f, 20)
+        b.cylinder(0f, 4.4f, 0f, 3.35f, 3.0f, 0.35f, 20, caps = false)
+        b.color(0.35f, 0.55f, 0.6f, 0.25f)
+        b.sphere(0f, 4.6f, 0f, 2.9f, 1.6f, 2.9f, 6, 16)
+        for (i in 0 until 8) {
+            val a = i * TWO_PI / 8
+            b.color(1f, 0.72f, 0.38f, 1.5f)
+            b.push().trs(cos(a) * 3.22f, 3.1f, sin(a) * 3.22f, -a + PI_F / 2f).box(0f, 0f, 0f, 0.9f, 0.7f, 0.1f).pop()
+        }
+        // tunnel to the landing pad
+        b.color(0.92f, 0.9f, 0.85f).mat(Mat.PAINT)
+        b.push().trs(0f, 2.6f, 4.6f, 0f, PI_F / 2f).cylinder(0f, -1.6f, 0f, 1.0f, 1.0f, 3.2f, 12).pop()
+        // landing pad for the Wren
+        b.color(0.45f, 0.45f, 0.47f).mat(Mat.METAL)
+        b.box(0f, 1.0f, 8f, 8f, 0.4f, 9f)
+        b.color(0.3f, 1f, 0.6f, 1.6f)
+        for (sx in listOf(-3.9f, 3.9f)) b.box(sx, 1.25f, 8f, 0.1f, 0.1f, 8.6f)
+        b.box(0f, 1.25f, 3.6f, 7.6f, 0.1f, 0.1f)
+        // mast with a blinking light
+        b.color(0.5f, 0.5f, 0.5f).mat(Mat.METAL)
+        b.cylinder(-1.2f, 5.2f, -1.2f, 0.07f, 0.05f, 4.2f, 5)
+        b.color(1f, 0.15f, 0.1f, 3f)
+        b.sphere(-1.2f, 9.5f, -1.2f, 0.2f, 0.2f, 0.2f, 4, 6)
+        b.pop()
+        cols.add(Collider(x - 3.3f, y + 1.2f, z - 3.3f, x + 3.3f, y + 6.2f, z + 3.3f, cylinder = true))
+        cols.add(Collider(x - 4f, y + 0.8f, z + 3.5f, x + 4f, y + 1.3f, z + 12.5f))
+        fx.add(Fixture(x, y + 4f, z, 1f, 0.75f, 0.45f, 20f))
+        fx.add(Fixture(x, y + 2.4f, z + 8f, 0.3f, 1f, 0.6f, 13f))
+        fx.add(Fixture(x - 1.2f, y + 9.5f, z - 1.2f, 1f, 0.15f, 0.1f, 12f, blink = 1.4f))
+    }
+
     @Synchronized
     fun buildAll() {
         if (built) return
@@ -114,6 +177,8 @@ object Structures {
         // echo stones share one small mesh, drawn by the renderer; only interactions here
         for ((i, e) in SeaGen.echoStones.withIndex()) interacts.add(Interact(iid++, InteractKind.ECHO, e.x, e.y + 1.2f, e.z, 4f, e, i))
         geos = list
+        baseColliderCount = colliders.size
+        baseInteractCount = interacts.size
         built = true
     }
 

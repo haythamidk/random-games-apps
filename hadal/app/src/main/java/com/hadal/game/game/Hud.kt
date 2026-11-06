@@ -14,6 +14,7 @@ class HudData {
     var scanLabel = ""
     var scanProgress = -1f
     var cargo = 0; var cargoCap = 0
+    var outpostKits = 0
     var flares = 0; var kits = 0
     var hasFlares = false; var hasPulse = false
     var lampOn = true
@@ -45,7 +46,7 @@ class HudData {
     fun copyFrom(o: HudData) {
         hull = o.hull; power = o.power; oxygen = o.oxygen; hullV = o.hullV; powerV = o.powerV; oxygenV = o.oxygenV
         depth = o.depth; rating = o.rating; heading = o.heading; speed = o.speed; zone = o.zone; objective = o.objective; chapter = o.chapter
-        useLabel = o.useLabel; scanLabel = o.scanLabel; scanProgress = o.scanProgress; cargo = o.cargo; cargoCap = o.cargoCap
+        outpostKits = o.outpostKits; useLabel = o.useLabel; scanLabel = o.scanLabel; scanProgress = o.scanProgress; cargo = o.cargo; cargoCap = o.cargoCap
         flares = o.flares; kits = o.kits; hasFlares = o.hasFlares; hasPulse = o.hasPulse; lampOn = o.lampOn; noise = o.noise; fear = o.fear
         damageFlash = o.damageFlash; lowPower = o.lowPower; lowOxygen = o.lowOxygen; pressure = o.pressure; docked = o.docked; dead = o.dead
         fps = o.fps; message = o.message; messageAlpha = o.messageAlpha; toast = o.toast; toastAlpha = o.toastAlpha

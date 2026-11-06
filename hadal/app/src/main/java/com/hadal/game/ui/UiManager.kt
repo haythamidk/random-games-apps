@@ -26,6 +26,7 @@ import com.hadal.game.game.GraphicsPreset
 import com.hadal.game.game.Item
 import com.hadal.game.game.Locator
 import com.hadal.game.game.Logs
+import com.hadal.game.game.OutpostRules
 import com.hadal.game.game.Sfx
 import com.hadal.game.game.Species
 import com.hadal.game.game.Upgrade
@@ -60,6 +61,8 @@ class UiManager(
     private var settingsTab = 0
     private var journalTab = "biodex"
     private var infoText = ""
+    /** Called with true when a menu opens and false when all menus are closed. */
+    var onOpenChanged: ((Boolean) -> Unit)? = null
     private var backAction: (() -> Unit)? = null
     private var screenKey = ""
 
@@ -125,7 +128,9 @@ class UiManager(
         val focusIdx = oldButtons.indexOfFirst { it.isFocused }
         if (!same && name != "main") game.sound.play(Sfx.UI_OPEN, 0.5f)
         current?.let { root.removeView(it) }
+        val wasOpen = isOpen
         current = v; screen = name; screenKey = key; isOpen = true; backAction = back
+        if (!wasOpen) onOpenChanged?.invoke(true)
         root.addView(v, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         v.post {
             val ns = ArrayList<View>(); val nb = ArrayList<View>()
@@ -138,7 +143,7 @@ class UiManager(
         }
     }
 
-    fun close() { current?.let { root.removeView(it) }; current = null; isOpen = false; screen = ""; screenKey = ""; infoText = "" }
+    fun close() { current?.let { root.removeView(it) }; current = null; isOpen = false; screen = ""; screenKey = ""; infoText = ""; onOpenChanged?.invoke(false) }
 
     fun back(): Boolean { val b = backAction ?: return false; b(); return true }
 
@@ -282,11 +287,11 @@ class UiManager(
         val col = vbox()
         col.addView(label("Controls", 20f, Color.WHITE, true))
         val t = """
-Touch: left stick moves, drag the right side to look. Arrow buttons rise and sink, the double chevron boosts. The big gold button grabs, docks and interacts. Hold the eye button to scan creatures. Lamp toggles the floodlamp, the rings send a sonar ping.
+Touch: left stick moves, drag the right side to look. Arrow buttons rise and sink, the double chevron boosts. The big gold button grabs, docks and interacts. Hold the eye button to scan creatures. Lamp toggles the floodlamp, the rings send a sonar ping. When you carry an outpost kit a house button appears: fly low over flat sea floor and press it to place a second base.
 
-Controller: left stick move, right stick look, R2 rise, L2 sink, A use, X hold to scan, Y lamp, B sonar, L1 flare, R1 shock pulse, press left stick to boost, right stick to change camera, D-pad down repair, D-pad up map, Start pause.
+Controller: left stick move, right stick look, R2 rise, L2 sink, A use, X hold to scan, Y lamp, B sonar, L1 flare, R1 shock pulse, press left stick to boost, right stick to change camera, D-pad down repair, D-pad left deploy outpost, D-pad up map, Start pause.
 
-Keyboard and mouse: WASD move, mouse look, Space rise, Ctrl or C sink, Shift boost, E use, Q hold to scan, F lamp, R sonar, G flare, V shock pulse, H repair, T camera, M map, Esc pause.
+Keyboard and mouse: WASD move, mouse look, Space rise, Ctrl or C sink, Shift boost, E use, Q hold to scan, F lamp, R sonar, G flare, V shock pulse, H repair, B deploy outpost, T camera, M map, Esc pause.
 
 Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. Dock at Lantern Station to unload cargo, recharge and fabricate upgrades. Noise and light draw predators. When the clicking starts, kill your lamp and drift.
 """.trimIndent()
@@ -301,8 +306,9 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
 
     private fun readyUpgrades(): List<Pair<String, String>> {
         val out = ArrayList<Pair<String, String>>()
-        for (u in Upgrade.entries) { val l = game.upgrades[u.ordinal]; if (l < u.maxLevel && game.storageHas(Costs.upgrade(u, l))) out.add("workshop" to "${u.title} Mk${l + 1}") }
-        if (game.fleet.drones.size < DroneStats.MAX_DRONES && game.storageHas(DroneStats.buildCost(game.fleet.drones.size))) out.add("drones" to "Drone ${game.fleet.drones.size + 1}")
+        for (u in Upgrade.entries) { if (u.needsOutpost && game.outposts.isEmpty()) continue; val l = game.upgrades[u.ordinal]; if (l < u.maxLevel && game.storageHas(Costs.upgrade(u, l))) out.add("workshop" to "${u.title} Mk${l + 1}") }
+        if (game.outposts.size + game.outpostKits < OutpostRules.MAX_OUTPOSTS && game.storageHas(OutpostRules.kitCost(game.outposts.size + game.outpostKits))) out.add("workshop" to "Outpost kit")
+        if (game.fleet.drones.size < game.maxDrones && game.storageHas(DroneStats.buildCost(game.fleet.drones.size))) out.add("drones" to "Drone ${game.fleet.drones.size + 1}")
         for (u in DroneUpgrade.entries) { val l = game.fleet.levels[u.ordinal]; if (l < DroneStats.MAX_LEVEL && game.storageHas(DroneStats.upgradeCost(u, l))) out.add("drones" to "Drone ${u.title} Mk${l + 1}") }
         for (dc in Decor.entries) if (!game.decor[dc.ordinal] && game.storageHas(dc.cost)) out.add("comforts" to dc.title)
         return out
@@ -405,7 +411,7 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         val outer = hbox()
         outer.addView(scroll(rail), LinearLayout.LayoutParams(dp(140f), ViewGroup.LayoutParams.MATCH_PARENT))
         outer.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-        show(panel(outer, 0.8f, Gravity.END), "station", null)
+        show(panel(outer, 0.72f, Gravity.END), "station", null)
     }
 
     private val openSec = HashSet<String>()
@@ -423,6 +429,8 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
 
     private fun fabricator(body: LinearLayout) {
         body.addView(label("Build upgrades from stored materials. Docking unloads your cargo. Tap a section to open it. Green outline: you can build it now.", 12.5f, DIM))
+        val kitReady = if (game.outposts.size + game.outpostKits < OutpostRules.MAX_OUTPOSTS && game.storageHas(OutpostRules.kitCost(game.outposts.size + game.outpostKits))) 1 else 0
+        collapsible(body, "ws_bases", "Outposts (second homes)", kitReady, game.outposts.isEmpty() && game.outpostKits == 0 && game.story.chapter >= 2) { b -> outpostsSection(b) }
         val groups = listOf(
             Triple("hull", "Hull and safety", listOf(Upgrade.HULL, Upgrade.OXYGEN, Upgrade.FLARES, Upgrade.PULSE)),
             Triple("power", "Power and movement", listOf(Upgrade.BATTERY, Upgrade.THRUSTERS, Upgrade.SILENT, Upgrade.THERMAL)),
@@ -431,33 +439,67 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         for ((key, title, list) in groups) {
             val ready = list.count { u -> game.upgrades[u.ordinal] < u.maxLevel && game.storageHas(Costs.upgrade(u, game.upgrades[u.ordinal])) }
             collapsible(body, "ws_$key", title, ready, key == "hull") { b ->
-                for (u in list) {
-                    val lvl = game.upgrades[u.ordinal]
-                    val cost = if (lvl < u.maxLevel) Costs.upgrade(u, lvl) else null
-                    val can = cost != null && game.storageHas(cost)
-                    val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
-                    val top = hbox()
-                    val name = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
-                    top.addView(label(name, 15f, Color.WHITE, true), lp(0, weight = 1f))
-                    if (cost != null) {
-                        top.addView(button(if (can) (if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade") else "Need more", can, 13f) {
-                            synchronized(game) { game.craftUpgrade(u) }
-                            showStation()
-                        }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-                        card.addView(top)
-                        card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
-                        card.addView(costRow(cost))
-                    } else {
-                        card.addView(top)
-                        card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
-                    }
-                    b.addView(card, lp())
-                }
+                for (u in list) upgradeCard(b, u, true)
             }
+        }
+        val sysReady = if (game.outposts.isEmpty()) 0 else listOf(Upgrade.ARMOR, Upgrade.STEALTH, Upgrade.HOLD).count { u -> game.upgrades[u.ordinal] < u.maxLevel && game.storageHas(Costs.upgrade(u, game.upgrades[u.ordinal])) }
+        collapsible(body, "ws_out", "Outpost systems", sysReady, false) { b ->
+            if (game.outposts.isEmpty()) b.addView(label("Locked. Build and deploy an outpost to unlock armor, stealth and extra cargo.", 12.5f, AMBER), lp())
+            for (u in listOf(Upgrade.ARMOR, Upgrade.STEALTH, Upgrade.HOLD)) upgradeCard(b, u, game.outposts.isNotEmpty())
         }
         val supplyReady = (if (game.upgrades[Upgrade.FLARES.ordinal] > 0 && game.sub.flares < 6 && game.storageHas(Costs.flare)) 1 else 0) +
             (if (game.sub.repairKits < 3 && game.storageHas(Costs.repairKit)) 1 else 0)
         collapsible(body, "ws_supplies", "Supplies (flares, repair kits)", supplyReady, false) { b -> supplies(b) }
+    }
+
+    private fun upgradeCard(b: LinearLayout, u: Upgrade, unlocked: Boolean) {
+        val lvl = game.upgrades[u.ordinal]
+        val cost = if (lvl < u.maxLevel) Costs.upgrade(u, lvl) else null
+        val can = unlocked && cost != null && game.storageHas(cost)
+        val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
+        val top = hbox()
+        val name = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
+        top.addView(label(name, 15f, Color.WHITE, true), lp(0, weight = 1f))
+        if (cost != null) {
+            top.addView(button(if (can) (if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade") else if (unlocked) "Need more" else "Locked", can, 13f) {
+                synchronized(game) { game.craftUpgrade(u) }
+                showStation()
+            }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+            card.addView(top)
+            card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
+            card.addView(costRow(cost))
+        } else {
+            card.addView(top)
+            card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
+        }
+        b.addView(card, lp())
+    }
+
+    private fun outpostsSection(b: LinearLayout) {
+        val built = game.outposts.size
+        b.addView(label("An outpost is a second home you place anywhere on flat sea floor. It has its own dock and three more drone bays that search around it, and it unlocks Outpost systems upgrades. Storage is shared, so you never carry materials between bases.", 12.5f, DIM))
+        b.addView(label("Built: $built / ${OutpostRules.MAX_OUTPOSTS}   Carrying a kit: ${game.outpostKits}   Drone bays: ${game.maxDrones}", 13f, Color.WHITE, true), lp())
+        val canMore = built + game.outpostKits < OutpostRules.MAX_OUTPOSTS
+        if (canMore) {
+            val cost = OutpostRules.kitCost(built + game.outpostKits)
+            val can = game.storageHas(cost)
+            val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
+            val top = hbox()
+            top.addView(label("Outpost kit", 15f, Color.WHITE, true), lp(0, weight = 1f))
+            top.addView(button(if (can) "Build kit" else "Need more", can, 13f) { synchronized(game) { game.craftOutpostKit() }; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+            card.addView(top)
+            card.addView(costRow(cost))
+            b.addView(card, lp())
+        }
+        if (game.outpostKits > 0) b.addView(label("You are carrying a kit. Dive to flat ground at least ${OutpostRules.MIN_SPACING.toInt()} m from your other bases, fly low over the sea floor and press the Deploy button.", 12.5f, GOOD), lp())
+        for (i in 1 until game.bases.size) {
+            val bs = game.bases[i]
+            val r = hbox().apply { setPadding(dp(10f), dp(4f), dp(4f), dp(4f)); background = bg(CARD, 10f) }
+            val zn = com.hadal.game.world.SeaGen.zone(bs.x, bs.z)
+            r.addView(label("${bs.name}   ${zn.title}, ${(-bs.y).toInt()} m deep", 13.5f, Color.WHITE), lp(0, weight = 1f))
+            r.addView(button(if (game.trackingKey == "base:$i") "Hide" else "Show on map", size = 12.5f) { synchronized(game) { game.toggleTrack("base:$i") }; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+            b.addView(r, lp(margin = 3f))
+        }
     }
 
     private fun upgradeDetail(u: Upgrade, lvl: Int): String = when (u) {
@@ -504,7 +546,7 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         val fleet = game.fleet
         droneStatus.clear()
         body.addView(label("Drones fly out on their own and bring materials home, even while you dive. Press a drone's Target button to pick one material: that trip takes twice as long but brings back about 60% more. Deep water gives rarer finds but can ambush a drone. Upgrades apply to every drone.", 12.5f, DIM))
-        val far = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && !fleet.canReach(it) }
+        val far = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && !fleet.canReachAny(it) }
         if (far.isNotEmpty()) body.addView(label("Out of range for now: " + far.joinToString { it.title } + ". Upgrade Range to reach them.", 12f, AMBER), lp(margin = 2f))
         for (u in DroneUpgrade.entries) {
             val lvl = fleet.levels[u.ordinal]
@@ -528,7 +570,12 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
             }
             body.addView(card, lp())
         }
-        for (i in 0 until DroneStats.MAX_DRONES) {
+        var lastBase = -1
+        for (i in 0 until game.maxDrones) {
+            if (i / DroneStats.PER_BASE != lastBase) {
+                lastBase = i / DroneStats.PER_BASE
+                body.addView(label(game.base(lastBase).name + (if (lastBase > 0) "  (drones search around this base)" else ""), 14f, AMBER, true), lp(margin = 2f).apply { topMargin = dp(8f) })
+            }
             val card = vbox(10f).apply { background = bg(if (i < fleet.drones.size) Color.argb(255, 18, 36, 40) else CARD, 12f) }
             when {
                 i < fleet.drones.size -> {
@@ -537,7 +584,7 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
                     topRow.addView(label("Drone ${i + 1}", 15f, Color.WHITE, true), lp(0, weight = 1f))
                     topRow.addView(button("Target: " + (d0.focus?.title ?: "Anything"), size = 12.5f, base = if (d0.focus != null) Color.argb(255, 20, 70, 96) else CARD) {
                         synchronized(game) {
-                            val opts = listOf<Item?>(null) + fleet.reachableItems()
+                            val opts = listOf<Item?>(null) + fleet.reachableItems(d0.baseIndex)
                             d0.focus = opts[(opts.indexOf(d0.focus).coerceAtLeast(0) + 1) % opts.size]
                         }
                         showStation()

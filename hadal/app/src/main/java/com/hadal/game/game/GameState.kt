@@ -34,6 +34,13 @@ class GameState(val settings: Settings) {
     val story = Story()
     val fleet = DroneFleet(this)
 
+    /** Lantern Station first, then every outpost the player has placed. */
+    val bases = ArrayList<Base>()
+    val outposts = ArrayList<OutpostGeo>()
+    var outpostKits = 0
+    var activeBase = 0
+    val maxDrones: Int get() = DroneStats.PER_BASE * bases.size.coerceAtLeast(1)
+
     /** Where the current story goal is, as a search circle (null when it has no place). */
     @Volatile var goal: Track? = null
     /** The place the player asked to be led to (a material, data cores, echo stones...). */
@@ -124,7 +131,7 @@ class GameState(val settings: Settings) {
 
     fun newGame() {
         cargo.fill(0); storage.fill(0); upgrades.fill(0); decor.fill(false)
-        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear(); fleet.reset(); clearTrack()
+        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear(); fleet.reset(); clearTrack(); resetBases()
         storage[Item.SCRAP.ordinal] = 2
         sub.hull = 100f; sub.power = 100f; sub.oxygen = 240f; sub.flares = 0; sub.repairKits = 1
         sub.applyUpgrades(upgrades)
@@ -135,14 +142,91 @@ class GameState(val settings: Settings) {
         started = true
     }
 
+    /** Removes all outposts and makes sure the station is base 0. */
+    fun resetBases() {
+        Structures.buildAll()
+        Structures.clearOutposts()
+        outposts.clear(); outpostKits = 0; activeBase = 0
+        chunks.exclusions.clear()
+        bases.clear()
+        val st = SeaGen.poi(PoiType.STATION)
+        bases.add(Base(0, "Lantern Station", st.x, st.y, st.z, Structures.dockX, Structures.dockY - 3.5f, Structures.dockZ))
+    }
+
+    fun base(i: Int): Base = bases.getOrNull(i) ?: bases[0]
+
+    fun nearestBase(x: Float, z: Float): Base = bases.minByOrNull { (it.x - x) * (it.x - x) + (it.z - z) * (it.z - z) } ?: bases[0]
+
     fun placeAtDock() {
         Structures.buildAll()
-        sub.pos.set(Structures.dockX, Structures.dockY - 3.5f, Structures.dockZ)
+        if (bases.isEmpty()) resetBases()
+        val b = base(activeBase)
+        sub.pos.set(b.subX, b.subY, b.subZ)
         sub.vel.set(0f, 0f, 0f)
         sub.yaw = 0f; sub.pitch = -0.15f; sub.bodyYaw = 0f; sub.bodyPitch = 0f
         docked = true
         ecology.clear()
         updateCamera(1f, snap = true)
+    }
+
+    // ------------------------------------------------------------------ outposts
+
+    /** Why an outpost cannot go at (x, z), or null if it can. */
+    fun deployCheck(x: Float, z: Float): String? {
+        if (outposts.size >= OutpostRules.MAX_OUTPOSTS) return "You already built the most outposts you can"
+        val fl = SeaGen.height(x, z)
+        if (-fl > sub.rating) return "Too deep for your hull rating"
+        if (-fl < 25f) return "Too shallow here. Go deeper"
+        var lo = Float.MAX_VALUE; var hi = -Float.MAX_VALUE
+        for (gx in listOf(-4f, 0f, 4f)) for (gz in listOf(-4f, 2f, 8f, 12f)) {
+            val h = SeaGen.height(x + gx, z + gz); lo = min(lo, h); hi = max(hi, h)
+        }
+        if (hi - lo > 2.4f) return "The ground is too uneven. Find a flatter spot"
+        for (b in bases) {
+            val d = sqrt((b.x - x) * (b.x - x) + (b.z - z) * (b.z - z))
+            if (d < OutpostRules.MIN_SPACING) return "Too close to ${b.name}. Keep ${OutpostRules.MIN_SPACING.toInt()} m apart"
+        }
+        for (p in SeaGen.pois) {
+            if (p.type == PoiType.ECHO) continue
+            val d = sqrt((p.x - x) * (p.x - x) + (p.z - z) * (p.z - z))
+            if (d < p.radius + 40f) return "Too close to ${p.name}"
+        }
+        return null
+    }
+
+    /** Places an outpost kit on the sea floor ahead of the sub. */
+    fun tryDeploy() {
+        if (docked) return
+        if (outpostKits <= 0) { toast("You are not carrying an outpost kit. Build one in the Workshop"); return }
+        val f = sub.forward(tmp)
+        val len = sqrt(f.x * f.x + f.z * f.z)
+        val fx = if (len > 0.2f) f.x / len else sin(sub.yaw)
+        val fz = if (len > 0.2f) f.z / len else cos(sub.yaw)
+        val x = sub.pos.x + fx * 14f; val z = sub.pos.z + fz * 14f
+        if (sub.pos.y - SeaGen.height(x, z) > 18f) { toast("Fly closer to the sea floor first"); return }
+        val why = deployCheck(x, z)
+        if (why != null) { toast(why); sound.play(Sfx.UI, 0.6f, 0.6f); return }
+        outpostKits--
+        val first = outposts.isEmpty()
+        val b = addOutpost(x, z)
+        sound.play(Sfx.BEACON, 0.8f); sound.play(Sfx.CRAFT, 0.8f)
+        toast("${b.name} is online")
+        if (first) say(Message("ARIA", "A second dock. Storage is shared, so nothing you bring here is lost. I will assign three more drones to it.", 6f))
+        requestSave()
+    }
+
+    /** Creates an outpost (used when placing one and when loading a save). */
+    fun addOutpost(x: Float, z: Float): Base {
+        val idx = bases.size
+        var y = -Float.MAX_VALUE
+        for (gx in listOf(-4f, 0f, 4f)) for (gz in listOf(-4f, 2f, 8f, 12f)) y = max(y, SeaGen.height(x + gx, z + gz))
+        val geo = Structures.addOutpost(idx, "Outpost $idx", x, y, z)
+        outposts.add(geo); bases.add(geo.base)
+        // clear the rocks and plants under the new base, and keep them gone when chunks reload
+        chunks.exclusions.add(floatArrayOf(x, z + 4f, 16f))
+        chunks.forEachNodeNear(x, z + 4f, 16f) { n -> n.alive = false }
+        chunks.markDirty(x, z)
+        return geo.base
     }
 
     fun requestSave() { saveRequested = true }
@@ -171,6 +255,7 @@ class GameState(val settings: Settings) {
             key == "echo" -> { g -> Locator.echoStone(g, g.sub.pos.x, g.sub.pos.z) }
             key == "beacon" -> { g -> Locator.beacon(g, g.sub.pos.x, g.sub.pos.z) }
             key == "choir" -> { _ -> Locator.poi(PoiType.CHOIR, "The Choir", 150f) }
+            key.startsWith("base:") -> { val i = key.substring(5).toInt(); { g -> g.bases.getOrNull(i)?.let { Track(it.name, it.x, it.z, 45f, "your base") } } }
             else -> return false
         }
         val t = spec(this)
@@ -240,7 +325,8 @@ class GameState(val settings: Settings) {
             sub.power = sub.maxPower; sub.oxygen = sub.maxOxygen
             sub.hull = min(sub.maxHull, sub.hull + dt * 8f)
             sub.vel.set(0f, 0f, 0f)
-            sub.pos.set(Structures.dockX, Structures.dockY - 3.5f, Structures.dockZ)
+            val ab = base(activeBase)
+            sub.pos.set(ab.subX, ab.subY, ab.subZ)
             sub.bodyYaw += angleDiff(sub.bodyYaw, sub.yaw) * min(1f, dt * 2f)
             updateCamera(dt)
             story.update(this)
@@ -304,7 +390,7 @@ class GameState(val settings: Settings) {
         story.deepest = max(story.deepest, depth)
 
         // noise: thrust, boost and impacts; dampened by silent running
-        val thrustNoise = (sub.speed / 11f) * (if (sub.silent) 0.45f else 1f) + (if (boosting) 0.35f else 0f)
+        val thrustNoise = ((sub.speed / 11f) * (if (sub.silent) 0.45f else 1f) + (if (boosting) 0.35f else 0f)) * (1f - 0.15f * upgrades[Upgrade.STEALTH.ordinal])
         sub.noise = max(thrustNoise, sub.noise - dt * 0.35f)
 
         // ---------------- world
@@ -448,7 +534,7 @@ class GameState(val settings: Settings) {
 
     fun damageSub(amount: Float, kind: DamageKind, quiet: Boolean = false) {
         if (dead || docked || amount <= 0f) return
-        sub.hull -= amount * settings.difficulty.damage
+        sub.hull -= amount * settings.difficulty.damage * (1f - 0.15f * upgrades[Upgrade.ARMOR.ordinal])
         if (!quiet) {
             damageFlash = clamp01(damageFlash + 0.35f + amount / 30f)
             camShake = max(camShake, clamp01(0.4f + amount / 25f))
@@ -495,8 +581,9 @@ class GameState(val settings: Settings) {
         sub.power = sub.maxPower; sub.oxygen = sub.maxOxygen
         sub.lampOn = true
         flares.clear()
+        activeBase = nearestBase(sub.pos.x, sub.pos.z).index
         placeAtDock()
-        if (lost > 0) say(Message("ARIA", "The recall drone found the Wren. The cargo did not survive the trip. I am glad you did.", 5f))
+        if (lost > 0) say(Message("ARIA", "The recall drone brought the Wren to ${base(activeBase).name}. The cargo did not survive the trip. I am glad you did.", 5f))
         onDocked?.invoke()
     }
 
@@ -515,6 +602,7 @@ class GameState(val settings: Settings) {
                 sub.repairKits--; sub.hull = min(sub.maxHull, sub.hull + 40f); sound.play(Sfx.REPAIR); toast("Hull patched")
             }
             Action.CAMERA -> settings.cockpitCamera = !settings.cockpitCamera
+            Action.DEPLOY -> if (!docked) tryDeploy()
             Action.MENU, Action.SKIP -> { if (a == Action.SKIP) { message = null; messageT = 0f } }
         }
     }
@@ -528,10 +616,11 @@ class GameState(val settings: Settings) {
         sound.play(Sfx.UNDOCK)
     }
 
-    fun dock() {
+    fun dock(baseIndex: Int = nearestBase(sub.pos.x, sub.pos.z).index) {
+        activeBase = baseIndex.coerceIn(0, bases.size - 1)
         docked = true
         sound.play(Sfx.DOCK)
-        // unload cargo into station storage
+        // unload cargo into the shared storage
         var moved = 0
         for (i in Item.entries) {
             if (i == Item.DATA_CORE) continue
@@ -576,6 +665,10 @@ class GameState(val settings: Settings) {
             if (story.echoes.contains(i)) continue
             val d = sub.pos.distXZ(e.x, e.z)
             if (d < range * 1.5f) blips.add(Blip(e.x, e.y, e.z, 4, min(d, range) / speed))
+        }
+        for (b in bases) {
+            val d = sub.pos.distXZ(b.x, b.z)
+            if (d < range * 3f) blips.add(Blip(b.x, b.y, b.z, 5, min(d, range) / speed))
         }
         // unrecovered crew data cores show up on the sonar too
         for (it in Structures.interacts) {
@@ -648,7 +741,7 @@ class GameState(val settings: Settings) {
             val d = sqrt((it.x - sub.pos.x).let { v -> v * v } + (it.y - sub.pos.y).let { v -> v * v } + (it.z - sub.pos.z).let { v -> v * v })
             if (d > it.radius + 2f || d > bi) continue
             val label = when (it.kind) {
-                InteractKind.DOCK -> "Dock"
+                InteractKind.DOCK -> "Dock at " + base(it.index).name
                 InteractKind.RELAY -> if (story.relayFixed) "" else "Repair Relay"
                 InteractKind.LOG -> if (story.logsFound.contains(logIndex(it))) "" else "Download Core"
                 InteractKind.BEACON -> if (story.beacons.contains(it.index)) "" else "Wake Beacon"
@@ -697,7 +790,7 @@ class GameState(val settings: Settings) {
         }
         val it = useInteract ?: run { toast("Nothing in reach of the arm"); return }
         when (it.kind) {
-            InteractKind.DOCK -> dock()
+            InteractKind.DOCK -> dock(it.index)
             InteractKind.RELAY -> {
                 if (count(Item.COPPER) >= 4) {
                     cargo[Item.COPPER.ordinal] -= 4
@@ -775,6 +868,7 @@ class GameState(val settings: Settings) {
     fun craftUpgrade(u: Upgrade): Boolean {
         val lvl = upgrades[u.ordinal]
         if (lvl >= u.maxLevel) return false
+        if (u.needsOutpost && outposts.isEmpty()) return false
         val cost = Costs.upgrade(u, lvl)
         if (!storageHas(cost)) return false
         pay(cost)
@@ -800,7 +894,7 @@ class GameState(val settings: Settings) {
 
     fun buildDrone(): Boolean {
         val n = fleet.drones.size
-        if (n >= DroneStats.MAX_DRONES) return false
+        if (n >= maxDrones) return false
         val cost = DroneStats.buildCost(n)
         if (!storageHas(cost)) return false
         pay(cost)
@@ -819,6 +913,18 @@ class GameState(val settings: Settings) {
         pay(cost)
         fleet.levels[u.ordinal]++
         sound.play(Sfx.CRAFT, 0.8f)
+        requestSave()
+        return true
+    }
+
+    fun craftOutpostKit(): Boolean {
+        if (outposts.size + outpostKits >= OutpostRules.MAX_OUTPOSTS) return false
+        val cost = OutpostRules.kitCost(outposts.size + outpostKits)
+        if (!storageHas(cost)) return false
+        pay(cost)
+        outpostKits++
+        sound.play(Sfx.CRAFT)
+        say(Message("ARIA", "Outpost kit packed into the Wren's hold. Find flat ground and press Deploy.", 5f))
         requestSave()
         return true
     }
@@ -941,7 +1047,9 @@ class GameState(val settings: Settings) {
             }
         }
         h.blipCount = n
-        h.stationDx = -sub.pos.x; h.stationDz = -sub.pos.z
+        val nb = nearestBase(sub.pos.x, sub.pos.z)
+        h.stationDx = nb.x - sub.pos.x; h.stationDz = nb.z - sub.pos.z
+        h.outpostKits = outpostKits
         h.goalHint = story.hintText(this)
         val gt = goal
         if (gt != null) {

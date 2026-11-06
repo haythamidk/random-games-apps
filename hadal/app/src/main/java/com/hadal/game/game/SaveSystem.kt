@@ -41,6 +41,8 @@ object SaveSystem {
         for ((k, v) in g.harvest.respawnAt) hv.put(k.toString(), v)
         o.put("harvest", hv)
         o.put("pale", JSONObject().put("encounters", g.ecology.paleEncounters))
+        o.put("bases", JSONObject().put("kits", g.outpostKits).put("active", g.activeBase)
+            .put("outposts", JSONArray().also { arr -> for (op in g.outposts) arr.put(JSONArray().put(op.base.x.toDouble()).put(op.base.z.toDouble())) }))
         o.put("drones", JSONObject().put("count", g.fleet.drones.size).put("levels", ints(g.fleet.levels)).put("focus", ints(IntArray(g.fleet.drones.size) { g.fleet.drones[it].focus?.ordinal ?: -1 })))
         return o
     }
@@ -81,11 +83,17 @@ object SaveSystem {
         g.harvest.respawnAt.clear()
         o.optJSONObject("harvest")?.let { j -> for (k in j.keys()) g.harvest.respawnAt[k.toLong()] = j.optDouble(k) }
         g.ecology.paleEncounters = o.optJSONObject("pale")?.optInt("encounters") ?: 0
+        g.resetBases()
+        o.optJSONObject("bases")?.let { j ->
+            j.optJSONArray("outposts")?.let { arr -> for (i in 0 until minOf(arr.length(), OutpostRules.MAX_OUTPOSTS)) { val a = arr.optJSONArray(i) ?: continue; g.addOutpost(a.optDouble(0).toFloat(), a.optDouble(1).toFloat()) } }
+            g.outpostKits = j.optInt("kits").coerceIn(0, OutpostRules.MAX_OUTPOSTS)
+            g.activeBase = j.optInt("active").coerceIn(0, g.bases.size - 1)
+        }
         g.fleet.reset()
         o.optJSONObject("drones")?.let { j ->
             readInts(j.optJSONArray("levels"), g.fleet.levels)
             val fo = j.optJSONArray("focus")
-            for (i in 0 until j.optInt("count").coerceIn(0, DroneStats.MAX_DRONES)) {
+            for (i in 0 until j.optInt("count").coerceIn(0, g.maxDrones)) {
                 val d = g.fleet.addDrone()
                 d.focus = fo?.optInt(i, -1)?.let { Item.entries.getOrNull(it) }
             }

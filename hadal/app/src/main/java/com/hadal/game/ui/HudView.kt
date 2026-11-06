@@ -34,6 +34,8 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
     private val dp = resources.displayMetrics.density
     var onMenu: (() -> Unit)? = null
     var onMap: (() -> Unit)? = null
+    /** True while a menu panel covers the screen: gauges and goals are hidden so nothing shows through. */
+    @Volatile var menuOpen = false
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) }
@@ -51,7 +53,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
 
     private val btns = listOf(
         Btn("use"), Btn("scan", hold = true), Btn("lamp"), Btn("sonar"), Btn("up", hold = true), Btn("down", hold = true),
-        Btn("boost", hold = true), Btn("flare"), Btn("pulse"), Btn("repair"), Btn("menu"), Btn("map"), Btn("cam"),
+        Btn("boost", hold = true), Btn("flare"), Btn("pulse"), Btn("repair"), Btn("deploy"), Btn("menu"), Btn("map"), Btn("cam"),
     )
     private fun btn(id: String) = btns.first { it.id == id }
 
@@ -90,6 +92,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         val flare = btn("flare"); flare.r = sm; flare.cx = upB.cx; flare.cy = upB.cy - mid - sm - 18 * dp
         val pulse = btn("pulse"); pulse.r = sm; pulse.cx = flare.cx - sm * 2 - 14 * dp; pulse.cy = flare.cy
         val rep = btn("repair"); rep.r = sm; rep.cx = lamp.cx - sm * 2 - 12 * dp; rep.cy = lamp.cy
+        val dep = btn("deploy"); dep.r = sm; dep.cx = rep.cx - sm * 2 - 12 * dp; dep.cy = lamp.cy
         // top right row under the radar
         val radarR = 64 * dp
         val menu = btn("menu"); menu.r = 20 * dp; menu.cx = w - m - menu.r; menu.cy = m + radarR * 2 + 26 * dp
@@ -144,6 +147,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
             "flare" -> input.push(Action.FLARE)
             "pulse" -> input.push(Action.PULSE)
             "repair" -> input.push(Action.REPAIR)
+            "deploy" -> input.push(Action.DEPLOY)
             "menu" -> post { onMenu?.invoke() }
             "map" -> post { onMap?.invoke() }
             "cam" -> input.push(Action.CAMERA)
@@ -187,6 +191,12 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         time += 1f / 60f
         if (d.loading) { drawLoading(c); postInvalidateOnAnimation(); return }
         if (d.dead) { postInvalidateOnAnimation(); return }
+        if (menuOpen) {
+            // only crew messages stay visible, in the strip left of the panel
+            drawMessage(c)
+            postInvalidateOnAnimation()
+            return
+        }
         val alpha = (game.settings.touchOpacity * 255).toInt()
         if (game.settings.cockpitCamera && !d.docked) drawCockpit(c)
         drawGauges(c)
@@ -204,6 +214,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         btn("flare").visible = tc && d.hasFlares
         btn("pulse").visible = tc && d.hasPulse
         btn("repair").visible = tc && d.kits > 0 && d.hull < 0.95f
+        btn("deploy").visible = tc && d.outpostKits > 0
         if (tc) drawJoystick(c, alpha)
         drawButtons(c, alpha)
         if (game.settings.showFps) { mono.textSize = 12 * dp; mono.color = Color.argb(200, 140, 255, 160); c.drawText("${d.fps} FPS", width / 2f - 20 * dp, 66 * dp, mono) }
@@ -428,8 +439,8 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         val a = d.messageAlpha
         if (a <= 0.01f) return
         // while docked the station panel fills the right side, so messages move left
-        val w = if (d.docked) min(width * 0.36f, 420 * dp) else min(width * 0.46f, 520 * dp)
-        val x = if (d.docked) 18 * dp else width / 2f - w / 2
+        val w = if (menuOpen) width * 0.26f - 8 * dp else min(width * 0.46f, 520 * dp)
+        val x = if (menuOpen) 14 * dp else width / 2f - w / 2
         text.textSize = 14 * dp
         val lines = wrap(m.text, text, w - 28 * dp)
         val h = 34 * dp + lines.size * 18 * dp
@@ -531,6 +542,11 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
             }
             "flare" -> { text.textSize = 10 * dp; text.color = Color.WHITE; c.drawCircle(x, y - s * 0.2f, s * 0.35f, paint); c.drawText("${d.flares}", x, y + s * 0.95f, text) }
             "pulse" -> { path.reset(); path.moveTo(x + s * 0.2f, y - s); path.lineTo(x - s * 0.4f, y + s * 0.1f); path.lineTo(x + s * 0.1f, y + s * 0.1f); path.lineTo(x - s * 0.2f, y + s); c.drawPath(path, stroke) }
+            "deploy" -> {
+                path.reset(); path.moveTo(x - s, y + s * 0.2f); path.lineTo(x, y - s); path.lineTo(x + s, y + s * 0.2f); c.drawPath(path, stroke)
+                c.drawRect(x - s * 0.7f, y + s * 0.2f, x + s * 0.7f, y + s, stroke)
+                text.textSize = 9 * dp; text.color = Color.WHITE; c.drawText("${d.outpostKits}", x + s * 1.1f, y + s * 1.3f, text)
+            }
             "repair" -> { c.drawLine(x - s, y, x + s, y, stroke); c.drawLine(x, y - s, x, y + s, stroke); text.textSize = 9 * dp; text.color = Color.WHITE; c.drawText("${d.kits}", x + s, y + s, text) }
             "menu" -> for (i in -1..1) c.drawLine(x - s, y + i * s * 0.6f, x + s, y + i * s * 0.6f, stroke)
             "map" -> { rect.set(x - s, y - s * 0.8f, x + s, y + s * 0.8f); c.drawRect(rect, stroke); c.drawLine(x - s * 0.3f, y - s * 0.8f, x - s * 0.3f, y + s * 0.8f, stroke); c.drawLine(x + s * 0.3f, y - s * 0.8f, x + s * 0.3f, y + s * 0.8f, stroke) }

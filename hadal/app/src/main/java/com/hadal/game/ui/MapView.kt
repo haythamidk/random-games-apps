@@ -138,6 +138,14 @@ class MapView(ctx: Context, private val game: GameState) : View(ctx) {
             text.color = col
             c.drawText(p.name, x + 8 * dp, y + 4 * dp, text)
         }
+        for (b in game.bases) {
+            if (b.index == 0) continue
+            val x = sx(b.x); val y = sy(b.z)
+            paint.color = Color.rgb(255, 196, 90)
+            c.drawCircle(x, y, 6 * dp, paint)
+            text.color = Color.rgb(255, 196, 90)
+            c.drawText(b.name, x + 9 * dp, y + 4 * dp, text)
+        }
         for ((i, e) in SeaGen.echoStones.withIndex()) {
             if (!game.story.echoes.contains(i)) continue
             paint.color = Color.rgb(140, 230, 255)
