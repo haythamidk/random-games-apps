@@ -162,9 +162,20 @@ class UiManager(
 
     private fun scroll(v: View) = ScrollView(act).apply { addView(v); isFillViewport = true; isVerticalScrollBarEnabled = false }
 
+    private var infoBar: TextView? = null
+
+    /** Shows the name and description of a material: in the station info bar, or as a toast elsewhere. */
+    private fun tip(i: Item) {
+        val t = "${i.title}: ${i.desc}"
+        val bar = infoBar
+        if (bar != null && screen == "station") { bar.text = t; bar.setTextColor(Color.WHITE); game.sound.play(Sfx.UI, 0.3f) }
+        else android.widget.Toast.makeText(act, t, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     private fun icon(i: Item, sizeDp: Float) = ImageView(act).apply {
         setImageBitmap(ItemIcons.get(i))
         layoutParams = LinearLayout.LayoutParams(dp(sizeDp), dp(sizeDp)).apply { setMargins(dp(2f), dp(2f), dp(6f), dp(2f)) }
+        setOnClickListener { tip(i) }
     }
 
     private fun costRow(cost: Map<Item, Int>): View {
@@ -174,6 +185,7 @@ class UiManager(
             val chip = hbox().apply { setPadding(dp(4f), dp(2f), dp(8f), dp(2f)); background = bg(Color.argb(255, 10, 20, 26), 8f) }
             chip.addView(icon(i, 22f))
             chip.addView(label("$have/$n", 11.5f, if (have >= n) GOOD else BAD, true))
+            chip.setOnClickListener { tip(i) }
             row.addView(chip, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 2f))
         }
         return row
@@ -255,19 +267,52 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
 
     private val stationTabs = listOf("fab" to "Fabricator", "supplies" to "Supplies", "drones" to "Drones", "comforts" to "Comforts", "biodex" to "Biodex", "logs" to "Logs", "storage" to "Storage")
 
+    /** Little number on a menu tab: how many things in it can be built right now. */
+    private fun badge(id: String): String {
+        val n = when (id) {
+            "fab" -> Upgrade.entries.count { u -> game.upgrades[u.ordinal] < u.maxLevel && game.storageHas(Costs.upgrade(u, game.upgrades[u.ordinal])) }
+            "drones" -> (if (game.fleet.drones.size < DroneStats.MAX_DRONES && game.storageHas(DroneStats.buildCost(game.fleet.drones.size))) 1 else 0) +
+                DroneUpgrade.entries.count { u -> game.fleet.levels[u.ordinal] < DroneStats.MAX_LEVEL && game.storageHas(DroneStats.upgradeCost(u, game.fleet.levels[u.ordinal])) }
+            "supplies" -> (if (game.upgrades[Upgrade.FLARES.ordinal] > 0 && game.sub.flares < 6 && game.storageHas(Costs.flare)) 1 else 0) +
+                (if (game.sub.repairKits < 3 && game.storageHas(Costs.repairKit)) 1 else 0)
+            "comforts" -> Decor.entries.count { !game.decor[it.ordinal] && game.storageHas(it.cost) }
+            else -> 0
+        }
+        return if (n > 0) "  \u25CF$n" else ""
+    }
+
+    /** One row with every stored material. Tap an icon to see what it is. */
+    private fun materialsBar(): View {
+        val row = hbox()
+        for (i in Item.entries) {
+            if (i == Item.FLARE || i == Item.REPAIR_KIT || i == Item.DATA_CORE) continue
+            val chip = hbox().apply { setPadding(dp(4f), dp(2f), dp(8f), dp(2f)); background = bg(Color.argb(255, 10, 20, 26), 8f) }
+            chip.addView(icon(i, 24f))
+            chip.addView(label("${game.storage[i.ordinal]}", 13f, Color.WHITE, true))
+            chip.setOnClickListener { tip(i) }
+            row.addView(chip, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 2f))
+        }
+        return HorizontalScrollView(act).apply { addView(row); isHorizontalScrollBarEnabled = false }
+    }
+
     fun showStation(t: String? = null) {
         if (t != null) tab = t
+        // left: a menu rail that is always visible. right: header, goal, materials, the page and an info line
+        val rail = vbox()
+        for ((id, name) in stationTabs) {
+            val sel = id == tab
+            rail.addView(button(name + badge(id), size = 13f, base = if (sel) Color.argb(255, 30, 84, 108) else CARD) { tab = id; showStation() }
+                .apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL }, lp(margin = 2f))
+        }
         val col = vbox()
         val header = hbox()
-        header.addView(label("Lantern Station", 20f, Color.rgb(255, 214, 140), true), lp(0, weight = 1f))
-        header.addView(button("Dive", size = 15f, base = Color.argb(255, 20, 70, 90)) { cb.onDive() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+        header.addView(label("Lantern Station", 19f, Color.rgb(255, 214, 140), true), lp(0, weight = 1f))
         header.addView(button("Map") { showMap { showStation() } }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         header.addView(button("Menu") { showPause() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+        header.addView(button("Dive", size = 16f, base = Color.argb(255, 24, 96, 120)) { cb.onDive() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(header)
-        col.addView(label(game.story.objectiveText(game), 12.5f, AMBER), lp(margin = 2f))
-        val tabs = hbox()
-        for ((id, name) in stationTabs) tabs.addView(button(name, size = 12.5f, base = if (id == tab) Color.argb(255, 26, 70, 90) else CARD) { tab = id; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 2f))
-        col.addView(HorizontalScrollView(act).apply { addView(tabs); isHorizontalScrollBarEnabled = false })
+        col.addView(label("Goal: " + game.story.objectiveText(game), 12.5f, AMBER), lp(margin = 2f))
+        col.addView(materialsBar())
         val body = vbox()
         when (tab) {
             "fab" -> fabricator(body)
@@ -279,32 +324,53 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
             else -> storageList(body)
         }
         col.addView(scroll(body), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        show(panel(col, 0.6f, Gravity.END), "station", null)
+        val info = label("Tap any material icon to see what it is.", 12f, DIM).apply {
+            setPadding(dp(10f), dp(6f), dp(10f), dp(6f)); background = bg(Color.argb(255, 8, 18, 24), 8f)
+        }
+        infoBar = info
+        col.addView(info, lp(margin = 3f))
+        val outer = hbox()
+        outer.addView(scroll(rail), LinearLayout.LayoutParams(dp(150f), ViewGroup.LayoutParams.MATCH_PARENT))
+        outer.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        show(panel(outer, 0.8f, Gravity.END), "station", null)
+    }
+
+    private fun section(body: LinearLayout, title: String, sub: String) {
+        body.addView(label(title, 14f, AMBER, true), lp(margin = 2f).apply { topMargin = dp(8f) })
+        body.addView(label(sub, 12f, DIM), lp(margin = 2f))
     }
 
     private fun fabricator(body: LinearLayout) {
-        body.addView(label("Upgrades are built from materials stored at the station. Docking unloads your cargo automatically.", 12.5f, DIM))
-        for (u in Upgrade.entries) {
-            val lvl = game.upgrades[u.ordinal]
-            val card = vbox(10f).apply { background = bg(CARD, 12f) }
-            val top = hbox()
-            val title = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
-            top.addView(label(title, 15f, Color.WHITE, true), lp(0, weight = 1f))
-            if (lvl < u.maxLevel) {
-                val cost = Costs.upgrade(u, lvl)
-                val can = game.storageHas(cost)
-                top.addView(button(if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade", can, 13f) {
-                    synchronized(game) { game.craftUpgrade(u) }
-                    showStation()
-                }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-                card.addView(top)
-                card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
-                card.addView(costRow(cost))
-            } else {
-                card.addView(top)
-                card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
+        body.addView(label("Build upgrades from stored materials. Docking unloads your cargo automatically. Green outline means you can build it now.", 12.5f, DIM))
+        val groups = listOf(
+            Triple("Hull and safety", "Go deeper, last longer, survive attacks.", listOf(Upgrade.HULL, Upgrade.OXYGEN, Upgrade.FLARES, Upgrade.PULSE)),
+            Triple("Power and movement", "Move faster, quieter and for longer.", listOf(Upgrade.BATTERY, Upgrade.THRUSTERS, Upgrade.SILENT, Upgrade.THERMAL)),
+            Triple("Sensors and tools", "See further and carry more.", listOf(Upgrade.LAMP, Upgrade.SONAR, Upgrade.SCANNER, Upgrade.CARGO)),
+        )
+        for ((title, subtitle, list) in groups) {
+            section(body, title, subtitle)
+            for (u in list) {
+                val lvl = game.upgrades[u.ordinal]
+                val cost = if (lvl < u.maxLevel) Costs.upgrade(u, lvl) else null
+                val can = cost != null && game.storageHas(cost)
+                val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
+                val top = hbox()
+                val name = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
+                top.addView(label(name, 15f, Color.WHITE, true), lp(0, weight = 1f))
+                if (cost != null) {
+                    top.addView(button(if (can) (if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade") else "Need more", can, 13f) {
+                        synchronized(game) { game.craftUpgrade(u) }
+                        showStation()
+                    }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+                    card.addView(top)
+                    card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
+                    card.addView(costRow(cost))
+                } else {
+                    card.addView(top)
+                    card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
+                }
+                body.addView(card, lp())
             }
-            body.addView(card, lp())
         }
     }
 
