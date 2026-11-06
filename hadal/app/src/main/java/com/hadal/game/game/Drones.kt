@@ -25,6 +25,9 @@ object DroneStats {
     const val MAX_LEVEL = 3
     const val WORK_SECONDS = 25f
     const val LOST_SECONDS = 90f
+    /** A drone sent after one material searches twice as long and brings back this many times more. */
+    const val FOCUS_TIME = 2f
+    const val FOCUS_HAUL = 1.6f
 
     val speed = floatArrayOf(5f, 7.5f, 11f, 15f)
     val capacity = intArrayOf(2, 4, 6, 9)
@@ -88,6 +91,10 @@ class Drone(val index: Int) {
     var distance = 0f
     val loot = IntArray(Item.entries.size)
     var trips = 0
+    /** Material this drone was told to look for (null = anything it finds). */
+    var focus: Item? = null
+    /** What this trip is after (set when it leaves). */
+    var hunting: Item? = null
 }
 
 /**
@@ -131,7 +138,7 @@ class DroneFleet(private val g: GameState) {
                 DroneState.OUT -> {
                     d.timer -= dt
                     fly(d, d.home, d.target, 1f - d.timer / d.travel)
-                    if (d.timer <= 0f) { d.state = DroneState.WORKING; d.timer = DroneStats.WORK_SECONDS; d.pos.set(d.target) }
+                    if (d.timer <= 0f) { d.state = DroneState.WORKING; d.timer = DroneStats.WORK_SECONDS * (if (d.hunting != null) DroneStats.FOCUS_TIME else 1f); d.pos.set(d.target) }
                 }
                 DroneState.WORKING -> {
                     d.timer -= dt
@@ -151,19 +158,48 @@ class DroneFleet(private val g: GameState) {
         }
     }
 
+    private val reachCache = HashMap<Long, Boolean>()
+
+    /** True if some place where [item] can be found lies within the drones' current range. */
+    fun canReach(item: Item): Boolean {
+        val key = item.ordinal * 10L + levels[DroneUpgrade.RANGE.ordinal]
+        return reachCache.getOrPut(key) { candidates(item).isNotEmpty() }
+    }
+
+    private fun candidates(item: Item): List<FloatArray> {
+        val r2 = range * range
+        val out = ArrayList<FloatArray>()
+        for (z in Locator.zonesFor(item)) for (p in Locator.zonePoints(z)) {
+            val dx = p[0] - Structures.dockX; val dz = p[1] - Structures.dockZ
+            if (dx * dx + dz * dz <= r2 && dx * dx + dz * dz > 50f * 50f) out.add(p)
+        }
+        return out
+    }
+
+    fun reachableItems(): List<Item> = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && canReach(it) }
+
     private fun launch(d: Drone) {
-        val r = range
-        // pick a spot, area weighted so far places are not over represented
-        val dist = 60f + (r - 60f) * sqrt(rng.nextFloat())
-        val a = rng.range(0f, TWO_PI)
-        val x = Structures.dockX + sin(a) * dist
-        val z = Structures.dockZ + cos(a) * dist
+        var x: Float; var z: Float
+        var focus = d.focus
+        if (focus != null && !canReach(focus)) { focus = null; d.focus = null }
+        if (focus != null) {
+            // head for a random area where the chosen material can be found
+            val c = candidates(focus)
+            val p = c[rng.nextInt(c.size)]
+            x = p[0] + rng.range(-50f, 50f); z = p[1] + rng.range(-50f, 50f)
+        } else {
+            val dist = 60f + (range - 60f) * sqrt(rng.nextFloat())
+            val a = rng.range(0f, TWO_PI)
+            x = Structures.dockX + sin(a) * dist; z = Structures.dockZ + cos(a) * dist
+        }
+        val dist = sqrt((x - Structures.dockX) * (x - Structures.dockX) + (z - Structures.dockZ) * (z - Structures.dockZ))
         val floor = SeaGen.height(x, z)
         d.target.set(x, floor + 2.5f, z)
         d.zone = SeaGen.zone(x, z, floor)
         d.distance = dist
         d.travel = max(4f, dist / speed)
         d.timer = d.travel
+        d.hunting = focus
         d.state = DroneState.OUT
         g.sound.playAt(Sfx.UNDOCK, d.home.x, d.home.y, d.home.z, 0.25f, 1.8f)
     }
@@ -174,6 +210,14 @@ class DroneFleet(private val g: GameState) {
             d.state = DroneState.LOST
             d.timer = DroneStats.LOST_SECONDS
             g.toast("Drone ${d.index + 1} was ambushed and went offline")
+            return
+        }
+        val hunt = d.hunting
+        if (hunt != null) {
+            // a targeted search takes longer but brings home a good pile of one material
+            d.loot[hunt.ordinal] = Math.ceil((capacity * DroneStats.FOCUS_HAUL).toDouble()).toInt() + if (rng.chance(0.4f)) 1 else 0
+            d.state = DroneState.BACK
+            d.timer = d.travel
             return
         }
         val table = DroneStats.loot(d.zone)
@@ -224,8 +268,8 @@ class DroneFleet(private val g: GameState) {
         val where = "${d.zone.title}, ${d.distance.toInt()} m"
         return when (d.state) {
             DroneState.IDLE -> "Docked, preparing the next trip" + if (d.trips > 0) "  (${d.trips} trips)" else ""
-            DroneState.OUT -> "Heading out to $where, ${d.timer.toInt()} s"
-            DroneState.WORKING -> "Searching $where, ${d.timer.toInt()} s"
+            DroneState.OUT -> (d.hunting?.let { "Looking for ${it.title}: " } ?: "Heading out: ") + "$where, ${d.timer.toInt()} s"
+            DroneState.WORKING -> (d.hunting?.let { "Collecting ${it.title}: " } ?: "Searching: ") + "$where, ${d.timer.toInt()} s"
             DroneState.BACK -> "Returning with ${d.loot.sum()} materials, ${d.timer.toInt()} s"
             DroneState.LOST -> "Offline after an ambush, back in ${d.timer.toInt()} s"
         }

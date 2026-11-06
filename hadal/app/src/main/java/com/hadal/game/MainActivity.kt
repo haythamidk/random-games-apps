@@ -146,7 +146,7 @@ class MainActivity : Activity(), UiManager.Callbacks {
         game.paused = false
         sound.setMusicWanted(true)
         // the intro plays over the station screen
-        hud.postDelayed({ if (game.docked) ui.showStation("fab") }, 400)
+        hud.postDelayed({ if (game.docked) ui.showStation("home") }, 400)
         glView.requestSave()
     }
 
@@ -156,7 +156,7 @@ class MainActivity : Activity(), UiManager.Callbacks {
             game.worldReady = false
             runOnUiThread {
                 if (!ok) { Toast.makeText(this, "Could not load save", Toast.LENGTH_LONG).show(); ui.showMainMenu() }
-                else { hud.visibility = View.VISIBLE; ui.showStation("fab") }
+                else { hud.visibility = View.VISIBLE; ui.showStation("home") }
             }
         }
         ui.close()

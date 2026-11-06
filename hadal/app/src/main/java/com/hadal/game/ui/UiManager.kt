@@ -24,6 +24,7 @@ import com.hadal.game.game.DroneUpgrade
 import com.hadal.game.game.GameState
 import com.hadal.game.game.GraphicsPreset
 import com.hadal.game.game.Item
+import com.hadal.game.game.Locator
 import com.hadal.game.game.Logs
 import com.hadal.game.game.Sfx
 import com.hadal.game.game.Species
@@ -55,8 +56,10 @@ class UiManager(
         private set
     var screen = ""
         private set
-    private var tab = "fab"
+    private var tab = "home"
     private var settingsTab = 0
+    private var journalTab = "biodex"
+    private var infoText = ""
     private var backAction: (() -> Unit)? = null
     private var screenKey = ""
 
@@ -135,7 +138,7 @@ class UiManager(
         }
     }
 
-    fun close() { current?.let { root.removeView(it) }; current = null; isOpen = false; screen = ""; screenKey = "" }
+    fun close() { current?.let { root.removeView(it) }; current = null; isOpen = false; screen = ""; screenKey = ""; infoText = "" }
 
     fun back(): Boolean { val b = backAction ?: return false; b(); return true }
 
@@ -145,7 +148,7 @@ class UiManager(
             tab = stationTabs[(i + dir + stationTabs.size) % stationTabs.size].first
             showStation(); return true
         }
-        if (screen == "settings") { settingsTab = (settingsTab + dir + 3) % 3; settingsBack?.let { showSettings(it) }; return true }
+        if (screen == "settings") { settingsTab = (settingsTab + dir + 4) % 4; settingsBack?.let { showSettings(it) }; return true }
         return false
     }
 
@@ -162,14 +165,27 @@ class UiManager(
 
     private fun scroll(v: View) = ScrollView(act).apply { addView(v); isFillViewport = true; isVerticalScrollBarEnabled = false }
 
-    private var infoBar: TextView? = null
-
-    /** Shows the name and description of a material: in the station info bar, or as a toast elsewhere. */
+    /** Tapping a material shows what it is and leads you to it: a blue circle on the map and compass. */
     private fun tip(i: Item) {
-        val t = "${i.title}: ${i.desc}"
-        val bar = infoBar
-        if (bar != null && screen == "station") { bar.text = t; bar.setTextColor(Color.WHITE); game.sound.play(Sfx.UI, 0.3f) }
-        else android.widget.Toast.makeText(act, t, android.widget.Toast.LENGTH_SHORT).show()
+        val key = "mat:" + i.name
+        val canFind = Locator.zonesFor(i).isNotEmpty()
+        val was = game.trackingKey == key
+        val on = canFind && synchronized(game) { game.toggleTrack(key) }
+        infoText = "${i.title}: ${i.desc}" + when {
+            on -> "\nBlue circle on the map and compass: ${game.tracked?.note ?: ""}. Tap it again to stop."
+            was -> "\nStopped looking for it."
+            else -> ""
+        }
+        if (screen == "station") showStation()
+        else android.widget.Toast.makeText(act, infoText, android.widget.Toast.LENGTH_LONG).show()
+    }
+
+    /** Same for story items: data cores, echo stones, beacons and the Choir. */
+    private fun findLore(key: String, what: String, how: String) {
+        val was = game.trackingKey == key
+        val on = synchronized(game) { game.toggleTrack(key) }
+        infoText = if (on) "$what: blue circle on the map and compass. $how Tap again to stop." else if (was) "Stopped looking for $what." else "Nothing left to find: $what."
+        if (screen == "station") showStation()
     }
 
     private fun icon(i: Item, sizeDp: Float) = ImageView(act).apply {
@@ -229,21 +245,37 @@ class UiManager(
 
     // ------------------------------------------------------------------ pause
 
+    /** Short card: what to do next and where. */
+    private fun goalCard(): View {
+        val card = vbox(12f).apply { background = bg(Color.argb(255, 26, 36, 30), 14f, Color.argb(200, 255, 200, 100)) }
+        card.addView(label(game.story.currentChapter?.title ?: "Free dive", 11.5f, AMBER, true))
+        card.addView(label(game.story.objectiveText(game), 16f, Color.WHITE, true))
+        val hint = game.story.hintText(game)
+        if (hint.isNotEmpty()) card.addView(label(hint, 13f, Color.rgb(200, 220, 232)))
+        val g = game.goal
+        if (g != null) {
+            val dx = g.x - game.sub.pos.x; val dz = g.z - game.sub.pos.z
+            val dist = kotlin.math.sqrt(dx * dx + dz * dz)
+            card.addView(label("Gold circle on the map: " + (if (dist < g.radius) "you are in the area" else "${dist.toInt()} m ${Locator.direction(dx, dz)}"), 12.5f, AMBER))
+        }
+        return card
+    }
+
     fun showPause() {
         val col = vbox()
-        col.addView(label("Paused", 22f, Color.WHITE, true))
-        col.addView(label(game.story.objectiveText(game), 13f, AMBER))
-        col.addView(View(act), lp(h = dp(8f)))
-        col.addView(button("Resume", size = 16f) { cb.onResumeGame() }, lp())
+        col.addView(label("Paused", 20f, Color.WHITE, true))
+        col.addView(goalCard(), lp())
+        col.addView(button("Resume", size = 17f, base = Color.argb(255, 24, 96, 120)) { cb.onResumeGame() }, lp())
         val row = hbox()
         row.addView(button("Map") { showMap { showPause() } }, lp(0, weight = 1f))
-        row.addView(button("Logbook") { showLogbook { showPause() } }, lp(0, weight = 1f))
-        row.addView(button("Biodex") { showBiodex { showPause() } }, lp(0, weight = 1f))
+        row.addView(button("Journal") { showJournal { showPause() } }, lp(0, weight = 1f))
+        row.addView(button("Settings") { showSettings { showPause() } }, lp(0, weight = 1f))
         col.addView(row)
-        col.addView(button("Settings") { showSettings { showPause() } }, lp())
-        col.addView(button("Controls help") { showHelp { showPause() } }, lp())
-        col.addView(button("Save and quit to title") { cb.onSaveAndQuit() }, lp())
-        show(panel(scroll(col), 0.5f), "pause") { cb.onResumeGame() }
+        val row2 = hbox()
+        row2.addView(button("How to play") { showHelp { showPause() } }, lp(0, weight = 1f))
+        row2.addView(button("Save and quit") { cb.onSaveAndQuit() }, lp(0, weight = 1f))
+        col.addView(row2)
+        show(panel(scroll(col), 0.55f), "pause") { cb.onResumeGame() }
     }
 
     private fun showHelp(back: () -> Unit) {
@@ -265,44 +297,91 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
 
     // ------------------------------------------------------------------ station (docked)
 
-    private val stationTabs = listOf("fab" to "Fabricator", "supplies" to "Supplies", "drones" to "Drones", "comforts" to "Comforts", "biodex" to "Biodex", "logs" to "Logs", "storage" to "Storage")
+    private val stationTabs = listOf("home" to "Home", "workshop" to "Workshop", "drones" to "Drones", "comforts" to "Comforts", "journal" to "Journal")
+
+    private fun readyUpgrades(): List<Pair<String, String>> {
+        val out = ArrayList<Pair<String, String>>()
+        for (u in Upgrade.entries) { val l = game.upgrades[u.ordinal]; if (l < u.maxLevel && game.storageHas(Costs.upgrade(u, l))) out.add("workshop" to "${u.title} Mk${l + 1}") }
+        if (game.fleet.drones.size < DroneStats.MAX_DRONES && game.storageHas(DroneStats.buildCost(game.fleet.drones.size))) out.add("drones" to "Drone ${game.fleet.drones.size + 1}")
+        for (u in DroneUpgrade.entries) { val l = game.fleet.levels[u.ordinal]; if (l < DroneStats.MAX_LEVEL && game.storageHas(DroneStats.upgradeCost(u, l))) out.add("drones" to "Drone ${u.title} Mk${l + 1}") }
+        for (dc in Decor.entries) if (!game.decor[dc.ordinal] && game.storageHas(dc.cost)) out.add("comforts" to dc.title)
+        return out
+    }
 
     /** Little number on a menu tab: how many things in it can be built right now. */
     private fun badge(id: String): String {
-        val n = when (id) {
-            "fab" -> Upgrade.entries.count { u -> game.upgrades[u.ordinal] < u.maxLevel && game.storageHas(Costs.upgrade(u, game.upgrades[u.ordinal])) }
-            "drones" -> (if (game.fleet.drones.size < DroneStats.MAX_DRONES && game.storageHas(DroneStats.buildCost(game.fleet.drones.size))) 1 else 0) +
-                DroneUpgrade.entries.count { u -> game.fleet.levels[u.ordinal] < DroneStats.MAX_LEVEL && game.storageHas(DroneStats.upgradeCost(u, game.fleet.levels[u.ordinal])) }
-            "supplies" -> (if (game.upgrades[Upgrade.FLARES.ordinal] > 0 && game.sub.flares < 6 && game.storageHas(Costs.flare)) 1 else 0) +
-                (if (game.sub.repairKits < 3 && game.storageHas(Costs.repairKit)) 1 else 0)
-            "comforts" -> Decor.entries.count { !game.decor[it.ordinal] && game.storageHas(it.cost) }
-            else -> 0
-        }
+        val n = readyUpgrades().count { it.first == id }
         return if (n > 0) "  \u25CF$n" else ""
     }
 
-    /** One row with every stored material. Tap an icon to see what it is. */
-    private fun materialsBar(): View {
-        val row = hbox()
-        for (i in Item.entries) {
-            if (i == Item.FLARE || i == Item.REPAIR_KIT || i == Item.DATA_CORE) continue
-            val chip = hbox().apply { setPadding(dp(4f), dp(2f), dp(8f), dp(2f)); background = bg(Color.argb(255, 10, 20, 26), 8f) }
-            chip.addView(icon(i, 24f))
-            chip.addView(label("${game.storage[i.ordinal]}", 13f, Color.WHITE, true))
-            chip.setOnClickListener { tip(i) }
-            row.addView(chip, lp(ViewGroup.LayoutParams.WRAP_CONTENT, margin = 2f))
+    private fun itemButton(i: Item): View {
+        val tracked = game.trackingKey == "mat:" + i.name
+        val b = button("${i.title}  x${game.storage[i.ordinal]}", true, 12.5f, if (tracked) Color.argb(255, 20, 70, 96) else CARD) { tip(i) }
+        val dr = android.graphics.drawable.BitmapDrawable(act.resources, ItemIcons.get(i))
+        dr.setBounds(0, 0, dp(26f), dp(26f))
+        b.setCompoundDrawables(dr, null, null, null)
+        b.compoundDrawablePadding = dp(6f)
+        b.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        return b
+    }
+
+    private fun homePage(body: LinearLayout) {
+        body.addView(goalCard(), lp())
+        val ready = readyUpgrades()
+        val rc = vbox(12f).apply { background = bg(CARD, 14f) }
+        rc.addView(label("Ready to build", 14f, Color.WHITE, true))
+        if (ready.isEmpty()) rc.addView(label("Nothing yet. Collect more materials, or send your drones out.", 12.5f, DIM))
+        else for ((tabId, name) in ready.take(4)) {
+            val r = hbox()
+            r.addView(label(name, 13.5f, GOOD), lp(0, weight = 1f))
+            r.addView(button("Open", size = 12.5f) { tab = tabId; showStation() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+            rc.addView(r)
         }
-        return HorizontalScrollView(act).apply { addView(row); isHorizontalScrollBarEnabled = false }
+        if (ready.size > 4) rc.addView(label("and ${ready.size - 4} more", 12f, DIM))
+        body.addView(rc, lp())
+
+        val fc = vbox(12f).apply { background = bg(CARD, 14f) }
+        fc.addView(label("Find something", 14f, Color.WHITE, true))
+        fc.addView(label("Tap a material. A blue circle shows on the map and compass: it is somewhere inside, so search it with sonar.", 12.5f, DIM))
+        val items = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() }
+        var k = 0
+        while (k < items.size) {
+            val r = hbox()
+            for (j in k until minOf(k + 2, items.size)) r.addView(itemButton(items[j]), lp(0, weight = 1f, margin = 2f))
+            if (items.size - k == 1) r.addView(View(act), lp(0, weight = 1f, margin = 2f))
+            fc.addView(r); k += 2
+        }
+        fc.addView(label("Story and secrets", 13f, AMBER, true), lp(margin = 2f).apply { topMargin = dp(8f) })
+        val lore = hbox()
+        lore.addView(button("Data cores", size = 12.5f, base = if (game.trackingKey == "cores") Color.argb(255, 20, 70, 96) else CARD) { findLore("cores", "Data cores", "Ping sonar for pink squares.") }, lp(0, weight = 1f, margin = 2f))
+        lore.addView(button("Echo Stones", size = 12.5f, base = if (game.trackingKey == "echo") Color.argb(255, 20, 70, 96) else CARD) { findLore("echo", "Echo Stones", "Ping sonar for cyan squares.") }, lp(0, weight = 1f, margin = 2f))
+        fc.addView(lore)
+        if (game.story.chapter >= 4) {
+            val lore2 = hbox()
+            lore2.addView(button("Descent beacons", size = 12.5f, base = if (game.trackingKey == "beacon") Color.argb(255, 20, 70, 96) else CARD) { findLore("beacon", "Descent beacons", "They stand on the trench wall.") }, lp(0, weight = 1f, margin = 2f))
+            lore2.addView(button("The Choir", size = 12.5f, base = if (game.trackingKey == "choir") Color.argb(255, 20, 70, 96) else CARD) { findLore("choir", "The Choir", "It lies at the bottom of the trench.") }, lp(0, weight = 1f, margin = 2f))
+            fc.addView(lore2)
+        }
+        if (game.trackingKey != null) fc.addView(button("Stop looking", size = 12.5f) { synchronized(game) { game.clearTrack() }; infoText = "Stopped looking."; showStation() }, lp())
+        body.addView(fc, lp())
+    }
+
+    private fun journalPage(body: LinearLayout) {
+        val tabs = hbox()
+        for ((id, name) in listOf("biodex" to "Creatures", "logs" to "Logs", "storage" to "Storage"))
+            tabs.addView(button(name, size = 12.5f, base = if (id == journalTab) Color.argb(255, 30, 84, 108) else CARD) { journalTab = id; showStation() }, lp(0, weight = 1f, margin = 2f))
+        body.addView(tabs)
+        when (journalTab) { "biodex" -> biodexList(body); "logs" -> logList(body); else -> storageList(body) }
     }
 
     fun showStation(t: String? = null) {
         if (t != null) tab = t
-        // left: a menu rail that is always visible. right: header, goal, materials, the page and an info line
+        // left: a short menu that is always there. right: header, then one page
         val rail = vbox()
         for ((id, name) in stationTabs) {
             val sel = id == tab
-            rail.addView(button(name + badge(id), size = 13f, base = if (sel) Color.argb(255, 30, 84, 108) else CARD) { tab = id; showStation() }
-                .apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL }, lp(margin = 2f))
+            rail.addView(button(name + badge(id), size = 14f, base = if (sel) Color.argb(255, 30, 84, 108) else CARD) { tab = id; infoText = ""; showStation() }
+                .apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL }, lp(margin = 3f))
         }
         val col = vbox()
         val header = hbox()
@@ -311,67 +390,74 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         header.addView(button("Menu") { showPause() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         header.addView(button("Dive", size = 16f, base = Color.argb(255, 24, 96, 120)) { cb.onDive() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(header)
-        col.addView(label("Goal: " + game.story.objectiveText(game), 12.5f, AMBER), lp(margin = 2f))
-        col.addView(materialsBar())
         val body = vbox()
         when (tab) {
-            "fab" -> fabricator(body)
-            "supplies" -> supplies(body)
+            "workshop" -> fabricator(body)
             "drones" -> drones(body)
             "comforts" -> comforts(body)
-            "biodex" -> biodexList(body)
-            "logs" -> logList(body)
-            else -> storageList(body)
+            "journal" -> journalPage(body)
+            else -> homePage(body)
         }
         col.addView(scroll(body), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        val info = label("Tap any material icon to see what it is.", 12f, DIM).apply {
-            setPadding(dp(10f), dp(6f), dp(10f), dp(6f)); background = bg(Color.argb(255, 8, 18, 24), 8f)
+        if (infoText.isNotEmpty()) {
+            col.addView(label(infoText, 12.5f, Color.WHITE).apply { setPadding(dp(10f), dp(6f), dp(10f), dp(6f)); background = bg(Color.argb(255, 8, 24, 32), 8f, Color.argb(120, 110, 220, 255)) }, lp(margin = 3f))
         }
-        infoBar = info
-        col.addView(info, lp(margin = 3f))
         val outer = hbox()
-        outer.addView(scroll(rail), LinearLayout.LayoutParams(dp(150f), ViewGroup.LayoutParams.MATCH_PARENT))
+        outer.addView(scroll(rail), LinearLayout.LayoutParams(dp(140f), ViewGroup.LayoutParams.MATCH_PARENT))
         outer.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         show(panel(outer, 0.8f, Gravity.END), "station", null)
     }
 
-    private fun section(body: LinearLayout, title: String, sub: String) {
-        body.addView(label(title, 14f, AMBER, true), lp(margin = 2f).apply { topMargin = dp(8f) })
-        body.addView(label(sub, 12f, DIM), lp(margin = 2f))
+    private val openSec = HashSet<String>()
+    private val seenSec = HashSet<String>()
+
+    /** A section that can be folded away, so a page never shows everything at once. */
+    private fun collapsible(body: LinearLayout, key: String, title: String, ready: Int, defaultOpen: Boolean, fill: (LinearLayout) -> Unit) {
+        if (seenSec.add(key) && defaultOpen) openSec.add(key)
+        val open = key in openSec
+        val txt = (if (open) "\u25BE  " else "\u25B8  ") + title + (if (ready > 0) "    \u25CF$ready ready" else "")
+        body.addView(button(txt, size = 14f, base = Color.argb(255, 18, 44, 56)) { if (open) openSec.remove(key) else openSec.add(key); showStation() }
+            .apply { gravity = Gravity.START or Gravity.CENTER_VERTICAL }, lp())
+        if (open) fill(body)
     }
 
     private fun fabricator(body: LinearLayout) {
-        body.addView(label("Build upgrades from stored materials. Docking unloads your cargo automatically. Green outline means you can build it now.", 12.5f, DIM))
+        body.addView(label("Build upgrades from stored materials. Docking unloads your cargo. Tap a section to open it. Green outline: you can build it now.", 12.5f, DIM))
         val groups = listOf(
-            Triple("Hull and safety", "Go deeper, last longer, survive attacks.", listOf(Upgrade.HULL, Upgrade.OXYGEN, Upgrade.FLARES, Upgrade.PULSE)),
-            Triple("Power and movement", "Move faster, quieter and for longer.", listOf(Upgrade.BATTERY, Upgrade.THRUSTERS, Upgrade.SILENT, Upgrade.THERMAL)),
-            Triple("Sensors and tools", "See further and carry more.", listOf(Upgrade.LAMP, Upgrade.SONAR, Upgrade.SCANNER, Upgrade.CARGO)),
+            Triple("hull", "Hull and safety", listOf(Upgrade.HULL, Upgrade.OXYGEN, Upgrade.FLARES, Upgrade.PULSE)),
+            Triple("power", "Power and movement", listOf(Upgrade.BATTERY, Upgrade.THRUSTERS, Upgrade.SILENT, Upgrade.THERMAL)),
+            Triple("sense", "Sensors and tools", listOf(Upgrade.LAMP, Upgrade.SONAR, Upgrade.SCANNER, Upgrade.CARGO)),
         )
-        for ((title, subtitle, list) in groups) {
-            section(body, title, subtitle)
-            for (u in list) {
-                val lvl = game.upgrades[u.ordinal]
-                val cost = if (lvl < u.maxLevel) Costs.upgrade(u, lvl) else null
-                val can = cost != null && game.storageHas(cost)
-                val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
-                val top = hbox()
-                val name = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
-                top.addView(label(name, 15f, Color.WHITE, true), lp(0, weight = 1f))
-                if (cost != null) {
-                    top.addView(button(if (can) (if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade") else "Need more", can, 13f) {
-                        synchronized(game) { game.craftUpgrade(u) }
-                        showStation()
-                    }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
-                    card.addView(top)
-                    card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
-                    card.addView(costRow(cost))
-                } else {
-                    card.addView(top)
-                    card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
+        for ((key, title, list) in groups) {
+            val ready = list.count { u -> game.upgrades[u.ordinal] < u.maxLevel && game.storageHas(Costs.upgrade(u, game.upgrades[u.ordinal])) }
+            collapsible(body, "ws_$key", title, ready, key == "hull") { b ->
+                for (u in list) {
+                    val lvl = game.upgrades[u.ordinal]
+                    val cost = if (lvl < u.maxLevel) Costs.upgrade(u, lvl) else null
+                    val can = cost != null && game.storageHas(cost)
+                    val card = vbox(10f).apply { background = bg(CARD, 12f, if (can) Color.argb(200, 140, 230, 160) else 0) }
+                    val top = hbox()
+                    val name = if (u.maxLevel > 1) "${u.title}  Mk$lvl / Mk${u.maxLevel}" else u.title + (if (lvl > 0) "  (installed)" else "")
+                    top.addView(label(name, 15f, Color.WHITE, true), lp(0, weight = 1f))
+                    if (cost != null) {
+                        top.addView(button(if (can) (if (lvl == 0 && u.maxLevel == 1) "Build" else "Upgrade") else "Need more", can, 13f) {
+                            synchronized(game) { game.craftUpgrade(u) }
+                            showStation()
+                        }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+                        card.addView(top)
+                        card.addView(label(u.desc + " " + upgradeDetail(u, lvl), 12.5f, DIM))
+                        card.addView(costRow(cost))
+                    } else {
+                        card.addView(top)
+                        card.addView(label(u.desc + " Fully upgraded.", 12.5f, GOOD))
+                    }
+                    b.addView(card, lp())
                 }
-                body.addView(card, lp())
             }
         }
+        val supplyReady = (if (game.upgrades[Upgrade.FLARES.ordinal] > 0 && game.sub.flares < 6 && game.storageHas(Costs.flare)) 1 else 0) +
+            (if (game.sub.repairKits < 3 && game.storageHas(Costs.repairKit)) 1 else 0)
+        collapsible(body, "ws_supplies", "Supplies (flares, repair kits)", supplyReady, false) { b -> supplies(b) }
     }
 
     private fun upgradeDetail(u: Upgrade, lvl: Int): String = when (u) {
@@ -417,7 +503,9 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
     private fun drones(body: LinearLayout) {
         val fleet = game.fleet
         droneStatus.clear()
-        body.addView(label("Drones fly out of the station on their own, search for materials and bring them back to storage. They keep working while you dive. Deeper water gives rarer finds, but they can be ambushed there. Upgrades apply to the whole fleet.", 12.5f, DIM))
+        body.addView(label("Drones fly out on their own and bring materials home, even while you dive. Press a drone's Target button to pick one material: that trip takes twice as long but brings back about 60% more. Deep water gives rarer finds but can ambush a drone. Upgrades apply to every drone.", 12.5f, DIM))
+        val far = Item.entries.filter { Locator.zonesFor(it).isNotEmpty() && !fleet.canReach(it) }
+        if (far.isNotEmpty()) body.addView(label("Out of range for now: " + far.joinToString { it.title } + ". Upgrade Range to reach them.", 12f, AMBER), lp(margin = 2f))
         for (u in DroneUpgrade.entries) {
             val lvl = fleet.levels[u.ordinal]
             val card = vbox(10f).apply { background = bg(CARD, 12f) }
@@ -444,7 +532,17 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
             val card = vbox(10f).apply { background = bg(if (i < fleet.drones.size) Color.argb(255, 18, 36, 40) else CARD, 12f) }
             when {
                 i < fleet.drones.size -> {
-                    card.addView(label("Drone ${i + 1}", 15f, Color.WHITE, true))
+                    val d0 = fleet.drones[i]
+                    val topRow = hbox()
+                    topRow.addView(label("Drone ${i + 1}", 15f, Color.WHITE, true), lp(0, weight = 1f))
+                    topRow.addView(button("Target: " + (d0.focus?.title ?: "Anything"), size = 12.5f, base = if (d0.focus != null) Color.argb(255, 20, 70, 96) else CARD) {
+                        synchronized(game) {
+                            val opts = listOf<Item?>(null) + fleet.reachableItems()
+                            d0.focus = opts[(opts.indexOf(d0.focus).coerceAtLeast(0) + 1) % opts.size]
+                        }
+                        showStation()
+                    }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+                    card.addView(topRow)
                     val st = label(fleet.statusText(i), 12.5f, ACCENT)
                     droneStatus.add(i to st)
                     card.addView(st)
@@ -543,28 +641,28 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         val mv = MapView(act, game)
         top.addView(button("+") { mv.zoomBy(1.4f) }, lp(dp(56f)))
         top.addView(button("-") { mv.zoomBy(1f / 1.4f) }, lp(dp(56f)))
+        if (game.tracked != null) top.addView(button("Stop looking") { synchronized(game) { game.clearTrack() }; showMap(back) }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         top.addView(button("Close") { back() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(top)
         col.addView(mv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         show(panel(col, 0.9f), "map", back)
     }
 
-    private fun showLogbook(back: () -> Unit) {
+    /** Creatures, logs and storage, reachable from the pause menu. */
+    private fun showJournal(back: () -> Unit) {
         val col = vbox()
-        col.addView(label("Logbook", 20f, Color.WHITE, true))
-        val body = vbox(); logList(body)
+        val top = hbox()
+        top.addView(label("Journal", 20f, Color.WHITE, true), lp(0, weight = 1f))
+        top.addView(button("Back") { back() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+        col.addView(top)
+        val body = vbox()
+        val tabs = hbox()
+        for ((id, name) in listOf("biodex" to "Creatures", "logs" to "Logs", "storage" to "Storage"))
+            tabs.addView(button(name, size = 12.5f, base = if (id == journalTab) Color.argb(255, 30, 84, 108) else CARD) { journalTab = id; showJournal(back) }, lp(0, weight = 1f, margin = 2f))
+        col.addView(tabs)
+        when (journalTab) { "biodex" -> biodexList(body); "logs" -> logList(body); else -> storageList(body) }
         col.addView(scroll(body), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        col.addView(button("Back") { back() }, lp(dp(160f)))
-        show(panel(col, 0.7f), "logbook", back)
-    }
-
-    private fun showBiodex(back: () -> Unit) {
-        val col = vbox()
-        col.addView(label("Biodex", 20f, Color.WHITE, true))
-        val body = vbox(); biodexList(body)
-        col.addView(scroll(body), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        col.addView(button("Back") { back() }, lp(dp(160f)))
-        show(panel(col, 0.7f), "biodex", back)
+        show(panel(col, 0.7f), "journal", back)
     }
 
     // ------------------------------------------------------------------ death and ending
@@ -598,13 +696,14 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
         val col = vbox()
         val top = hbox()
         top.addView(label("Settings", 20f, Color.WHITE, true), lp(0, weight = 1f))
-        top.addView(button("Done") { game.settings.save(act); cb.onSettingsChanged(); back() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
+        top.addView(button("Done", size = 15f, base = Color.argb(255, 24, 96, 120)) { game.settings.save(act); cb.onSettingsChanged(); back() }, lp(ViewGroup.LayoutParams.WRAP_CONTENT))
         col.addView(top)
         val tabs = hbox()
-        listOf("Graphics", "Controls", "Audio").forEachIndexed { i, n -> tabs.addView(button(n, base = if (i == settingsTab) Color.argb(255, 26, 70, 90) else CARD) { settingsTab = i; showSettings(back) }, lp(0, weight = 1f)) }
+        listOf("Quick", "Graphics", "Controls", "Sound").forEachIndexed { i, n -> tabs.addView(button(n, size = 13f, base = if (i == settingsTab) Color.argb(255, 30, 84, 108) else CARD) { settingsTab = i; showSettings(back) }, lp(0, weight = 1f, margin = 2f)) }
         col.addView(tabs)
         val body = vbox()
         fun changed() { s.preset = GraphicsPreset.CUSTOM; s.save(act); cb.onSettingsChanged(); showSettings(back) }
+        fun saved() { s.save(act); cb.onSettingsChanged(); showSettings(back) }
         fun row(name: String, value: String, vararg options: Pair<String, () -> Unit>) {
             val r = hbox().apply { setPadding(dp(8f), dp(2f), dp(4f), dp(2f)); background = bg(CARD, 10f) }
             val tv = vbox()
@@ -615,40 +714,47 @@ Survival: watch hull, power and oxygen. Do not go deeper than the hull rating. D
             body.addView(r, lp(margin = 3f))
         }
         fun onOff(b: Boolean) = if (b) "On" else "Off"
+        fun volume(v: Float) = "${(v * 100).toInt()}%"
         when (settingsTab) {
             0 -> {
+                body.addView(label("Pick how good it should look. Low is fastest, Ultra is prettiest. High suits phones like the Galaxy A54.", 12.5f, DIM))
                 val pr = hbox()
-                for (p in GraphicsPreset.entries.filter { it != GraphicsPreset.CUSTOM }) pr.addView(button(p.label, base = if (s.preset == p) Color.argb(255, 26, 70, 90) else CARD) { s.applyPreset(p); s.save(act); cb.onSettingsChanged(); showSettings(back) }, lp(0, weight = 1f))
-                body.addView(label("Preset: ${s.preset.label}. High is tuned for phones like the Galaxy A54.", 12.5f, DIM))
+                for (p in GraphicsPreset.entries.filter { it != GraphicsPreset.CUSTOM }) pr.addView(button(p.label, size = 14f, base = if (s.preset == p) Color.argb(255, 30, 84, 108) else CARD) { s.applyPreset(p); saved() }, lp(0, weight = 1f))
                 body.addView(pr)
-                row("Resolution", "${(s.renderScale * 100).toInt()}%", "-" to { s.renderScale = (s.renderScale - 0.05f).coerceAtLeast(0.5f); changed() }, "+" to { s.renderScale = (s.renderScale + 0.05f).coerceAtMost(1f); changed() })
-                row("Dynamic resolution", onOff(s.dynamicRes) + "  keeps the frame rate steady", "Toggle" to { s.dynamicRes = !s.dynamicRes; changed() })
-                row("Frame rate cap", "${s.fpsCap} fps", "30" to { s.fpsCap = 30; changed() }, "45" to { s.fpsCap = 45; changed() }, "60" to { s.fpsCap = 60; changed() }, "90" to { s.fpsCap = 90; changed() })
-                row("View distance", "${s.viewDistance * 64} m", "-" to { s.viewDistance = (s.viewDistance - 1).coerceAtLeast(2); changed() }, "+" to { s.viewDistance = (s.viewDistance + 1).coerceAtMost(4); changed() })
-                row("Post effects", onOff(s.postFx) + "  HDR, bloom, light shafts, sonar wave", "Toggle" to { s.postFx = !s.postFx; changed() })
-                row("Volumetric light", listOf("Off", "Normal", "High")[s.volumetrics], "Off" to { s.volumetrics = 0; changed() }, "Normal" to { s.volumetrics = 1; changed() }, "High" to { s.volumetrics = 2; changed() })
-                row("Lamp shadows", listOf("Off", "On", "Soft")[s.shadows], "Off" to { s.shadows = 0; changed() }, "On" to { s.shadows = 1; changed() }, "Soft" to { s.shadows = 2; changed() })
-                row("Textures", listOf("Flat", "Textured", "Detailed")[s.texQuality], "Flat" to { s.texQuality = 0; changed() }, "Tex" to { s.texQuality = 1; changed() }, "Detail" to { s.texQuality = 2; changed() })
-                row("Caustics", onOff(s.caustics), "Toggle" to { s.caustics = !s.caustics; changed() })
-                row("Marine snow", listOf("Off", "Normal", "Dense")[s.particles], "Off" to { s.particles = 0; changed() }, "Normal" to { s.particles = 1; changed() }, "Dense" to { s.particles = 2; changed() })
-                row("Sea life density", "${(s.floraDensity * 100).toInt()}%", "-" to { s.floraDensity = (s.floraDensity - 0.1f).coerceAtLeast(0.3f); changed() }, "+" to { s.floraDensity = (s.floraDensity + 0.1f).coerceAtMost(1f); changed() })
-                row("Bloom", "${(s.bloom * 100).toInt()}%", "-" to { s.bloom = (s.bloom - 0.1f).coerceAtLeast(0f); changed() }, "+" to { s.bloom = (s.bloom + 0.1f).coerceAtMost(1.2f); changed() })
-                row("Anti-aliasing (FXAA)", onOff(s.fxaa), "Toggle" to { s.fxaa = !s.fxaa; changed() })
-                row("Field of view", "${s.fov.toInt()}", "-" to { s.fov = (s.fov - 4f).coerceAtLeast(56f); changed() }, "+" to { s.fov = (s.fov + 4f).coerceAtMost(96f); changed() })
-                row("Show FPS", onOff(s.showFps), "Toggle" to { s.showFps = !s.showFps; changed() })
+                if (s.preset == GraphicsPreset.CUSTOM) body.addView(label("You changed some graphics options by hand (Custom).", 12f, AMBER))
+                row("Frame rate", "${s.fpsCap} fps. Lower saves battery.", "30" to { s.fpsCap = 30; saved() }, "60" to { s.fpsCap = 60; saved() }, "90" to { s.fpsCap = 90; saved() })
+                row("Sound volume", volume(s.masterVolume), "-" to { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f); saved() }, "+" to { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f); saved() })
+                row("Music volume", volume(s.musicVolume), "-" to { s.musicVolume = (s.musicVolume - 0.1f).coerceAtLeast(0f); saved() }, "+" to { s.musicVolume = (s.musicVolume + 0.1f).coerceAtMost(1f); saved() })
+                row("Look speed", String.format("%.1f", s.lookSensitivity), "-" to { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.3f); saved() }, "+" to { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(3f); saved() })
+                row("Camera", if (s.cockpitCamera) "Inside the sub" else "Behind the sub", "Switch" to { s.cockpitCamera = !s.cockpitCamera; saved() })
+                row("Show FPS counter", onOff(s.showFps), "Switch" to { s.showFps = !s.showFps; saved() })
             }
             1 -> {
-                row("Control scheme", s.controls.label, *ControlScheme.entries.map { c -> c.label.split(' ').first() to { s.controls = c; s.save(act); cb.onSettingsChanged(); showSettings(back) } }.toTypedArray())
-                row("Look sensitivity", String.format("%.1f", s.lookSensitivity), "-" to { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.3f); s.save(act); showSettings(back) }, "+" to { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(3f); s.save(act); showSettings(back) })
-                row("Invert look", onOff(s.invertY), "Toggle" to { s.invertY = !s.invertY; s.save(act); showSettings(back) })
-                row("Camera", if (s.cockpitCamera) "Cockpit" else "Chase", "Toggle" to { s.cockpitCamera = !s.cockpitCamera; s.save(act); showSettings(back) })
-                row("Touch control opacity", "${(s.touchOpacity * 100).toInt()}%", "-" to { s.touchOpacity = (s.touchOpacity - 0.1f).coerceAtLeast(0.2f); s.save(act); showSettings(back) }, "+" to { s.touchOpacity = (s.touchOpacity + 0.1f).coerceAtMost(1f); s.save(act); showSettings(back) })
-                row("Vibration", onOff(s.vibration), "Toggle" to { s.vibration = !s.vibration; s.save(act); showSettings(back) })
-                row("Difficulty", s.difficulty.label, *Difficulty.entries.map { df -> df.label to { s.difficulty = df; s.save(act); showSettings(back) } }.toTypedArray())
+                body.addView(label("For tinkering. Changing anything here switches the preset to Custom.", 12.5f, DIM))
+                row("Resolution", "${(s.renderScale * 100).toInt()}%", "-" to { s.renderScale = (s.renderScale - 0.05f).coerceAtLeast(0.5f); changed() }, "+" to { s.renderScale = (s.renderScale + 0.05f).coerceAtMost(1f); changed() })
+                row("Dynamic resolution", onOff(s.dynamicRes) + ". Keeps the frame rate steady.", "Switch" to { s.dynamicRes = !s.dynamicRes; changed() })
+                row("View distance", "${s.viewDistance * 64} m", "-" to { s.viewDistance = (s.viewDistance - 1).coerceAtLeast(2); changed() }, "+" to { s.viewDistance = (s.viewDistance + 1).coerceAtMost(4); changed() })
+                row("Post effects", onOff(s.postFx) + ". Glow, light shafts, sonar wave.", "Switch" to { s.postFx = !s.postFx; changed() })
+                row("Light shafts", listOf("Off", "Normal", "High")[s.volumetrics], "Off" to { s.volumetrics = 0; changed() }, "Normal" to { s.volumetrics = 1; changed() }, "High" to { s.volumetrics = 2; changed() })
+                row("Lamp shadows", listOf("Off", "On", "Soft")[s.shadows], "Off" to { s.shadows = 0; changed() }, "On" to { s.shadows = 1; changed() }, "Soft" to { s.shadows = 2; changed() })
+                row("Textures", listOf("Flat", "Textured", "Detailed")[s.texQuality], "Flat" to { s.texQuality = 0; changed() }, "Tex" to { s.texQuality = 1; changed() }, "Detail" to { s.texQuality = 2; changed() })
+                row("Caustics", onOff(s.caustics), "Switch" to { s.caustics = !s.caustics; changed() })
+                row("Floating specks", listOf("Off", "Normal", "Dense")[s.particles], "Off" to { s.particles = 0; changed() }, "Normal" to { s.particles = 1; changed() }, "Dense" to { s.particles = 2; changed() })
+                row("Sea life amount", volume(s.floraDensity), "-" to { s.floraDensity = (s.floraDensity - 0.1f).coerceAtLeast(0.3f); changed() }, "+" to { s.floraDensity = (s.floraDensity + 0.1f).coerceAtMost(1f); changed() })
+                row("Glow strength", volume(s.bloom), "-" to { s.bloom = (s.bloom - 0.1f).coerceAtLeast(0f); changed() }, "+" to { s.bloom = (s.bloom + 0.1f).coerceAtMost(1.2f); changed() })
+                row("Smooth edges (FXAA)", onOff(s.fxaa), "Switch" to { s.fxaa = !s.fxaa; changed() })
+                row("Field of view", "${s.fov.toInt()}", "-" to { s.fov = (s.fov - 4f).coerceAtLeast(56f); changed() }, "+" to { s.fov = (s.fov + 4f).coerceAtMost(96f); changed() })
+            }
+            2 -> {
+                row("Controls", s.controls.label, *ControlScheme.entries.map { c -> c.label.split(' ').first() to { s.controls = c; saved() } }.toTypedArray())
+                row("Invert look", onOff(s.invertY), "Switch" to { s.invertY = !s.invertY; saved() })
+                row("Touch button opacity", volume(s.touchOpacity), "-" to { s.touchOpacity = (s.touchOpacity - 0.1f).coerceAtLeast(0.2f); saved() }, "+" to { s.touchOpacity = (s.touchOpacity + 0.1f).coerceAtMost(1f); saved() })
+                row("Vibration", onOff(s.vibration), "Switch" to { s.vibration = !s.vibration; saved() })
+                row("Difficulty", s.difficulty.label, *Difficulty.entries.map { df -> df.label to { s.difficulty = df; saved() } }.toTypedArray())
             }
             else -> {
-                row("Master volume", "${(s.masterVolume * 100).toInt()}%", "-" to { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f); s.save(act); cb.onSettingsChanged(); showSettings(back) }, "+" to { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f); s.save(act); cb.onSettingsChanged(); showSettings(back) })
-                row("Music", "${(s.musicVolume * 100).toInt()}%  score made with Higgsfield", "-" to { s.musicVolume = (s.musicVolume - 0.1f).coerceAtLeast(0f); s.save(act); cb.onSettingsChanged(); showSettings(back) }, "+" to { s.musicVolume = (s.musicVolume + 0.1f).coerceAtMost(1f); s.save(act); cb.onSettingsChanged(); showSettings(back) })
+                row("Sound volume", volume(s.masterVolume), "-" to { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f); saved() }, "+" to { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f); saved() })
+                row("Music volume", volume(s.musicVolume) + ". Score made with Higgsfield.", "-" to { s.musicVolume = (s.musicVolume - 0.1f).coerceAtLeast(0f); saved() }, "+" to { s.musicVolume = (s.musicVolume + 0.1f).coerceAtMost(1f); saved() })
             }
         }
         col.addView(scroll(body), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))

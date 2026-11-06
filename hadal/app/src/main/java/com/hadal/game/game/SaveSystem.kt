@@ -41,7 +41,7 @@ object SaveSystem {
         for ((k, v) in g.harvest.respawnAt) hv.put(k.toString(), v)
         o.put("harvest", hv)
         o.put("pale", JSONObject().put("encounters", g.ecology.paleEncounters))
-        o.put("drones", JSONObject().put("count", g.fleet.drones.size).put("levels", ints(g.fleet.levels)))
+        o.put("drones", JSONObject().put("count", g.fleet.drones.size).put("levels", ints(g.fleet.levels)).put("focus", ints(IntArray(g.fleet.drones.size) { g.fleet.drones[it].focus?.ordinal ?: -1 })))
         return o
     }
 
@@ -84,7 +84,11 @@ object SaveSystem {
         g.fleet.reset()
         o.optJSONObject("drones")?.let { j ->
             readInts(j.optJSONArray("levels"), g.fleet.levels)
-            for (i in 0 until j.optInt("count").coerceIn(0, DroneStats.MAX_DRONES)) g.fleet.addDrone()
+            val fo = j.optJSONArray("focus")
+            for (i in 0 until j.optInt("count").coerceIn(0, DroneStats.MAX_DRONES)) {
+                val d = g.fleet.addDrone()
+                d.focus = fo?.optInt(i, -1)?.let { Item.entries.getOrNull(it) }
+            }
         }
         g.started = true
         // always resume safely at the station: the recall drone brings the sub home between sessions

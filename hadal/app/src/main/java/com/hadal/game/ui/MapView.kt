@@ -57,33 +57,55 @@ class MapView(ctx: Context, private val game: GameState) : View(ctx) {
     private var panX = 0f
     private var panY = 0f
     private var lastX = 0f; private var lastY = 0f
-    private var pinch = 0f
+    private var activeId = -1
+    private val scaler = android.view.ScaleGestureDetector(ctx, object : android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(d: android.view.ScaleGestureDetector): Boolean {
+            zoom = (zoom * d.scaleFactor).coerceIn(0.8f, 8f)
+            clampPan()
+            invalidate()
+            return true
+        }
+    })
 
     init { isFocusable = true }
 
+    /** Keeps the chart from being dragged completely out of view. */
+    private fun clampPan() {
+        val lim = min(width, height) * zoom * 0.5f
+        panX = panX.coerceIn(-lim, lim); panY = panY.coerceIn(-lim, lim)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        parent?.requestDisallowInterceptTouchEvent(true)
+        scaler.onTouchEvent(e)
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> { lastX = e.x; lastY = e.y }
-            MotionEvent.ACTION_POINTER_DOWN -> if (e.pointerCount == 2) pinch = dist(e)
-            MotionEvent.ACTION_MOVE -> {
-                if (e.pointerCount >= 2) {
-                    val dd = dist(e)
-                    if (pinch > 0f) zoom = (zoom * dd / pinch).coerceIn(0.8f, 8f)
-                    pinch = dd
-                } else {
-                    panX += e.x - lastX; panY += e.y - lastY
-                    lastX = e.x; lastY = e.y
-                }
-                invalidate()
+            MotionEvent.ACTION_DOWN -> { activeId = e.getPointerId(0); lastX = e.x; lastY = e.y }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // a second finger starts a pinch: restart panning from the first finger so nothing jumps afterwards
+                val i = e.findPointerIndex(activeId).takeIf { it >= 0 } ?: 0
+                activeId = e.getPointerId(i); lastX = e.getX(i); lastY = e.getY(i)
             }
+            MotionEvent.ACTION_MOVE -> {
+                val i = e.findPointerIndex(activeId)
+                if (i >= 0) {
+                    if (!scaler.isInProgress && e.pointerCount == 1) { panX += e.getX(i) - lastX; panY += e.getY(i) - lastY; clampPan(); invalidate() }
+                    lastX = e.getX(i); lastY = e.getY(i)
+                }
+            }
+            MotionEvent.ACTION_POINTER_UP -> {
+                // hand panning over to a finger that is still down
+                if (e.getPointerId(e.actionIndex) == activeId) {
+                    val ni = if (e.actionIndex == 0) 1 else 0
+                    activeId = e.getPointerId(ni); lastX = e.getX(ni); lastY = e.getY(ni)
+                } else { val i = e.findPointerIndex(activeId); if (i >= 0) { lastX = e.getX(i); lastY = e.getY(i) } }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> activeId = -1
         }
         return true
     }
 
-    private fun dist(e: MotionEvent): Float { val dx = e.getX(0) - e.getX(1); val dy = e.getY(0) - e.getY(1); return kotlin.math.sqrt(dx * dx + dy * dy) }
-
-    fun zoomBy(f: Float) { zoom = (zoom * f).coerceIn(0.8f, 8f); invalidate() }
+    fun zoomBy(f: Float) { zoom = (zoom * f).coerceIn(0.8f, 8f); clampPan(); invalidate() }
 
     override fun onDraw(c: Canvas) {
         c.drawColor(Color.rgb(2, 8, 12))
@@ -121,6 +143,22 @@ class MapView(ctx: Context, private val game: GameState) : View(ctx) {
             paint.color = Color.rgb(140, 230, 255)
             c.drawRect(sx(e.x) - 3 * dp, sy(e.z) - 3 * dp, sx(e.x) + 3 * dp, sy(e.z) + 3 * dp, paint)
         }
+        // search areas: the real thing is somewhere inside the circle, never at its center
+        fun area(t: com.hadal.game.game.Track?, col: Int, tag: String) {
+            if (t == null) return
+            val rr = max(t.radius * scale, 16 * dp)
+            val x0 = sx(t.x); val y0 = sy(t.z)
+            paint.style = Paint.Style.FILL; paint.color = Color.argb(45, Color.red(col), Color.green(col), Color.blue(col)); paint.pathEffect = null
+            c.drawCircle(x0, y0, rr, paint)
+            paint.style = Paint.Style.STROKE; paint.strokeWidth = 2.5f * dp; paint.color = col
+            paint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(10 * dp, 7 * dp), 0f)
+            c.drawCircle(x0, y0, rr, paint)
+            paint.style = Paint.Style.FILL; paint.pathEffect = null
+            text.color = col
+            c.drawText("$tag: ${t.label}", x0 - rr * 0.7f, y0 - rr - 6 * dp, text)
+        }
+        area(game.tracked, Color.rgb(90, 230, 255), "Looking for")
+        area(game.goal, Color.rgb(255, 214, 80), "Goal")
         // sub arrow (forward is +z at yaw 0, east is -x)
         val x = sx(sub.x); val y = sy(sub.z)
         val yaw = game.sub.yaw
@@ -134,7 +172,7 @@ class MapView(ctx: Context, private val game: GameState) : View(ctx) {
         c.drawPath(path, paint)
         text.color = Color.argb(200, 200, 230, 255)
         c.drawText("N", width - 28 * dp, 24 * dp, text)
-        c.drawText("Drag to pan, pinch to zoom.  Depth ${(-game.sub.pos.y).toInt()} m", 14 * dp, height - 14 * dp, text)
+        c.drawText("Drag to move, pinch to zoom.   Gold circle: your goal.   Blue circle: what you are looking for.", 14 * dp, height - 14 * dp, text)
         if (!game.story.relayFixed) c.drawText("Repair the Shelf Relay to chart the area.", 14 * dp, 22 * dp, text)
     }
 }

@@ -34,6 +34,14 @@ class GameState(val settings: Settings) {
     val story = Story()
     val fleet = DroneFleet(this)
 
+    /** Where the current story goal is, as a search circle (null when it has no place). */
+    @Volatile var goal: Track? = null
+    /** The place the player asked to be led to (a material, data cores, echo stones...). */
+    @Volatile var tracked: Track? = null
+    private var trackKey: String? = null
+    private var trackSpec: ((GameState) -> Track?)? = null
+    private var trackTimer = 0f
+
     /** Items carried in the sub (lost on death) and stored at the station. */
     val cargo = IntArray(Item.entries.size)
     val storage = IntArray(Item.entries.size)
@@ -116,7 +124,7 @@ class GameState(val settings: Settings) {
 
     fun newGame() {
         cargo.fill(0); storage.fill(0); upgrades.fill(0); decor.fill(false)
-        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear(); fleet.reset()
+        biodex.clear(); discovered.clear(); flares.clear(); harvest.respawnAt.clear(); fleet.reset(); clearTrack()
         storage[Item.SCRAP.ordinal] = 2
         sub.hull = 100f; sub.power = 100f; sub.oxygen = 240f; sub.flares = 0; sub.repairKits = 1
         sub.applyUpgrades(upgrades)
@@ -138,6 +146,41 @@ class GameState(val settings: Settings) {
     }
 
     fun requestSave() { saveRequested = true }
+
+    private fun refreshTracks(dt: Float) {
+        trackTimer -= dt
+        if (trackTimer > 0f) return
+        trackTimer = 1.5f
+        goal = try { story.goalTrack(this) } catch (_: Throwable) { null }
+        val spec = trackSpec
+        if (spec != null) {
+            val t = try { spec(this) } catch (_: Throwable) { null }
+            tracked = t
+            if (t == null) { trackKey = null; trackSpec = null }
+        }
+    }
+
+    val trackingKey: String? get() = trackKey
+
+    /** Tapping a material (or story item) leads the player to it; tapping it again stops. */
+    fun toggleTrack(key: String): Boolean {
+        if (trackKey == key) { clearTrack(); return false }
+        val spec: (GameState) -> Track? = when {
+            key.startsWith("mat:") -> { val item = Item.valueOf(key.substring(4)); { g -> Locator.material(item, g.sub.pos.x, g.sub.pos.z) } }
+            key == "cores" -> { g -> Locator.cores(g, g.sub.pos.x, g.sub.pos.z) }
+            key == "echo" -> { g -> Locator.echoStone(g, g.sub.pos.x, g.sub.pos.z) }
+            key == "beacon" -> { g -> Locator.beacon(g, g.sub.pos.x, g.sub.pos.z) }
+            key == "choir" -> { _ -> Locator.poi(PoiType.CHOIR, "The Choir", 150f) }
+            else -> return false
+        }
+        val t = spec(this)
+        if (t == null) { toast("Nothing left to find there"); return false }
+        trackKey = key; trackSpec = spec; tracked = t
+        return true
+    }
+
+    fun clearTrack() { trackKey = null; trackSpec = null; tracked = null }
+
 
     fun say(m: Message) { messages.addLast(m) }
     fun toast(t: String) { toast = t; toastT = 3f }
@@ -176,6 +219,7 @@ class GameState(val settings: Settings) {
         }
         playTime += dt
         if (Structures.built) fleet.update(dt)
+        refreshTracks(dt)
         if (dead) {
             deathTimer += dt
             sub.vel.scale(0.98f); sub.pos.y -= dt * 1.5f
@@ -898,6 +942,19 @@ class GameState(val settings: Settings) {
         }
         h.blipCount = n
         h.stationDx = -sub.pos.x; h.stationDz = -sub.pos.z
+        h.goalHint = story.hintText(this)
+        val gt = goal
+        if (gt != null) {
+            val dx = gt.x - sub.pos.x; val dz = gt.z - sub.pos.z
+            h.goalOn = true; h.goalDx = dx; h.goalDz = dz
+            h.goalWhere = if (sqrt(dx * dx + dz * dz) < gt.radius) "you are in the area" else "${sqrt(dx * dx + dz * dz).toInt()} m ${Locator.direction(dx, dz)}"
+        } else h.goalOn = false
+        val tr = tracked
+        if (tr != null) {
+            val dx = tr.x - sub.pos.x; val dz = tr.z - sub.pos.z
+            h.trackOn = true; h.trackDx = dx; h.trackDz = dz; h.trackLabel = tr.label
+            h.trackWhere = if (sqrt(dx * dx + dz * dz) < tr.radius) "you are in the area" else "${sqrt(dx * dx + dz * dz).toInt()} m ${Locator.direction(dx, dz)}"
+        } else h.trackOn = false
         h.loading = !worldReady
     }
 }

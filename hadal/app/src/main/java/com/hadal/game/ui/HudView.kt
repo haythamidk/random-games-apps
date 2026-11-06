@@ -280,16 +280,27 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
             text.color = if (i == 0) Color.rgb(255, 110, 90) else Color.argb(220, 230, 240, 250)
             c.drawText(names[i], x, y + 5 * dp, text)
         }
-        // station direction
-        val sa = kotlin.math.atan2(-d.stationDx, d.stationDz)
-        var sd = sa - heading
-        while (sd > PI) sd -= (2 * PI).toFloat(); while (sd < -PI) sd += (2 * PI).toFloat()
-        if (kotlin.math.abs(sd) < 1.3f) {
-            val x = cx + sd / 1.3f * (w / 2 - 16 * dp)
-            paint.color = Color.rgb(255, 196, 90)
-            path.reset(); path.moveTo(x, y + 10 * dp); path.lineTo(x - 5 * dp, y + 17 * dp); path.lineTo(x + 5 * dp, y + 17 * dp); path.close()
-            c.drawPath(path, paint)
+        fun marker(dx: Float, dz: Float, col: Int, kind: Int) {
+            var sd = kotlin.math.atan2(-dx, dz) - heading
+            while (sd > PI) sd -= (2 * PI).toFloat(); while (sd < -PI) sd += (2 * PI).toFloat()
+            val off = kotlin.math.abs(sd) > 1.3f
+            val k = sd.coerceIn(-1.3f, 1.3f)
+            val x = cx + k / 1.3f * (w / 2 - 16 * dp)
+            paint.color = col
+            when (kind) {
+                0 -> { path.reset(); path.moveTo(x, y + 10 * dp); path.lineTo(x - 5 * dp, y + 17 * dp); path.lineTo(x + 5 * dp, y + 17 * dp); path.close(); c.drawPath(path, paint) }
+                else -> { c.drawCircle(x, y + 14 * dp, 5 * dp, paint); stroke.color = Color.argb(200, 0, 0, 0); stroke.strokeWidth = 1.2f * dp; c.drawCircle(x, y + 14 * dp, 5 * dp, stroke) }
+            }
+            if (off) {
+                path.reset()
+                val dir = if (sd > 0) 1f else -1f
+                path.moveTo(x + dir * 9 * dp, y + 14 * dp); path.lineTo(x + dir * 3 * dp, y + 9 * dp); path.lineTo(x + dir * 3 * dp, y + 19 * dp); path.close()
+                c.drawPath(path, paint)
+            }
         }
+        marker(d.stationDx, d.stationDz, Color.rgb(255, 196, 90), 0)
+        if (d.trackOn) marker(d.trackDx, d.trackDz, Color.rgb(90, 230, 255), 1)
+        if (d.goalOn) marker(d.goalDx, d.goalDz, Color.rgb(255, 214, 80), 1)
         text.textAlign = Paint.Align.LEFT
     }
 
@@ -356,12 +367,25 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
 
     private fun drawObjective(c: Canvas) {
         if (d.objective.isEmpty()) return
-        val x = 18 * dp; var y = 170 * dp
+        val x = 18 * dp; var y = 160 * dp
+        val maxW = 250 * dp
         text.textSize = 12 * dp; text.color = Color.argb(200, 255, 200, 110)
-        c.drawText(d.chapter, x, y, text)
+        c.drawText(d.chapter.uppercase(), x, y, text)
         y += 17 * dp
-        text.textSize = 14 * dp; text.color = Color.argb(235, 240, 245, 250)
-        for (l in wrap(d.objective, text, 250 * dp)) { c.drawText(l, x, y, text); y += 17 * dp }
+        text.textSize = 14.5f * dp; text.color = Color.argb(240, 245, 248, 252)
+        for (l in wrap(d.objective, text, maxW).take(2)) { c.drawText(l, x, y, text); y += 17 * dp }
+        if (d.goalHint.isNotEmpty()) {
+            text.textSize = 11.5f * dp; text.color = Color.argb(205, 170, 205, 225)
+            for (l in wrap(d.goalHint, text, maxW).take(3)) { c.drawText(l, x, y, text); y += 14 * dp }
+        }
+        if (d.goalOn) {
+            text.textSize = 12 * dp; text.color = Color.argb(240, 255, 214, 80)
+            c.drawText("\u25CF Goal: ${d.goalWhere}", x, y + 2 * dp, text); y += 15 * dp
+        }
+        if (d.trackOn) {
+            text.textSize = 12 * dp; text.color = Color.argb(240, 90, 230, 255)
+            c.drawText("\u25CF ${d.trackLabel}: ${d.trackWhere}", x, y + 2 * dp, text)
+        }
     }
 
     private fun drawWarnings(c: Canvas) {

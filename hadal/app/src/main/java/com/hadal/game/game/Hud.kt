@@ -36,6 +36,9 @@ class HudData {
     var blips = FloatArray(0)
     var blipCount = 0
     var stationDx = 0f; var stationDz = 0f
+    var goalHint = ""
+    var goalOn = false; var goalDx = 0f; var goalDz = 0f; var goalWhere = ""
+    var trackOn = false; var trackDx = 0f; var trackDz = 0f; var trackLabel = ""; var trackWhere = ""
     var loading = false
     var loadProgress = 0f
 
@@ -50,6 +53,8 @@ class HudData {
         if (blips.size < o.blipCount * 4) blips = FloatArray(o.blips.size)
         System.arraycopy(o.blips, 0, blips, 0, o.blipCount * 4)
         blipCount = o.blipCount; stationDx = o.stationDx; stationDz = o.stationDz
+        goalHint = o.goalHint; goalOn = o.goalOn; goalDx = o.goalDx; goalDz = o.goalDz; goalWhere = o.goalWhere
+        trackOn = o.trackOn; trackDx = o.trackDx; trackDz = o.trackDz; trackLabel = o.trackLabel; trackWhere = o.trackWhere
         loading = o.loading; loadProgress = o.loadProgress
     }
 }

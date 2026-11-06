@@ -65,6 +65,7 @@ object RenderAssets {
         noise = NoiseImage.generate(256, 99)
         caustics = ProceduralTextures.caustics(256)
         Structures.buildAll()
+        com.hadal.game.game.Locator.init()
         flora = Array(FloraType.entries.size) { FloraMeshes.get(FloraType.entries[it]) }
         creatures = Species.entries.associateWith { Models.creature(it) }
         segments = listOf(Species.PALE, Species.RIBBON_EEL).associateWith { Models.segment(it) }

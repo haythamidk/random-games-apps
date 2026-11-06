@@ -167,7 +167,7 @@ class SimulationTest {
                     for (i in Item.entries) g.story.collected[i.ordinal] += 20
                 }
                 text.startsWith("Return") || text.startsWith("Dock") -> { if (!g.docked) g.dock() }
-                text.startsWith("Fabricate") -> { val u = Upgrade.HULL; g.craftUpgrade(u) }
+                text.startsWith("Build") -> { val u = Upgrade.HULL; g.craftUpgrade(u) }
                 text.startsWith("Reach the Shelf") -> { g.undock(); moveTo(g, SeaGen.poi(PoiType.RELAY)) }
                 text.startsWith("Repair the relay") -> { g.undock(); g.cargo[Item.COPPER.ordinal] = 4; interact(g, input, InteractKind.RELAY) }
                 text.startsWith("Find the wreck") -> { g.undock(); moveTo(g, SeaGen.poi(PoiType.MERIDIAN)) }
@@ -179,7 +179,7 @@ class SimulationTest {
                 text.startsWith("Scan") -> { g.biodex.addAll(Species.entries.take(5)) }
                 text.startsWith("Descend below") -> { g.undock(); g.sub.pos.set(-1500f, SeaGen.height(-1500f, -900f) + 5f, -900f); step(g, input, 0.2f) }
                 text.startsWith("Find Cinder") -> { g.undock(); moveTo(g, SeaGen.poi(PoiType.CINDER)) }
-                text.startsWith("Reactivate") -> {
+                text.startsWith("Wake") -> {
                     g.undock()
                     for (it in Structures.interacts.filter { it.kind == InteractKind.BEACON }) interactAt(g, input, it)
                 }
@@ -375,5 +375,88 @@ class SimulationTest {
         val oldHz = kotlin.math.abs(c.sinY) * c.hx + kotlin.math.abs(c.cosY) * c.hz
         println("hull half width now ${c.hz} m, an axis aligned box would have been ${oldHz} m")
         assertTrue(oldHz > c.hz + 2f)
+    }
+
+    @Test
+    fun searchCirclesReallyContainTheThing() {
+        val g = GameState(Settings())
+        com.hadal.game.game.Locator.init()
+        val spots = listOf(0f to 0f, -500f to -300f, -1500f to -900f, 1400f to 600f, 300f to 2200f, 200f to 900f)
+        for (item in Item.entries.filter { com.hadal.game.game.Locator.zonesFor(it).isNotEmpty() }) {
+            for ((px, pz) in spots) {
+                val t = com.hadal.game.game.Locator.material(item, px, pz)
+                assertTrue("$item has an area from $px,$pz", t != null)
+                t!!
+                // build the chunks the circle touches and look for the real thing inside it
+                var found = 0
+                val c0x = floor((t.x - t.radius) / CHUNK_SIZE).toInt(); val c1x = floor((t.x + t.radius) / CHUNK_SIZE).toInt()
+                val c0z = floor((t.z - t.radius) / CHUNK_SIZE).toInt(); val c1z = floor((t.z + t.radius) / CHUNK_SIZE).toInt()
+                for (cx in c0x..c1x) for (cz in c0z..c1z) {
+                    val b = g.chunks.buildChunk(cx, cz, 2, true, 1f)
+                    for (n in b.nodes ?: emptyList()) {
+                        if (n.type.item != item) continue
+                        val dx = n.x - t.x; val dz = n.z - t.z
+                        if (dx * dx + dz * dz <= t.radius * t.radius) found++
+                    }
+                }
+                // scrap around wrecks also counts the debris placed there by the structures
+                println("$item from ($px,$pz): circle r=${t.radius.toInt()} at (${t.x.toInt()},${t.z.toInt()}) holds $found")
+                assertTrue("$item circle from $px,$pz holds at least one", found >= 1)
+            }
+        }
+    }
+
+    @Test
+    fun storyGoalsPointSomewhere() {
+        val g = newGame()
+        com.hadal.game.game.Locator.init()
+        val story = g.story
+        var withTrack = 0; var steps = 0
+        for (ch in story.chapters) for (st in ch.steps) {
+            steps++
+            assertTrue("every step explains itself: ${st.text(g)}", st.hint(g).isNotEmpty())
+            if (st.track?.invoke(g) != null) withTrack++
+        }
+        println("$withTrack of $steps goal steps lead somewhere")
+        // steps without a place are menu or action steps: build five hulls and scan four species, plus undock
+        assertTrue(withTrack >= steps - 7)
+    }
+
+    @Test
+    fun dronesCanBeSentAfterOneMaterial() {
+        val g = newGame()
+        for (i in Item.entries) g.storage[i.ordinal] = 500
+        repeat(3) { g.buildDrone() }
+        assertTrue(!g.fleet.canReach(Item.NODULE) && g.fleet.canReach(Item.SCRAP) && g.fleet.canReach(Item.COPPER))
+        println("reachable at range Mk0: ${g.fleet.reachableItems()}")
+        for (u in DroneUpgrade.entries) while (g.upgradeDrones(u)) {}
+        println("reachable at range Mk3: ${g.fleet.reachableItems()}")
+        assertTrue(g.fleet.canReach(Item.NODULE))
+        assertTrue(g.fleet.canReach(Item.ALLOY))
+        // an any-trip versus a copper-only trip
+        val d = g.fleet.drones[0]
+        d.focus = Item.COPPER
+        g.fleet.drones[1].focus = null
+        val before = g.storage[Item.COPPER.ordinal]
+        var t = 0f
+        var focusedBack = 0
+        var anyTime = 0f; var copperTime = 0f
+        while (t < 3000f) { g.fleet.update(0.25f); g.time += 0.25f; t += 0.25f }
+        val gained = g.storage[Item.COPPER.ordinal] - before
+        println("drone 0 (copper only) trips ${d.trips}, drone 1 (anything) trips ${g.fleet.drones[1].trips}, copper gained overall $gained")
+        assertTrue("targeted drone brought copper", gained > d.trips)
+        // a targeted trip brings a good pile of exactly that material and searches twice as long
+        val h = g.fleet.drones[2]
+        h.focus = Item.SCRAP
+        var sawHaul = 0; var work = 0f
+        var steps = 0
+        while (steps < 100000 && sawHaul == 0) {
+            g.fleet.update(0.25f); g.time += 0.25f; steps++
+            if (h.state == DroneState.WORKING && work == 0f && h.hunting == Item.SCRAP) work = h.timer
+            if (h.state == DroneState.BACK && h.hunting == Item.SCRAP) sawHaul = h.loot[Item.SCRAP.ordinal]
+        }
+        println("targeted haul $sawHaul scrap, working time ${work}s, normal haul ${g.fleet.capacity}")
+        assertTrue("targeted haul is big ($sawHaul)", sawHaul >= kotlin.math.ceil(g.fleet.capacity * 1.6).toInt())
+        assertTrue("targeted search takes longer ($work)", work > DroneStats.WORK_SECONDS * 1.5f)
     }
 }
