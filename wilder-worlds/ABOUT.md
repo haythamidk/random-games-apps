@@ -11,14 +11,14 @@
 | Biome | Shows up in | What it looks like |
 |---|---|---|
 | **Autumn Forest** `ww:autumn_forest` | forests, birch forests, flower forests, dark forests | Orange, yellow and red larches and broadleaf trees mixed with dark spruces. Podzol and leaf litter on the ground, fallen logs, mossy rocks. |
-| **Pine Highlands** `ww:pine_highlands` | taiga, old growth taiga, windswept forest, grove | Tall layered spruces and bare-trunk pines, with a rare giant. Ferns, dead standing trunks, grey boulders and bare stone on steep slopes. |
+| **Pine Highlands** `ww:pine_highlands` | taiga, old growth taiga, windswept forest, grove | Tall layered spruces and bare-trunk pines, with a rare giant. Ferns, fallen logs, grey boulders and bare stone on steep slopes. |
 | **Limestone Highlands** `ww:limestone_highlands` | meadows, windswept hills, stony peaks, savanna plateau | Bright grass over pale limestone. White rock shows on cliffs and in bands across the hills, with scattered pines and flower patches. |
 | **Marshland** `ww:marshland` | plains, swamps | Wet lowland with small ponds, mud, reeds, round bushes, blue flowers and a few firefly bushes. |
 
 ## Changes to vanilla biomes
 
 - **Forests:** fallen logs, bushes, an occasional big oak, mossy rocks, patches of podzol, coarse dirt and moss.
-- **Taiga:** taller spruces and pines mixed in, dead trunks, mossy boulders, fern beds.
+- **Taiga:** taller spruces and pines mixed in, fallen logs, mossy boulders, fern beds.
 - **Plains:** bushes, a rare lone tree, small rocks, bare dirt patches, wildflowers.
 - **Hills and mountains:** exposed stone and gravel, boulders, a few pines.
 - **Savanna and desert:** dry grass, granite and sandstone rocks.

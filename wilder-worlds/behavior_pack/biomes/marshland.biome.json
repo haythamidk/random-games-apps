@@ -64,9 +64,9 @@
           {
             "dimension": "minecraft:overworld",
             "targets": [
-              "plains",
-              "sunflower_plains",
-              "swampland"
+              "minecraft:plains",
+              "minecraft:sunflower_plains",
+              "minecraft:swampland"
             ],
             "amount": 0.5,
             "noise_frequency_scale": 22

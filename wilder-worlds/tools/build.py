@@ -25,7 +25,7 @@ SHADER = ROOT / "shader_pack"
 RELEASE = ROOT / "release"
 
 NS = "ww"
-VERSION = [1, 1, 0]
+VERSION = [1, 2, 0]
 MIN_ENGINE = [1, 26, 0]
 FV_BIOME = "1.26.0"
 FV_CLIENT_BIOME = "1.21.120"
@@ -175,19 +175,6 @@ def fallen_log(name, log, length, grow_on=None):
     body = {"fallen_trunk": {"log_length": rng(*length), "trunk_block": log}}
     body.update(tree_base(grow_on))
     return add_feature("tree_feature", name, body)
-
-
-def snag(name, log, height):
-    return add_feature("multipart_block_column_feature", name, {
-        "tip_block": log,
-        "frustum_block": log,
-        "middle_block": log,
-        "base_block": log,
-        "height_range": rng(*height),
-        "direction": "UP",
-        "may_place_on": SOIL,
-        "may_replace": AIRISH,
-    })
 
 
 def blob(name, block, count, may_replace):
@@ -346,7 +333,6 @@ def build_shared_features():
     f["fallen_birch"] = fallen_log("fallen_birch", BIRCH_LOG, (3, 6))
     f["driftwood"] = fallen_log("driftwood", mc("stripped_spruce_log"), (2, 4),
                                 grow_on=SOIL + [mc("sand"), mc("gravel")])
-    f["snag"] = snag("snag", SPRUCE_LOG, (3, 7))
     # Rocks
     f["boulder_stone"] = boulder("boulder_stone", mc("stone"), 16, mc("andesite"), 7)
     f["boulder_mossy"] = boulder("boulder_mossy", mc("cobblestone"), 14,
@@ -442,7 +428,9 @@ def biome(name, climate, surface, targets, amount, scale, tags,
         comps["minecraft:surface_material_adjustments"] = {"adjustments": adjustments}
     comps["minecraft:replace_biomes"] = {"replacements": [{
         "dimension": "minecraft:overworld",
-        "targets": targets,
+        # The game only finds vanilla biomes by their full id; bare names are
+        # rejected with "No biome found", whatever the reference docs say.
+        "targets": [mc(t) for t in targets],
         "amount": amount,
         "noise_frequency_scale": scale,
     }]}
@@ -520,7 +508,7 @@ def build_biomes(f):
         (f["big_orange_oak"], 1)])
     mix("autumn_bush_mix", [
         (f["bush_orange"], 3), (f["bush_yellow"], 3), (f["bush_red"], 2), (f["bush_oak"], 2)])
-    mix("autumn_deadwood_mix", [(f["fallen_oak"], 3), (f["fallen_birch"], 2), (f["snag"], 1)])
+    mix("autumn_deadwood_mix", [(f["fallen_oak"], 3), (f["fallen_birch"], 2)])
     mix("autumn_rock_mix", [(f["boulder_mossy"], 3), (f["rock_small_mossy"], 3), (f["boulder_stone"], 1)])
     rule("autumn_forest_trees", ww("autumn_tree_mix"), t, 5)
     rule("autumn_forest_groves", ww("autumn_tree_mix"), t,
@@ -555,7 +543,7 @@ def build_biomes(f):
     mix("pine_tree_mix", [
         (f["tall_spruce"], 6), (f["slim_pine"], 5), (f["young_spruce"], 3),
         (f["giant_spruce"], 1)])
-    mix("pine_deadwood_mix", [(f["fallen_spruce"], 3), (f["snag"], 2)])
+    mix("pine_deadwood_mix", [(f["fallen_spruce"], 3)])
     mix("pine_rock_mix", [
         (f["boulder_stone"], 4), (f["boulder_mossy"], 3), (f["rock_small"], 4),
         (f["boulder_big"], 1)])
@@ -625,7 +613,7 @@ def build_biomes(f):
         (f["green_oak"], 5), (f["tall_spruce"], 2), (f["young_spruce"], 2),
         (f["big_oak"], 1)])
     mix("marsh_bush_mix", [(f["bush_oak"], 5), (f["bush_birch"], 2), (f["bush_spruce"], 1)])
-    mix("marsh_deadwood_mix", [(f["fallen_oak"], 2), (f["fallen_spruce"], 1), (f["snag"], 1)])
+    mix("marsh_deadwood_mix", [(f["fallen_oak"], 2), (f["fallen_spruce"], 1)])
     rule("marshland_ponds", f["marsh_pond"], t, 1, 55, placement_pass="before_surface_pass")
     rule("marshland_trees", ww("marsh_tree_mix"), t, 1)
     rule("marshland_bushes", ww("marsh_bush_mix"), t, 3)
@@ -660,7 +648,7 @@ def build_vanilla_rules(f):
     taiga = ["taiga"]
     not_taiga = ("ww_biome",)
     mix("taiga_tree_mix", [(f["tall_spruce"], 6), (f["slim_pine"], 3), (f["giant_spruce"], 1)])
-    mix("taiga_deadwood_mix", [(f["fallen_spruce"], 3), (f["snag"], 1)])
+    mix("taiga_deadwood_mix", [(f["fallen_spruce"], 3)])
     mix("taiga_patch_mix", [(f["patch_podzol"], 3), (f["patch_coarse"], 2), (f["patch_gravel"], 1)])
     mix("taiga_rock_mix", [(f["boulder_mossy"], 3), (f["rock_small_mossy"], 3), (f["boulder_stone"], 1)])
     rule("taiga_tall_trees", ww("taiga_tree_mix"), taiga, 1, None, not_taiga)
@@ -823,26 +811,50 @@ NOT_OVERWORLD = ("hell", "basalt_deltas", "crimson_forest", "warped_forest",
 
 
 def shader_fogs(samples):
-    """Rewrites the vanilla fog files with a soft distance haze and clearer water."""
-    out = SHADER / "fogs"
-    if out.exists():
-        shutil.rmtree(out)
-    for path in sorted((samples / "resource_pack" / "fogs").glob("*.json")):
+    """Soft distance haze and clearer water for every overworld biome.
+
+    A pack may not redefine a minecraft: fog, so each vanilla fog is copied
+    under our namespace and the vanilla client biomes are pointed at the copy.
+    """
+    for folder in (SHADER / "fogs", SHADER / "biomes"):
+        if folder.exists():
+            shutil.rmtree(folder)
+    vanilla = {}
+    for path in (samples / "resource_pack" / "fogs").glob("*.json"):
+        data = json.loads(path.read_text())
+        vanilla[data["minecraft:fog_settings"]["description"]["identifier"]] = data
+    default_air = vanilla["minecraft:fog_default"]["minecraft:fog_settings"]["distance"]["air"]
+
+    def haze(fog_id):
+        new_id = fog_id.replace("minecraft:", NS + ":")
+        path = SHADER / "fogs" / (new_id.split(":")[1] + ".json")
+        if not path.exists():
+            data = json.loads(json.dumps(vanilla[fog_id]))
+            settings = data["minecraft:fog_settings"]
+            settings["description"]["identifier"] = new_id
+            distance = settings.setdefault("distance", {})
+            # Biome fogs without their own air settings fall back to the
+            # default fog, which we cannot touch, so give each one its own.
+            air = distance.setdefault("air", dict(default_air))
+            if air.get("render_distance_type") == "render" and air["fog_start"] > HAZE_START:
+                air["fog_start"] = HAZE_START
+            water = distance.get("water")
+            if water and water.get("render_distance_type") == "fixed":
+                water["fog_end"] = round(water["fog_end"] * WATER_CLARITY, 1)
+            write_json(path, data)
+        return new_id
+
+    sources = sorted((samples / "resource_pack" / "biomes").glob("*.json"))
+    sources += sorted((RP / "biomes").glob("*.json"))
+    for path in sources:
         if path.name.startswith(NOT_OVERWORLD):
             continue
         data = json.loads(path.read_text())
-        distance = data["minecraft:fog_settings"].get("distance", {})
-        changed = False
-        air = distance.get("air")
-        if air and air.get("render_distance_type") == "render" and air["fog_start"] > HAZE_START:
-            air["fog_start"] = HAZE_START
-            changed = True
-        water = distance.get("water")
-        if water and water.get("render_distance_type") == "fixed":
-            water["fog_end"] = round(water["fog_end"] * WATER_CLARITY, 1)
-            changed = True
-        if changed:
-            write_json(out / path.name, data)
+        fog = data["minecraft:client_biome"]["components"].get("minecraft:fog_appearance")
+        if not fog or fog["fog_identifier"] not in vanilla:
+            continue
+        fog["fog_identifier"] = haze(fog["fog_identifier"])
+        write_json(SHADER / "biomes" / path.name, data)
 
 
 def disc(img, cx, cy, radius, shade):

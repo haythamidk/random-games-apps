@@ -15,14 +15,14 @@ To find a biome fast, turn on cheats and run `/locate biome ww:autumn_forest` (o
 If `/locate` says the biome is unknown, the behavior pack is not active on that world, or the game rejected a file. Turn on Content Log in Settings > Creator to see which.
 
 ## Status
-The packs pass the checks in `tools/validate.py` against Mojang's schemas and block list for 1.26.60, and the features follow the vanilla definitions that ship with the dedicated server. They have **not been run in the game yet**.
+The packs pass the checks in `tools/validate.py` against Mojang's schemas and block list for 1.26.60, and the features follow the vanilla definitions that ship with the dedicated server. The first in-game run on 26.62 turned up three load errors (biome targets needed the `minecraft:` prefix, one feature type was not available, vanilla fogs cannot be redefined). Those are fixed in 1.2.0, which has not been re-run yet.
 
 ## Tech
 - **Biomes:** `minecraft:replace_biomes` swaps part of some vanilla biomes for each new one. Bedrock picks the terrain shape before that swap, so an add-on can restyle the land but not reshape it.
 - **Surface:** noise-driven `surface_material_adjustments` and steep-slope materials give podzol, mud, bare rock and limestone bands.
-- **Features:** 109 features and 78 feature rules for trees, bushes, dead wood, boulders, ground patches, plants and ponds. They are all plain JSON. There are no scripts and no entities, so nothing runs while you play.
+- **Features:** 108 features and 78 feature rules for trees, bushes, dead wood, boulders, ground patches, plants and ponds. They are all plain JSON. There are no scripts and no entities, so nothing runs while you play.
 - **Blocks:** 3 autumn leaf blocks. They render as solid blocks, which is the cheapest kind to draw.
-- **Lite shader:** a separate resource pack. Phones cannot load custom shader code in Bedrock, so it changes what a pack is allowed to: fog starts at half the render distance for a soft haze, underwater view reaches 1.6x further, and the sun and moon are round. It does not touch Vibrant Visuals and costs no frame rate.
+- **Lite shader:** a separate resource pack. Phones cannot load custom shader code in Bedrock, so it changes what a pack is allowed to: every overworld biome gets its own copy of its fog that starts at half the render distance for a soft haze, underwater view reaches 1.6x further, and the sun and moon are round. It does not touch Vibrant Visuals and costs no frame rate.
 
 ## Build
 ```

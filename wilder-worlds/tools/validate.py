@@ -38,9 +38,6 @@ FEATURE_KEYS = {
         "description", "places_block", "enforce_placement_rules",
         "enforce_survivability_rules", "randomize_rotation", "may_attach_to",
         "may_not_attach_to", "may_replace"},
-    "minecraft:multipart_block_column_feature": {
-        "description", "tip_block", "frustum_block", "middle_block", "base_block",
-        "height_range", "weighted_heights", "direction", "may_place_on", "may_replace"},
     "minecraft:vegetation_patch_feature": {
         "description", "replaceable_blocks", "ground_block", "vegetation_feature",
         "surface", "depth", "extra_deep_block_chance", "vertical_range",
@@ -230,7 +227,7 @@ def main():
         my_tags |= set(comps["minecraft:tags"]["tags"])
         for rep in comps["minecraft:replace_biomes"]["replacements"]:
             for target in rep["targets"]:
-                if target not in vanilla_biomes:
+                if not target.startswith("minecraft:") or target[10:] not in vanilla_biomes:
                     err(path.name, "replace target %r is not a vanilla biome" % target)
             if not 0 < rep["amount"] <= 1 or not 0 < rep["noise_frequency_scale"] <= 100:
                 err(path.name, "replacement amount or frequency is out of range")
@@ -289,15 +286,41 @@ def main():
             return {k: shape(v) for k, v in node.items()}
         return type(node).__name__ if not isinstance(node, (int, float)) else "number"
 
+    vanilla_fogs = {}
+    for path in (samples / "resource_pack/fogs").glob("*.json"):
+        data = load(path)
+        vanilla_fogs[data["minecraft:fog_settings"]["description"]["identifier"]] = data
+    shader_fogs = set()
     for path in sorted((SHADER / "fogs").glob("*.json")):
-        original = samples / "resource_pack/fogs" / path.name
+        data = load(path)
+        ident = data["minecraft:fog_settings"]["description"]["identifier"]
+        shader_fogs.add(ident)
+        original = vanilla_fogs.get(ident.replace("ww:", "minecraft:"))
+        if not ident.startswith("ww:"):
+            err(path.name, "packs may not define fogs in the minecraft namespace")
+        elif original is None:
+            err(path.name, "no vanilla fog to compare with")
+        else:
+            ours, theirs = shape(data), shape(original)
+            ours["minecraft:fog_settings"]["distance"].pop("air", None)
+            theirs["minecraft:fog_settings"].setdefault("distance", {}).pop("air", None)
+            if ours != theirs:
+                err(path.name, "structure differs from the vanilla fog")
+        if "air" not in data["minecraft:fog_settings"]["distance"]:
+            err(path.name, "no air fog")
+    for path in sorted((SHADER / "biomes").glob("*.json")):
+        check_schema(client_validator, path)
+        data = load(path)
+        original = samples / "resource_pack/biomes" / path.name
         if not original.exists():
-            err(path.name, "not a vanilla fog file")
-        elif shape(load(path)) != shape(load(original)):
-            err(path.name, "structure differs from the vanilla fog")
-        elif load(path)["minecraft:fog_settings"]["description"] != \
-                load(original)["minecraft:fog_settings"]["description"]:
-            err(path.name, "fog identifier changed")
+            original = RP / "biomes" / path.name
+        theirs = load(original)
+        fog = data["minecraft:client_biome"]["components"]["minecraft:fog_appearance"]
+        if fog["fog_identifier"] not in shader_fogs:
+            err(path.name, "points at a fog the shader does not define")
+        fog["fog_identifier"] = fog["fog_identifier"].replace("ww:", "minecraft:")
+        if data != theirs:
+            err(path.name, "differs from the original by more than its fog")
     for name, size in (("sun.png", (64, 64)), ("moon_phases.png", (256, 128))):
         from PIL import Image
         if Image.open(SHADER / "textures/environment" / name).size != size:

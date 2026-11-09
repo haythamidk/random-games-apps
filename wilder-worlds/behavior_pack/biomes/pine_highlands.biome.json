@@ -76,12 +76,12 @@
           {
             "dimension": "minecraft:overworld",
             "targets": [
-              "taiga",
-              "mega_taiga",
-              "redwood_taiga_mutated",
-              "cold_taiga",
-              "extreme_hills_plus_trees",
-              "grove"
+              "minecraft:taiga",
+              "minecraft:mega_taiga",
+              "minecraft:redwood_taiga_mutated",
+              "minecraft:cold_taiga",
+              "minecraft:extreme_hills_plus_trees",
+              "minecraft:grove"
             ],
             "amount": 0.6,
             "noise_frequency_scale": 22

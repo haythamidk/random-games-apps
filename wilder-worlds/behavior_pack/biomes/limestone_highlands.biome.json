@@ -78,11 +78,11 @@
           {
             "dimension": "minecraft:overworld",
             "targets": [
-              "meadow",
-              "extreme_hills",
-              "extreme_hills_mutated",
-              "stony_peaks",
-              "savanna_plateau"
+              "minecraft:meadow",
+              "minecraft:extreme_hills",
+              "minecraft:extreme_hills_mutated",
+              "minecraft:stony_peaks",
+              "minecraft:savanna_plateau"
             ],
             "amount": 0.65,
             "noise_frequency_scale": 22
