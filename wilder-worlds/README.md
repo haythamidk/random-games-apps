@@ -4,7 +4,7 @@ A Minecraft Bedrock add-on (Pocket Edition included) that adds 4 new biomes and 
 
 ## Install
 1. Download [`release/WilderWorlds.mcaddon`](release/WilderWorlds.mcaddon) on your phone.
-2. Open it with Minecraft. Both packs import by themselves.
+2. Open it with Minecraft. The packs import by themselves.
 3. Make a **new world**, and turn on **Wilder Worlds** under Behavior Packs. The resource pack comes with it.
 4. Optional: turn on **Wilder Worlds Lite Shader** under Resource Packs.
 

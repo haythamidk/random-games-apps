@@ -25,7 +25,7 @@ SHADER = ROOT / "shader_pack"
 RELEASE = ROOT / "release"
 
 NS = "ww"
-VERSION = [1, 0, 0]
+VERSION = [1, 1, 0]
 MIN_ENGINE = [1, 26, 0]
 FV_BIOME = "1.26.0"
 FV_CLIENT_BIOME = "1.21.120"
