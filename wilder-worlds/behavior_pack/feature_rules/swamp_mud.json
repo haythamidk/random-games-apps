@@ -1,0 +1,54 @@
+{
+  "format_version": "1.13.0",
+  "minecraft:feature_rules": {
+    "description": {
+      "identifier": "ww:swamp_mud",
+      "places_feature": "ww:patch_mud"
+    },
+    "conditions": {
+      "placement_pass": "before_surface_pass",
+      "minecraft:biome_filter": [
+        {
+          "test": "has_biome_tag",
+          "operator": "==",
+          "value": "overworld"
+        },
+        {
+          "test": "has_biome_tag",
+          "operator": "==",
+          "value": "swamp"
+        },
+        {
+          "test": "has_biome_tag",
+          "operator": "!=",
+          "value": "ww_biome"
+        },
+        {
+          "test": "has_biome_tag",
+          "operator": "!=",
+          "value": "mangrove_swamp"
+        }
+      ]
+    },
+    "distribution": {
+      "iterations": 1,
+      "scatter_chance": 70,
+      "coordinate_eval_order": "xzy",
+      "x": {
+        "distribution": "uniform",
+        "extent": [
+          0,
+          15
+        ]
+      },
+      "y": "query.heightmap(variable.worldx, variable.worldz) - 1",
+      "z": {
+        "distribution": "uniform",
+        "extent": [
+          0,
+          15
+        ]
+      }
+    }
+  }
+}

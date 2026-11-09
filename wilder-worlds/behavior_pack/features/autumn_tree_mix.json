@@ -1,0 +1,50 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:autumn_tree_mix"
+    },
+    "features": [
+      [
+        "ww:larch_orange",
+        5
+      ],
+      [
+        "ww:larch_yellow",
+        5
+      ],
+      [
+        "ww:larch_red",
+        3
+      ],
+      [
+        "ww:round_orange",
+        3
+      ],
+      [
+        "ww:round_yellow",
+        4
+      ],
+      [
+        "ww:round_red",
+        2
+      ],
+      [
+        "ww:tall_spruce",
+        3
+      ],
+      [
+        "ww:young_spruce",
+        2
+      ],
+      [
+        "ww:green_oak",
+        2
+      ],
+      [
+        "ww:big_orange_oak",
+        1
+      ]
+    ]
+  }
+}

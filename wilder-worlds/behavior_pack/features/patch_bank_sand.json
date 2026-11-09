@@ -1,0 +1,23 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:patch_bank_sand"
+    },
+    "count": 22,
+    "replace_rules": [
+      {
+        "places_block": "minecraft:sand",
+        "may_replace": [
+          "minecraft:grass_block",
+          "minecraft:dirt",
+          "minecraft:podzol",
+          "minecraft:coarse_dirt",
+          "minecraft:sand",
+          "minecraft:gravel",
+          "minecraft:clay"
+        ]
+      }
+    ]
+  }
+}

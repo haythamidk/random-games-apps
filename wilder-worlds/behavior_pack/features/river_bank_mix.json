@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:river_bank_mix"
+    },
+    "features": [
+      [
+        "ww:patch_bank_gravel",
+        4
+      ],
+      [
+        "ww:patch_bank_clay",
+        1
+      ],
+      [
+        "ww:patch_bank_sand",
+        2
+      ]
+    ]
+  }
+}

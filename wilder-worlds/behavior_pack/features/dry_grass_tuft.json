@@ -1,0 +1,29 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:scatter_feature": {
+    "description": {
+      "identifier": "ww:dry_grass_tuft"
+    },
+    "places_feature": "ww:dry_grass",
+    "project_input_to_floor": true,
+    "distribution": {
+      "iterations": 8,
+      "coordinate_eval_order": "xzy",
+      "x": {
+        "distribution": "gaussian",
+        "extent": [
+          -5,
+          5
+        ]
+      },
+      "y": "query.heightmap(variable.worldx, variable.worldz)",
+      "z": {
+        "distribution": "gaussian",
+        "extent": [
+          -5,
+          5
+        ]
+      }
+    }
+  }
+}

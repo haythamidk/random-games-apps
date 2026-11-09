@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:hills_patch_mix"
+    },
+    "features": [
+      [
+        "ww:patch_stone",
+        4
+      ],
+      [
+        "ww:patch_andesite",
+        2
+      ],
+      [
+        "ww:patch_gravel",
+        3
+      ]
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:autumn_deadwood_mix"
+    },
+    "features": [
+      [
+        "ww:fallen_oak",
+        3
+      ],
+      [
+        "ww:fallen_birch",
+        2
+      ],
+      [
+        "ww:snag",
+        1
+      ]
+    ]
+  }
+}

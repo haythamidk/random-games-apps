@@ -1,0 +1,27 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "ww:woodland_flowers"
+    },
+    "places_block": [
+      {
+        "block": "minecraft:lily_of_the_valley",
+        "weight": 3
+      },
+      {
+        "block": "minecraft:poppy",
+        "weight": 2
+      },
+      {
+        "block": "minecraft:dandelion",
+        "weight": 2
+      }
+    ],
+    "enforce_placement_rules": true,
+    "enforce_survivability_rules": true,
+    "may_replace": [
+      "minecraft:air"
+    ]
+  }
+}

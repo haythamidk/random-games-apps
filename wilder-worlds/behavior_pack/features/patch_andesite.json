@@ -1,0 +1,20 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:patch_andesite"
+    },
+    "count": 22,
+    "replace_rules": [
+      {
+        "places_block": "minecraft:andesite",
+        "may_replace": [
+          "minecraft:grass_block",
+          "minecraft:dirt",
+          "minecraft:podzol",
+          "minecraft:coarse_dirt"
+        ]
+      }
+    ]
+  }
+}

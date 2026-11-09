@@ -1,0 +1,20 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:patch_coarse"
+    },
+    "count": 30,
+    "replace_rules": [
+      {
+        "places_block": "minecraft:coarse_dirt",
+        "may_replace": [
+          "minecraft:grass_block",
+          "minecraft:dirt",
+          "minecraft:podzol",
+          "minecraft:coarse_dirt"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:autumn_rock_mix"
+    },
+    "features": [
+      [
+        "ww:boulder_mossy",
+        3
+      ],
+      [
+        "ww:rock_small_mossy",
+        3
+      ],
+      [
+        "ww:boulder_stone",
+        1
+      ]
+    ]
+  }
+}

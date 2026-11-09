@@ -1,0 +1,51 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "ww:wildflowers"
+    },
+    "places_block": [
+      {
+        "block": {
+          "name": "minecraft:wildflowers",
+          "states": {
+            "growth": 0
+          }
+        },
+        "weight": 1
+      },
+      {
+        "block": {
+          "name": "minecraft:wildflowers",
+          "states": {
+            "growth": 1
+          }
+        },
+        "weight": 1
+      },
+      {
+        "block": {
+          "name": "minecraft:wildflowers",
+          "states": {
+            "growth": 2
+          }
+        },
+        "weight": 1
+      },
+      {
+        "block": {
+          "name": "minecraft:wildflowers",
+          "states": {
+            "growth": 3
+          }
+        },
+        "weight": 1
+      }
+    ],
+    "enforce_placement_rules": true,
+    "enforce_survivability_rules": true,
+    "may_replace": [
+      "minecraft:air"
+    ]
+  }
+}

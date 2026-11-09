@@ -1,0 +1,23 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "ww:dry_grass"
+    },
+    "places_block": [
+      {
+        "block": "minecraft:short_dry_grass",
+        "weight": 3
+      },
+      {
+        "block": "minecraft:tall_dry_grass",
+        "weight": 2
+      }
+    ],
+    "enforce_placement_rules": true,
+    "enforce_survivability_rules": true,
+    "may_replace": [
+      "minecraft:air"
+    ]
+  }
+}

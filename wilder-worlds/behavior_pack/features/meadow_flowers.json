@@ -1,0 +1,35 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:single_block_feature": {
+    "description": {
+      "identifier": "ww:meadow_flowers"
+    },
+    "places_block": [
+      {
+        "block": "minecraft:oxeye_daisy",
+        "weight": 4
+      },
+      {
+        "block": "minecraft:azure_bluet",
+        "weight": 4
+      },
+      {
+        "block": "minecraft:cornflower",
+        "weight": 2
+      },
+      {
+        "block": "minecraft:dandelion",
+        "weight": 3
+      },
+      {
+        "block": "minecraft:allium",
+        "weight": 1
+      }
+    ],
+    "enforce_placement_rules": true,
+    "enforce_survivability_rules": true,
+    "may_replace": [
+      "minecraft:air"
+    ]
+  }
+}

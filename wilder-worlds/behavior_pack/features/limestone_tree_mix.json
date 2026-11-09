@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:limestone_tree_mix"
+    },
+    "features": [
+      [
+        "ww:tall_spruce",
+        3
+      ],
+      [
+        "ww:slim_pine",
+        3
+      ],
+      [
+        "ww:young_spruce",
+        3
+      ]
+    ]
+  }
+}

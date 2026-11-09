@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:marsh_bush_mix"
+    },
+    "features": [
+      [
+        "ww:bush_oak",
+        5
+      ],
+      [
+        "ww:bush_birch",
+        2
+      ],
+      [
+        "ww:bush_spruce",
+        1
+      ]
+    ]
+  }
+}

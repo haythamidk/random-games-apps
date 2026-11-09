@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:plains_patch_mix"
+    },
+    "features": [
+      [
+        "ww:patch_coarse",
+        3
+      ],
+      [
+        "ww:patch_gravel",
+        1
+      ]
+    ]
+  }
+}

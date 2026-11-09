@@ -1,0 +1,20 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:patch_podzol"
+    },
+    "count": 33,
+    "replace_rules": [
+      {
+        "places_block": "minecraft:podzol",
+        "may_replace": [
+          "minecraft:grass_block",
+          "minecraft:dirt",
+          "minecraft:podzol",
+          "minecraft:coarse_dirt"
+        ]
+      }
+    ]
+  }
+}

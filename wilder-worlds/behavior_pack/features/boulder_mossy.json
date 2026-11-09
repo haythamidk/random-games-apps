@@ -1,0 +1,12 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:aggregate_feature": {
+    "description": {
+      "identifier": "ww:boulder_mossy"
+    },
+    "features": [
+      "ww:boulder_mossy_core",
+      "ww:boulder_mossy_accent"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "format_version": "1.19.30",
+  "ww:orange_leaves": {
+    "sound": "grass"
+  },
+  "ww:yellow_leaves": {
+    "sound": "grass"
+  },
+  "ww:red_leaves": {
+    "sound": "grass"
+  }
+}

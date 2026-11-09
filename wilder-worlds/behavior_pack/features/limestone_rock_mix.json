@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:limestone_rock_mix"
+    },
+    "features": [
+      [
+        "ww:boulder_lime",
+        4
+      ],
+      [
+        "ww:rock_small_lime",
+        5
+      ],
+      [
+        "ww:boulder_stone",
+        1
+      ]
+    ]
+  }
+}

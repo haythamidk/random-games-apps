@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:hills_tree_mix"
+    },
+    "features": [
+      [
+        "ww:slim_pine",
+        3
+      ],
+      [
+        "ww:young_spruce",
+        2
+      ]
+    ]
+  }
+}
