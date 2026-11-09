@@ -13,13 +13,6 @@
         ],
         "temperature": 0.5
       },
-      "minecraft:map_tints": {
-        "grass": {
-          "type": "tint",
-          "tint": "#8fc050"
-        },
-        "foliage": "#77ab2f"
-      },
       "minecraft:mountain_parameters": {
         "steep_material_adjustment": {
           "material": "minecraft:calcite",
@@ -27,6 +20,9 @@
           "east_slopes": true,
           "south_slopes": true,
           "west_slopes": true
+        },
+        "top_slide": {
+          "enabled": false
         }
       },
       "minecraft:surface_builder": {
@@ -84,11 +80,12 @@
             "targets": [
               "meadow",
               "extreme_hills",
+              "extreme_hills_mutated",
               "stony_peaks",
               "savanna_plateau"
             ],
-            "amount": 0.45,
-            "noise_frequency_scale": 12
+            "amount": 0.65,
+            "noise_frequency_scale": 22
           }
         ]
       },

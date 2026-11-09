@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Generates the Wilder Worlds add-on (behavior pack, resource pack, .mcaddon).
 
-Run from anywhere:  python3 wilder-worlds/tools/build.py
+Run from anywhere:  python3 wilder-worlds/tools/build.py [bedrock-samples]
+
+The bedrock-samples path (https://github.com/Mojang/bedrock-samples) is only
+needed to regenerate the lite shader's fog files from the vanilla ones.
 
 Everything under behavior_pack/ and resource_pack/ is produced by this script,
 so edit the tables here rather than the generated JSON.
@@ -9,6 +12,7 @@ so edit the tables here rather than the generated JSON.
 import json
 import random
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 
@@ -17,6 +21,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 BP = ROOT / "behavior_pack"
 RP = ROOT / "resource_pack"
+SHADER = ROOT / "shader_pack"
 RELEASE = ROOT / "release"
 
 NS = "ww"
@@ -32,6 +37,8 @@ BP_UUID = "6d1f4b1e-58a3-4c0e-9a57-2f0c1b7e4a11"
 BP_MODULE_UUID = "b0a7c2d4-93f1-4e86-8c35-7d5e9a1f6b22"
 RP_UUID = "3e9c8a70-14b6-4d2f-a6e1-90c4d7b2f533"
 RP_MODULE_UUID = "f47b0e15-6c29-4a83-b1d8-25a6e3c9d044"
+SHADER_UUID = "9a2d6c41-7be5-4f18-93a0-c85d1e2b7f55"
+SHADER_MODULE_UUID = "c1e84f37-2a90-4d6b-8e53-fa07b6d9c366"
 
 HEIGHTMAP = "query.heightmap(variable.worldx, variable.worldz)"
 
@@ -420,18 +427,15 @@ def build_shared_features():
 # Custom biomes
 # --------------------------------------------------------------------------
 def biome(name, climate, surface, targets, amount, scale, tags,
-          adjustments=None, steep=None, map_grass=None, map_foliage=None):
+          adjustments=None, steep=None):
     comps = {"minecraft:climate": climate}
-    if map_grass or map_foliage:
-        comps["minecraft:map_tints"] = {
-            "grass": {"type": "tint", "tint": map_grass},
-            "foliage": map_foliage,
-        }
     if steep:
+        # Same shape as vanilla stony_peaks, with all four slope directions on.
         comps["minecraft:mountain_parameters"] = {
             "steep_material_adjustment": dict(
                 material=steep, north_slopes=True, east_slopes=True,
                 south_slopes=True, west_slopes=True),
+            "top_slide": {"enabled": False},
         }
     comps["minecraft:surface_builder"] = {"builder": surface}
     if adjustments:
@@ -501,13 +505,12 @@ def build_biomes(f):
           climate={"downfall": 0.7, "snow_accumulation": [0.0, 0.125], "temperature": 0.6},
           surface=overworld_surface(),
           targets=["forest", "birch_forest", "flower_forest", "roofed_forest"],
-          amount=0.4, scale=14,
+          amount=0.6, scale=22,
           tags=["bee_habitat"],
           adjustments=[
               adjust([0.3, 1.0], 0.0625, top_material=mc("podzol")),
               adjust([-1.0, -0.5], 0.0625, top_material=mc("coarse_dirt")),
-          ],
-          map_grass="#a8a04a", map_foliage="#c98b2e")
+          ])
     client_biome("autumn_forest", "minecraft:fog_forest", "#3f76a8", "#a8a04a", "#c98b2e")
     t = ["autumn_forest"]
     mix("autumn_tree_mix", [
@@ -536,16 +539,16 @@ def build_biomes(f):
     biome("pine_highlands",
           climate={"downfall": 0.8, "snow_accumulation": [0.0, 0.25], "temperature": 0.25},
           surface=overworld_surface(),
-          targets=["taiga", "mega_taiga", "extreme_hills_plus_trees", "grove"],
-          amount=0.4, scale=12,
+          targets=["taiga", "mega_taiga", "redwood_taiga_mutated", "cold_taiga",
+                   "extreme_hills_plus_trees", "grove"],
+          amount=0.6, scale=22,
           tags=["spawns_cold_variant_farm_animals"],
           steep=mc("stone"),
           adjustments=[
               adjust([0.25, 1.0], 0.0625, top_material=mc("podzol")),
               adjust([-0.2, 0.02], 0.05, top_material=mc("coarse_dirt")),
               adjust([-1.0, -0.62], 0.04, top_material=mc("stone"), mid_material=mc("stone")),
-          ],
-          map_grass="#6f9a5b", map_foliage="#4f7f4a")
+          ])
     client_biome("pine_highlands", "minecraft:fog_taiga", "#2f6f86", "#6f9a5b", "#4f7f4a",
                  grading="minecraft:coolish_color_grading")
     t = ["pine_highlands"]
@@ -572,16 +575,16 @@ def build_biomes(f):
     biome("limestone_highlands",
           climate={"downfall": 0.6, "snow_accumulation": [0.0, 0.125], "temperature": 0.5},
           surface=overworld_surface(),
-          targets=["meadow", "extreme_hills", "stony_peaks", "savanna_plateau"],
-          amount=0.45, scale=12,
+          targets=["meadow", "extreme_hills", "extreme_hills_mutated", "stony_peaks",
+                   "savanna_plateau"],
+          amount=0.65, scale=22,
           tags=["mountains", "spawns_cold_variant_farm_animals"],
           steep=mc("calcite"),
           adjustments=[
               adjust([0.42, 1.0], 0.07, top_material=mc("calcite"), mid_material=mc("calcite")),
               adjust([-0.08, 0.04], 0.045, top_material=mc("stone"), mid_material=mc("stone")),
               adjust([-1.0, -0.7], 0.06, top_material=mc("diorite"), mid_material=mc("calcite")),
-          ],
-          map_grass="#8fc050", map_foliage="#77ab2f")
+          ])
     client_biome("limestone_highlands", "minecraft:fog_extreme_hills", "#3d8fc4",
                  "#8fc050", "#77ab2f")
     t = ["limestone_highlands"]
@@ -607,15 +610,14 @@ def build_biomes(f):
     biome("marshland",
           climate={"downfall": 0.9, "snow_accumulation": [0.0, 0.125], "temperature": 0.65},
           surface=marsh_surface,
-          targets=["plains", "swampland"],
-          amount=0.3, scale=14,
+          targets=["plains", "sunflower_plains", "swampland"],
+          amount=0.5, scale=22,
           tags=["spawns_slimes_on_surface", "spawns_warm_variant_frogs"],
           adjustments=[
               adjust([0.35, 1.0], 0.08, top_material=mc("mud")),
               adjust([-1.0, -0.55], 0.07, top_material=mc("coarse_dirt")),
               adjust([-0.12, 0.0], 0.06, top_material=mc("moss_block")),
-          ],
-          map_grass="#7fae4a", map_foliage="#6aa03f")
+          ])
     client_biome("marshland", "minecraft:fog_swampland", "#3f9a94", "#7fae4a", "#6aa03f",
                  water_opacity=0.7)
     t = ["marshland"]
@@ -809,6 +811,119 @@ def pack_icon(path):
 
 
 # --------------------------------------------------------------------------
+# Lite shader pack
+# --------------------------------------------------------------------------
+# Bedrock on phones cannot load custom shader code, so this pack gets its look
+# from the things the game does let a resource pack change: fog and the sky
+# textures. None of it costs frame rate.
+HAZE_START = 0.5      # fraction of render distance where the haze begins
+WATER_CLARITY = 1.6   # how much further you can see under water
+NOT_OVERWORLD = ("hell", "basalt_deltas", "crimson_forest", "warped_forest",
+                 "soulsand_valley", "the_end")
+
+
+def shader_fogs(samples):
+    """Rewrites the vanilla fog files with a soft distance haze and clearer water."""
+    out = SHADER / "fogs"
+    if out.exists():
+        shutil.rmtree(out)
+    for path in sorted((samples / "resource_pack" / "fogs").glob("*.json")):
+        if path.name.startswith(NOT_OVERWORLD):
+            continue
+        data = json.loads(path.read_text())
+        distance = data["minecraft:fog_settings"].get("distance", {})
+        changed = False
+        air = distance.get("air")
+        if air and air.get("render_distance_type") == "render" and air["fog_start"] > HAZE_START:
+            air["fog_start"] = HAZE_START
+            changed = True
+        water = distance.get("water")
+        if water and water.get("render_distance_type") == "fixed":
+            water["fog_end"] = round(water["fog_end"] * WATER_CLARITY, 1)
+            changed = True
+        if changed:
+            write_json(out / path.name, data)
+
+
+def disc(img, cx, cy, radius, shade):
+    """Anti-aliased filled circle; shade(x, y) returns the colour or None."""
+    for y in range(int(cy - radius - 1), int(cy + radius + 2)):
+        for x in range(int(cx - radius - 1), int(cx + radius + 2)):
+            cover = 0
+            for sy in (0.25, 0.75):
+                for sx in (0.25, 0.75):
+                    if (x + sx - cx) ** 2 + (y + sy - cy) ** 2 <= radius * radius:
+                        cover += 0.25
+            colour = shade(x, y) if cover else None
+            if colour:
+                base = img.getpixel((x, y))
+                img.putpixel((x, y), tuple(
+                    int(base[i] + (colour[i] - base[i]) * cover) for i in range(3)))
+
+
+def glow(img, cx, cy, reach, colour, strength):
+    for y in range(int(cy - reach), int(cy + reach) + 1):
+        for x in range(int(cx - reach), int(cx + reach) + 1):
+            d = ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2) ** 0.5 / reach
+            if d < 1:
+                k = (1 - d) ** 2.2 * strength
+                base = img.getpixel((x, y))
+                img.putpixel((x, y), tuple(min(255, int(base[i] + colour[i] * k)) for i in range(3)))
+
+
+def shader_sky():
+    """Round sun and moon in the vanilla layout (the game draws black as clear)."""
+    env = SHADER / "textures" / "environment"
+    env.mkdir(parents=True, exist_ok=True)
+    cell = 64
+    sun = Image.new("RGB", (cell, cell), (0, 0, 0))
+    glow(sun, 32, 32, 30, (255, 196, 96), 0.55)
+    disc(sun, 32, 32, 9.5, lambda x, y: (255, 226, 150))
+    disc(sun, 32, 32, 7.5, lambda x, y: (255, 248, 216))
+    sun.save(env / "sun.png")
+
+    r = random.Random(3)
+    craters = [(r.uniform(-6, 6), r.uniform(-6, 6), r.uniform(1.2, 2.6)) for _ in range(7)]
+    moon = Image.new("RGB", (cell * 4, cell * 2), (0, 0, 0))
+    # Vanilla order: full, then waning (lit on the left), new, then waxing.
+    for phase in range(8):
+        cx, cy = (phase % 4) * cell + 32, (phase // 4) * cell + 32
+        lit = {0: 1.0, 1: 0.75, 2: 0.5, 3: 0.25, 4: 0.0, 5: 0.25, 6: 0.5, 7: 0.75}[phase]
+        left_lit = phase < 4
+        glow(moon, cx, cy, 26, (70, 90, 140), 0.25 + 0.35 * lit)
+
+        def shade(x, y, cx=cx, cy=cy, lit=lit, left_lit=left_lit):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            tone = (214, 222, 236)
+            for ox, oy, rad in craters:
+                if (dx - ox) ** 2 + (dy - oy) ** 2 < rad * rad:
+                    tone = (176, 186, 206)
+            # Terminator: an ellipse whose width follows the phase.
+            half = max(0.0, 9.0 * 9.0 - dy * dy) ** 0.5
+            edge = half * (1 - 2 * lit)            # +half (dark) .. -half (full)
+            side = -dx if left_lit else dx
+            if side < edge:
+                return (16, 20, 34)
+            return tone
+
+        disc(moon, cx, cy, 9.0, shade)
+    moon.save(env / "moon_phases.png")
+
+
+def build_shader(samples):
+    if samples:
+        shader_fogs(samples)
+    elif not (SHADER / "fogs").exists():
+        raise SystemExit("first build needs the bedrock-samples path for the shader fogs")
+    shader_sky()
+    write_json(SHADER / "manifest.json", manifest(
+        "Wilder Worlds Lite Shader",
+        "Soft distance haze, clearer water, round sun and moon. No frame rate cost.",
+        SHADER_UUID, SHADER_MODULE_UUID, "resources"))
+    shutil.copy(BP / "pack_icon.png", SHADER / "pack_icon.png")
+
+
+# --------------------------------------------------------------------------
 # Output
 # --------------------------------------------------------------------------
 def write_json(path, data):
@@ -834,6 +949,7 @@ def manifest(name, description, uuid, module_uuid, module_type, dependency=None)
 
 
 def main():
+    samples = Path(sys.argv[1]) if len(sys.argv) > 1 else None
     for folder in (BP, RP):
         if folder.exists():
             shutil.rmtree(folder)
@@ -884,12 +1000,14 @@ def main():
     write_json(RP / "texts" / "languages.json", ["en_US"])
     pack_icon(BP / "pack_icon.png")
     shutil.copy(BP / "pack_icon.png", RP / "pack_icon.png")
+    build_shader(samples)
 
     # .mcaddon = zip holding both packs
     RELEASE.mkdir(exist_ok=True)
     out = RELEASE / "WilderWorlds.mcaddon"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for folder, prefix in ((BP, "WilderWorlds_BP"), (RP, "WilderWorlds_RP")):
+        for folder, prefix in ((BP, "WilderWorlds_BP"), (RP, "WilderWorlds_RP"),
+                               (SHADER, "WilderWorlds_Shader")):
             for path in sorted(folder.rglob("*")):
                 if path.is_file():
                     info = zipfile.ZipInfo(prefix + "/" + path.relative_to(folder).as_posix(),

@@ -13,13 +13,6 @@
         ],
         "temperature": 0.25
       },
-      "minecraft:map_tints": {
-        "grass": {
-          "type": "tint",
-          "tint": "#6f9a5b"
-        },
-        "foliage": "#4f7f4a"
-      },
       "minecraft:mountain_parameters": {
         "steep_material_adjustment": {
           "material": "minecraft:stone",
@@ -27,6 +20,9 @@
           "east_slopes": true,
           "south_slopes": true,
           "west_slopes": true
+        },
+        "top_slide": {
+          "enabled": false
         }
       },
       "minecraft:surface_builder": {
@@ -82,11 +78,13 @@
             "targets": [
               "taiga",
               "mega_taiga",
+              "redwood_taiga_mutated",
+              "cold_taiga",
               "extreme_hills_plus_trees",
               "grove"
             ],
-            "amount": 0.4,
-            "noise_frequency_scale": 12
+            "amount": 0.6,
+            "noise_frequency_scale": 22
           }
         ]
       },

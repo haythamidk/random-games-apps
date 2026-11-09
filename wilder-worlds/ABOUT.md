@@ -25,6 +25,14 @@
 - **Rivers and beaches:** gravel, clay and sand banks, reed beds, driftwood.
 - **Swamps and jungles:** mud and moss patches, reeds, mossy rocks.
 
+## Lite shader
+
+An optional resource pack in the same download. Turn it on under Resource Packs.
+
+- Distant land fades into a soft blue haze.
+- You can see further under water.
+- The sun and moon are round and glow.
+
 ## Good to know
 
 - The shape of the land stays vanilla. Bedrock does not let add-ons change it, so the realism comes from the ground, the rocks and the plants.

@@ -13,13 +13,6 @@
         ],
         "temperature": 0.6
       },
-      "minecraft:map_tints": {
-        "grass": {
-          "type": "tint",
-          "tint": "#a8a04a"
-        },
-        "foliage": "#c98b2e"
-      },
       "minecraft:surface_builder": {
         "builder": {
           "type": "minecraft:overworld",
@@ -65,8 +58,8 @@
               "flower_forest",
               "roofed_forest"
             ],
-            "amount": 0.4,
-            "noise_frequency_scale": 14
+            "amount": 0.6,
+            "noise_frequency_scale": 22
           }
         ]
       },

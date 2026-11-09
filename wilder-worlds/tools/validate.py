@@ -20,6 +20,7 @@ from referencing import Registry, Resource
 ROOT = Path(__file__).resolve().parent.parent
 BP = ROOT / "behavior_pack"
 RP = ROOT / "resource_pack"
+SHADER = ROOT / "shader_pack"
 
 # Keys the feature documentation lists for each feature type we use.
 FEATURE_KEYS = {
@@ -119,7 +120,7 @@ def main():
             for p in (samples / "resource_pack/fogs").glob("*.json")}
 
     # Every file must be plain JSON.
-    for path in list(BP.rglob("*.json")) + list(RP.rglob("*.json")):
+    for path in list(BP.rglob("*.json")) + list(RP.rglob("*.json")) + list(SHADER.rglob("*.json")):
         try:
             load(path)
         except ValueError as e:
@@ -282,6 +283,31 @@ def main():
         if ident not in used:
             err(name, "feature is never placed")
 
+    # Lite shader: every fog must be a vanilla one, with nothing but numbers changed
+    def shape(node):
+        if isinstance(node, dict):
+            return {k: shape(v) for k, v in node.items()}
+        return type(node).__name__ if not isinstance(node, (int, float)) else "number"
+
+    for path in sorted((SHADER / "fogs").glob("*.json")):
+        original = samples / "resource_pack/fogs" / path.name
+        if not original.exists():
+            err(path.name, "not a vanilla fog file")
+        elif shape(load(path)) != shape(load(original)):
+            err(path.name, "structure differs from the vanilla fog")
+        elif load(path)["minecraft:fog_settings"]["description"] != \
+                load(original)["minecraft:fog_settings"]["description"]:
+            err(path.name, "fog identifier changed")
+    for name, size in (("sun.png", (64, 64)), ("moon_phases.png", (256, 128))):
+        from PIL import Image
+        if Image.open(SHADER / "textures/environment" / name).size != size:
+            err(name, "unexpected size")
+    uuids = [load(f / "manifest.json")[k]["uuid"] if k == "header" else
+             load(f / "manifest.json")["modules"][0]["uuid"]
+             for f in (BP, RP, SHADER) for k in ("header", "modules")]
+    if len(set(uuids)) != len(uuids):
+        err("manifest", "duplicate uuids")
+
     # Manifests and the packaged add-on
     bp_manifest, rp_manifest = load(BP / "manifest.json"), load(RP / "manifest.json")
     if bp_manifest["dependencies"][0]["uuid"] != rp_manifest["header"]["uuid"]:
@@ -289,7 +315,8 @@ def main():
     addon = ROOT / "release" / "WilderWorlds.mcaddon"
     with zipfile.ZipFile(addon) as z:
         packed = {n: z.read(n) for n in z.namelist()}
-    for folder, prefix in ((BP, "WilderWorlds_BP/"), (RP, "WilderWorlds_RP/")):
+    for folder, prefix in ((BP, "WilderWorlds_BP/"), (RP, "WilderWorlds_RP/"),
+                           (SHADER, "WilderWorlds_Shader/")):
         for path in folder.rglob("*"):
             if path.is_file():
                 key = prefix + path.relative_to(folder).as_posix()
