@@ -103,7 +103,7 @@ object Story {
         "Good morning, Seven. Well. Morning-ish. Welcome to Ysmere.",
         "I am WREN. I live in your suit and I have read the whole manual so you do not have to.",
         "Air is the bar on the left. When it gets low, come back to the lander and I will top you up.",
-        "See those rocks on the ground? Walk up to one and pick it up. We need ferrite and magnesium first.",
+        "Your supplies are in the lander hold. After that, look for small rocks on the ground. We need ferrite and magnesium.",
     )
 
     val idle = arrayOf(

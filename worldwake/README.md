@@ -18,7 +18,7 @@ Copy `release/Worldwake.apk` to your phone and open it. You need to allow instal
 - **32 things to build:** power, heaters, bores, spore vats, seeders, extractors, storage, and living pods that join into a base you walk around in.
 - **Survival:** air, water and food. Pods and the lander refill air. Supplies are used for you when a need gets low.
 - **A story:** 12 crew logs to find, a suit assistant called WREN who never stops talking, and 38 standing stones that turn to look at you when you are not looking at them.
-- **A 2.4 km basin** with six regions: Frost Flats, Slate Spires, the Shards, Brimstone Vents, North Terraces and the Sink.
+- **A 2.4 km basin** with six regions: Frost Flats, Slate Spires, the Shards, Brimstone Vents, North Terraces and the Sink. The map screen redraws itself as the ground changes.
 - **Controls:** touch (a stick that appears under your left thumb, drag to look, tap to use), Xbox and PlayStation controllers, or keyboard and mouse.
 
 ## Tech

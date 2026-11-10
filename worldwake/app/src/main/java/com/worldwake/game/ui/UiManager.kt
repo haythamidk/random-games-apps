@@ -82,8 +82,8 @@ class UiManager(
     private val PANEL = Color.argb(238, 9, 12, 24)
     private val CARD = Color.argb(255, 22, 28, 46)
     private val DIM = Color.rgb(150, 160, 185)
-    private val tabs = listOf("pack", "craft", "build", "planet", "journal")
-    private val tabNames = mapOf("pack" to "Pack", "craft" to "Craft", "build" to "Build", "planet" to "Planet", "journal" to "Journal")
+    private val tabs = listOf("pack", "craft", "build", "map", "planet", "journal")
+    private val tabNames = mapOf("pack" to "Pack", "craft" to "Craft", "build" to "Build", "planet" to "Planet", "journal" to "Journal", "map" to "Map")
 
     private fun dp(v: Float) = (v * d).toInt()
 
@@ -317,6 +317,7 @@ class UiManager(
             "craft" -> craftTab()
             "build" -> buildTab()
             "planet" -> planetTab()
+            "map" -> mapTab()
             "journal" -> journalTab()
             else -> packTab()
         }
@@ -562,6 +563,37 @@ class UiManager(
         sv.addView(list)
         box.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
         return box
+    }
+
+    private fun mapTab(): View {
+        val row = hbox()
+        row.gravity = Gravity.TOP
+        row.addView(MapView(act, game), LinearLayout.LayoutParams(0, MATCH, 1f))
+        val side = vbox(12f)
+        side.background = bg(CARD, 12f)
+        side.addView(label("Ysmere", 18f, Color.WHITE, true))
+        val b = WorldGen.biomeAt(game.player.pos.x, game.player.pos.z)
+        side.addView(label("You are in " + b.label + ".", 12.5f, DIM), lp(margin = 2f))
+        side.addView(label("The map shows the ground as it is now. It changes as the planet wakes.", 12f, DIM), lp(margin = 2f))
+        side.addView(View(act), lp(h = dp(6f)))
+        fun key(color: Int, name: String) {
+            val r = hbox()
+            val dot = View(act); dot.background = bg(color, 6f)
+            r.addView(dot, LinearLayout.LayoutParams(dp(12f), dp(12f)).apply { rightMargin = dp(8f) })
+            r.addView(label(name, 12f))
+            side.addView(r, lp(margin = 3f))
+        }
+        key(Color.WHITE, "You")
+        key(TEAL, "Lander")
+        key(Color.rgb(155, 232, 138), "Your pods")
+        key(Color.rgb(120, 220, 255), "Your machines")
+        key(GOLD, "Logs you found, and your goal")
+        key(Color.rgb(200, 205, 220), "Supply drops you opened")
+        side.addView(View(act), lp(h = dp(6f)))
+        side.addView(label("Ore by region", 12f, TEAL, true))
+        side.addView(label("Flats: ferrite, silica, cobalt, magnesium\nSpires: aluminium, titanium\nShards: lumen\nVents: sulfur, pyre ore\nTerraces: osmium\nSink: ice", 11.5f, DIM), lp(margin = 2f))
+        row.addView(side, LinearLayout.LayoutParams(dp(250f), MATCH).apply { leftMargin = dp(8f) })
+        return row
     }
 
     private fun journalTab(): View {

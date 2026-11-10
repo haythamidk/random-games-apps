@@ -1099,7 +1099,7 @@ class GameState(val settings: Settings) {
             TargetKind.POI -> {
                 val poi = targetPoi ?: return
                 when (poi.kind) {
-                    PoiKind.LANDER -> { sound?.play(Sfx.CRATE, 0.5f); ui?.openStorage("Lander Hold", landerInv) }
+                    PoiKind.LANDER -> { flags.add("hold"); sound?.play(Sfx.CRATE, 0.5f); ui?.openStorage("Lander Hold", landerInv) }
                     PoiKind.OUTPOST, PoiKind.SLATE -> {
                         val first = logsRead.add(poi.logIndex)
                         if (first || poi.kind == PoiKind.SLATE) {
@@ -1232,7 +1232,11 @@ class GameState(val settings: Settings) {
         objectiveX = Float.NaN
         val inv = p.inv
         objective = when {
-            !has("built:WIND") && !has("picked") -> "Pick up ore from the ground. Look at a rock and press Use."
+            !has("hold") && !has("built:WIND") -> {
+                objectiveX = WorldGen.lander.x; objectiveZ = WorldGen.lander.z
+                "Look at the lander and press Use to open its hold. Take the supplies."
+            }
+            !has("built:WIND") && !has("picked") -> "Pick up ore from the ground. Look at a rock and press Use, or tap it."
             !has("built:WIND") -> "Open Build and place a Wind Spindle  (Ferrite " + inv.count(Item.FERRITE) + "/2, Magnesium " + inv.count(Item.MAGNESIUM) + "/1)"
             !has("built:HEATER_1") -> "Build an Ember Coil to start warming Ysmere"
             !has("built:DRILL_1") -> "Build a Vent Bore to thicken the air"

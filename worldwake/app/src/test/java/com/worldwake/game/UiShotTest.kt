@@ -127,6 +127,14 @@ class UiShotTest {
         ui.showGameMenu("craft"); shot(root, dir, "06_craft")
         ui.showGameMenu("build"); shot(root, dir, "07_build")
         ui.showGameMenu("planet"); shot(root, dir, "08_planet")
+        com.worldwake.game.ui.MapImage.request(g.stage) {}
+        Thread.sleep(2500)
+        ui.showGameMenu("map"); shot(root, dir, "08b_map")
+        g.stage = 9.5f; g.stageReached = 9
+        com.worldwake.game.ui.MapImage.request(g.stage) {}
+        Thread.sleep(2500)
+        ui.showGameMenu("map"); shot(root, dir, "08c_map_late")
+        g.stage = 3.62f; g.stageReached = 3
         ui.showGameMenu("journal"); shot(root, dir, "09_journal")
         val crate = Inventory(30)
         crate.add(Item.ALLOY, 4); crate.add(Item.GLASS, 2); crate.add(Item.CIRCUIT, 2); crate.add(Item.SPORE, 4); crate.add(Item.RATION, 3)

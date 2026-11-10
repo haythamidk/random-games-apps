@@ -296,7 +296,8 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
             KeyEvent.KEYCODE_DPAD_LEFT -> act(Action.PREV_BUILD)
             KeyEvent.KEYCODE_DPAD_RIGHT -> act(Action.NEXT_BUILD)
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_B -> if (first) openGameMenu("build")
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_P -> if (first) openGameMenu("planet")
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_M -> if (first) openGameMenu("map")
+            KeyEvent.KEYCODE_P -> if (first) openGameMenu("planet")
             KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_SELECT -> if (first) openGameMenu("pack")
             KeyEvent.KEYCODE_C -> if (first) openGameMenu("craft")
             KeyEvent.KEYCODE_J -> if (first) openGameMenu("journal")
@@ -341,7 +342,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
             val hx = ev.getAxisValue(MotionEvent.AXIS_HAT_X)
             val hy = ev.getAxisValue(MotionEvent.AXIS_HAT_Y)
             if (hx != hatX) { if (hx < -0.5f) input.push(Action.PREV_BUILD) else if (hx > 0.5f) input.push(Action.NEXT_BUILD); hatX = hx }
-            if (hy != hatY) { if (hy < -0.5f) openGameMenu("build") else if (hy > 0.5f) openGameMenu("planet"); hatY = hy }
+            if (hy != hatY) { if (hy < -0.5f) openGameMenu("build") else if (hy > 0.5f) openGameMenu("map"); hatY = hy }
             return true
         }
         return super.dispatchGenericMotionEvent(ev)

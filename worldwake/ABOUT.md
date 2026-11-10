@@ -27,7 +27,7 @@ It starts as lilac frost over black volcanic ground, under a black sky with star
 | 11 | Awake | Go to the door on the island in the Sink |
 
 ## How to play
-1. Pick up ore from the ground: look at it and press USE, or just tap it.
+1. Open the lander hold for your starting supplies. Then pick up ore from the ground: look at it and press USE, or just tap it.
 2. Open BUILD. Start with a Wind Spindle for power, an Ember Coil for heat and a Vent Bore for pressure.
 3. Build a Living Pod so you have air away from the lander, and put a Fabricator inside it. The lander also has a fabricator built in.
 4. Follow the gold mark on your compass to the first Lantern Nine outpost. It has spores, which you need for anything that grows.
@@ -57,15 +57,15 @@ Things worth knowing:
 | LT / L2 | Take-apart mode |
 | RB, LB | Build menu, craft menu. While building: turn the piece |
 | D-pad left, right | Previous, next blueprint in the same group |
-| D-pad up, down | Build menu, planet page |
+| D-pad up, down | Build menu, map |
 | Y / Triangle | Pack |
 | B / Circle | Cancel, back |
 | Start | Pause |
 
 In menus, LB and RB switch tabs.
 
-**Keyboard and mouse:** WASD, Space, Shift to run, E use, F or left click to place, R or the wheel to turn, Q cancel, X take-apart mode, B build, C craft, Tab pack, P planet, J journal, Esc pause.
+**Keyboard and mouse:** WASD, Space, Shift to run, E use, F or left click to place, R or the wheel to turn, Q cancel, X take-apart mode, B build, C craft, Tab pack, M map, P planet, J journal, Esc pause.
 
 ## What is not in yet
 - One planet. Ombra and Solenne are listed in the game but locked.
-- No vehicles and no map screen. The compass shows the lander, your base, beacons and goals.
+- No vehicles. The map and the compass show the lander, your base, beacons and goals.
