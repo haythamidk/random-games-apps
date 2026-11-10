@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- ringed giant -->
+    <path android:fillColor="#FFF1DCC8" android:pathData="M54,40 m-17,0 a17,17 0 1,0 34,0 a17,17 0 1,0 -34,0" />
+    <path android:fillColor="#FFD9A9B5" android:pathData="M38,36 L70,36 L71,41 L37,41 Z" />
+    <path android:fillColor="#FFB79AD0" android:pathData="M39,46 L69,46 L66,51 L42,51 Z" />
+    <path android:strokeColor="#FFEFE3F5" android:strokeWidth="2.2" android:fillColor="#00000000"
+        android:pathData="M24,46 C36,58 72,58 84,34" />
+    <!-- frost ground -->
+    <path android:fillColor="#FF1A2B3C" android:pathData="M18,82 L34,66 L46,74 L60,62 L74,72 L90,82 Z" />
+    <path android:fillColor="#FFD9D2F2" android:pathData="M34,66 L40,70 L34,72 L29,71 Z M60,62 L67,67 L60,69 L54,67 Z" />
+    <!-- crimson sprout -->
+    <path android:fillColor="#FFF2F0EA" android:pathData="M53,82 L53.6,68 L55,68 L55.6,82 Z" />
+    <path android:fillColor="#FFE8475E" android:pathData="M54,70 C46,68 44,60 46,56 C52,58 55,63 54,70 Z" />
+    <path android:fillColor="#FFFF7A6B" android:pathData="M54.5,70 C62,68 65,61 63,57 C57,59 54,64 54.5,70 Z" />
+</vector>
