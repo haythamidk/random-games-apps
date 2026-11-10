@@ -2,17 +2,17 @@
   "format_version": 2,
   "header": {
     "name": "Wilder Worlds Resources",
-    "description": "Colours and textures for Wilder Worlds.",
+    "description": "Textures and biome colours for Wilder Worlds.",
     "uuid": "3e9c8a70-14b6-4d2f-a6e1-90c4d7b2f533",
     "version": [
-      1,
       2,
+      0,
       0
     ],
     "min_engine_version": [
       1,
       26,
-      0
+      30
     ]
   },
   "modules": [
@@ -20,8 +20,8 @@
       "type": "resources",
       "uuid": "f47b0e15-6c29-4a83-b1d8-25a6e3c9d044",
       "version": [
-        1,
         2,
+        0,
         0
       ]
     }

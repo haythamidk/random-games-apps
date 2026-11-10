@@ -26,8 +26,8 @@ SHADER = ROOT / "shader_pack"
 FEATURE_KEYS = {
     "minecraft:tree_feature": {
         "description", "base_block", "base_cluster", "may_grow_on", "may_replace",
-        "may_grow_through", "trunk", "fallen_trunk", "fancy_trunk", "spruce_canopy",
-        "pine_canopy", "canopy", "fancy_canopy"},
+        "may_grow_through", "trunk", "fallen_trunk", "fancy_trunk", "mega_trunk",
+        "spruce_canopy", "pine_canopy", "canopy", "fancy_canopy", "mega_pine_canopy"},
     "minecraft:ore_feature": {
         "description", "count", "discard_chance_on_air_exposure", "replace_rules"},
     "minecraft:aggregate_feature": {"description", "features", "early_out"},
@@ -56,6 +56,9 @@ TREE_PART_KEYS = {
     "canopy": {"canopy_offset", "min_width", "canopy_slope", "variation_chance",
                "leaf_block", "canopy_decoration"},
     "fancy_canopy": {"height", "radius", "leaf_block"},
+    "mega_trunk": {"trunk_width", "trunk_height", "trunk_block", "trunk_decoration", "branches"},
+    "mega_pine_canopy": {"canopy_height", "base_radius", "radius_step_modifier", "core_width",
+                         "leaf_block"},
 }
 PASSES = {
     "first_pass", "before_underground_pass", "underground_pass", "after_underground_pass",
@@ -141,6 +144,81 @@ def main():
                 err(path.name, "missing image %s.png" % entry["textures"])
         if "tile.%s.name=" % name not in lang:
             err(path.name, "no display name in en_US.lang")
+        loot = block["components"].get("minecraft:loot")
+        if loot and not (BP / loot).exists():
+            err(path.name, "loot table %s is missing" % loot)
+        for perm in block.get("permutations", []):
+            for state in re.findall(r"q\.block_state\('([^']+)'\)", perm["condition"]):
+                traits = block["description"].get("traits", {})
+                enabled = [s for t in traits.values() for s in t.get("enabled_states", [])]
+                if state not in enabled:
+                    err(path.name, "permutation reads state %s that no trait enables" % state)
+
+    # Items, their icons, armour models, recipes and loot
+    item_validator = schema_validator(samples, "server/item/1.26.50/ItemDocument.json")
+    icons = load(RP / "textures/item_texture.json")["texture_data"]
+    custom_items = set()
+    for path in sorted((BP / "items").glob("*.json")):
+        check_schema(item_validator, path, "minecraft:item")
+        data = load(path)["minecraft:item"]
+        name = data["description"]["identifier"]
+        custom_items.add(name)
+        if name.split(":")[1] != path.stem:
+            err(path.name, "identifier does not match the file name")
+        icon = data["components"]["minecraft:icon"]["textures"]["default"]
+        if icon not in icons or not (RP / (icons[icon]["textures"] + ".png")).exists():
+            err(path.name, "icon %s has no texture" % icon)
+        if "item.%s=" % name not in lang:
+            err(path.name, "no display name in en_US.lang")
+        wearable = "minecraft:wearable" in data["components"]
+        if wearable != (RP / "attachables" / path.name).exists():
+            err(path.name, "armour and attachables do not line up")
+    for path in sorted((RP / "attachables").glob("*.json")):
+        desc = load(path)["minecraft:attachable"]["description"]
+        if desc["identifier"] not in custom_items:
+            err(path.name, "attachable for an unknown item")
+        if not (RP / (desc["textures"]["default"] + ".png")).exists():
+            err(path.name, "armour texture is missing")
+    vanilla_items = {i["name"] for i in load(
+        samples / "metadata/vanilladata_modules/mojang-items.json")["data_items"]}
+    known_items = vanilla_items | set(block_states) | custom_items | custom_blocks
+
+    def check_item(where, name):
+        if name not in known_items:
+            err(where, "unknown item %r" % (name,))
+
+    recipe_ids = set()
+    for path in sorted((BP / "recipes").glob("*.json")):
+        data = load(path)
+        kind = [k for k in data if k != "format_version"][0]
+        body = data[kind]
+        if body["description"]["identifier"] in recipe_ids:
+            err(path.name, "duplicate recipe identifier")
+        recipe_ids.add(body["description"]["identifier"])
+        if kind == "minecraft:recipe_shaped":
+            used = set("".join(body["pattern"])) - {" "}
+            if used != set(body["key"]):
+                err(path.name, "pattern letters and key do not match")
+            if len({len(row) for row in body["pattern"]}) != 1:
+                err(path.name, "pattern rows differ in length")
+            for entry in body["key"].values():
+                check_item(path.name, entry["item"])
+            check_item(path.name, body["result"]["item"])
+        elif kind == "minecraft:recipe_shapeless":
+            for entry in body["ingredients"]:
+                check_item(path.name, entry["item"])
+            check_item(path.name, body["result"]["item"])
+        elif kind == "minecraft:recipe_furnace":
+            check_item(path.name, body["input"])
+            check_item(path.name, body["output"])
+        else:
+            err(path.name, "unexpected recipe type %s" % kind)
+        for entry in body["unlock"]:
+            check_item(path.name, entry["item"])
+    for path in sorted((BP / "loot_tables").rglob("*.json")):
+        for pool in load(path)["pools"]:
+            for entry in pool["entries"]:
+                check_item(path.name, entry["name"])
 
     def check_block(where, spec):
         name = spec if isinstance(spec, str) else spec.get("name")
@@ -194,7 +272,7 @@ def main():
                 if part in body and set(body[part]) - allowed:
                     err(path.name, "%s has undocumented keys %s" % (
                         part, sorted(set(body[part]) - allowed)))
-            if not ({"trunk", "fallen_trunk", "fancy_trunk"} & set(body)):
+            if not ({"trunk", "fallen_trunk", "fancy_trunk", "mega_trunk"} & set(body)):
                 err(path.name, "tree has no trunk")
         features[ident] = (path.name, kinds[0], body)
         walk_blocks(path.name, body)
@@ -241,12 +319,16 @@ def main():
                 data["description"]["identifier"]:
             err(path.name, "client biome identifier differs")
 
+    pack_fogs = {load(p)["minecraft:fog_settings"]["description"]["identifier"]
+                 for p in (RP / "fogs").glob("*.json")}
+    if any(f.startswith("minecraft:") for f in pack_fogs):
+        err("fogs", "packs may not define fogs in the minecraft namespace")
     client_validator = schema_validator(
         samples, "client/biome/1.21.130/Client Biome Document.json")
     for path in sorted((RP / "biomes").glob("*.json")):
         check_schema(client_validator, path)
         fog = load(path)["minecraft:client_biome"]["components"]["minecraft:fog_appearance"]
-        if fog["fog_identifier"] not in fogs:
+        if fog["fog_identifier"] not in fogs | pack_fogs:
             err(path.name, "unknown fog %s" % fog["fog_identifier"])
 
     # Feature rules
@@ -351,9 +433,10 @@ def main():
     if errors:
         print("\n".join(errors))
         sys.exit("%d problem(s)" % len(errors))
-    print("ok: %d biomes, %d features, %d rules, %d blocks, add-on in sync" % (
+    print("ok: %d biomes, %d features, %d rules, %d blocks, %d items, %d recipes, add-on in sync" % (
         len(list((BP / "biomes").glob("*.json"))), len(features),
-        len(list((BP / "feature_rules").glob("*.json"))), len(custom_blocks)))
+        len(list((BP / "feature_rules").glob("*.json"))), len(custom_blocks),
+        len(custom_items), len(recipe_ids)))
 
 
 if __name__ == "__main__":

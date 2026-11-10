@@ -1,6 +1,6 @@
 # Wilder Worlds
 
-A Minecraft Bedrock add-on (Pocket Edition included) that adds 4 new biomes and makes the vanilla biomes look more natural. Built for 26.60+. See [ABOUT.md](ABOUT.md) for the biomes and what changes.
+A Minecraft Bedrock add-on (Pocket Edition included) with 4 new biomes, 2 wood sets, a new ore with its own tools and armour, and a light realism pass over the vanilla biomes. Built for 26.60+. See [ABOUT.md](ABOUT.md) for everything it adds.
 
 ## Install
 1. Download [`release/WilderWorlds.mcaddon`](release/WilderWorlds.mcaddon) on your phone.
@@ -8,27 +8,33 @@ A Minecraft Bedrock add-on (Pocket Edition included) that adds 4 new biomes and 
 3. Make a **new world**, and turn on **Wilder Worlds** under Behavior Packs. The resource pack comes with it.
 4. Optional: turn on **Wilder Worlds Lite Shader** under Resource Packs.
 
-No experimental toggles are needed. Chunks you already explored in an old world stay as they were, so a new world is the clean way to see it.
+No experimental toggles are needed. To find a biome fast, turn on cheats and run `/locate biome ww:redwood_valley` (or `ww:lavender_hills`, `ww:ashlands`, `ww:salt_flats`).
 
-To find a biome fast, turn on cheats and run `/locate biome ww:autumn_forest` (or `ww:pine_highlands`, `ww:limestone_highlands`, `ww:marshland`).
-
-If `/locate` says the biome is unknown, the behavior pack is not active on that world, or the game rejected a file. Turn on Content Log in Settings > Creator to see which.
+If something is missing or looks wrong, turn on Content Log in Settings > Creator, open the world and read what it prints.
 
 ## Status
-The packs pass the checks in `tools/validate.py` against Mojang's schemas and block list for 1.26.60, and the features follow the vanilla definitions that ship with the dedicated server. The first in-game run on 26.62 turned up three load errors (biome targets needed the `minecraft:` prefix, one feature type was not available, vanilla fogs cannot be redefined). Those are fixed in 1.2.0, which has not been re-run yet.
+Version 1.2.0 was run on 26.62 and loaded. **Version 2.0.0 has not been run in the game yet.** What has been checked:
+
+- Every biome, block, item and client biome validates against Mojang's JSON schemas for 1.26.60.
+- Tree shapes copy the vanilla definitions that ship with the dedicated server (oak, jungle bush, spruce, giant spruce), with only the blocks swapped. Version 1 guessed the canopy numbers and produced 15-wide trees on 2-block trunks.
+- `tools/validate.py` also checks every block, item, texture, recipe ingredient, loot entry and feature reference exists.
+
+Not checkable without the game, so the most likely places for a surprise: how the armour sits on the player model, tool speed on vanilla blocks, and the cross-shaped plants.
 
 ## Tech
 - **Biomes:** `minecraft:replace_biomes` swaps part of some vanilla biomes for each new one. Bedrock picks the terrain shape before that swap, so an add-on can restyle the land but not reshape it.
-- **Surface:** noise-driven `surface_material_adjustments` and steep-slope materials give podzol, mud, bare rock and limestone bands.
-- **Features:** 108 features and 78 feature rules for trees, bushes, dead wood, boulders, ground patches, plants and ponds. They are all plain JSON. There are no scripts and no entities, so nothing runs while you play.
-- **Blocks:** 3 autumn leaf blocks. They render as solid blocks, which is the cheapest kind to draw.
-- **Lite shader:** a separate resource pack. Phones cannot load custom shader code in Bedrock, so it changes what a pack is allowed to: every overworld biome gets its own copy of its fog that starts at half the render distance for a soft haze, underwater view reaches 1.6x further, and the sun and moon are round. It does not touch Vibrant Visuals and costs no frame rate.
+- **Features:** 94 features and 59 feature rules. Plain JSON, no scripts, no entities.
+- **Blocks:** 18 custom blocks. Leaves and plants use cutout textures like the game's fancy leaves.
+- **Items:** 13 custom items. Armour uses the game's own armour model with new 64x32 sheets.
+- **Art:** `tools/art.py` draws every texture from code: bark, rings, planks, foliage, stone, ores, item icons and armour sheets.
+- **Lite shader:** a separate resource pack. Phones cannot load custom shader code in Bedrock, so it only changes fog and the sun and moon textures.
 
 ## Build
 ```
 python3 tools/build.py [bedrock-samples]     # regenerates the packs and the .mcaddon
 python3 tools/validate.py <bedrock-samples>  # checks them (clone Mojang/bedrock-samples first)
+python3 tools/art.py sheet.png               # contact sheet of all the textures
 ```
-`build.py` needs Pillow. `validate.py` needs jsonschema. Edit the tables in `build.py` rather than the generated JSON. The samples path is only needed by `build.py` to remake the shader's fog files.
+`build.py` needs Pillow. `validate.py` needs jsonschema. Edit `build.py`, `worldgen.py` and `art.py` rather than the generated files. The samples path is only needed by `build.py` to remake the shader's fog files.
 
-Biome size and how common each one is are set by `amount` and `scale` in `build_biomes()`. A lower `scale` gives bigger, rarer areas.
+How common each biome is, and how big, is set by `amount` and `scale` in `build_biomes()`. A lower `scale` gives bigger, rarer areas.

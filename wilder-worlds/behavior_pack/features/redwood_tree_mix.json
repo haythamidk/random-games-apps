@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:redwood_tree_mix"
+    },
+    "features": [
+      [
+        "ww:redwood",
+        6
+      ],
+      [
+        "ww:young_redwood",
+        3
+      ],
+      [
+        "ww:giant_redwood",
+        2
+      ]
+    ]
+  }
+}

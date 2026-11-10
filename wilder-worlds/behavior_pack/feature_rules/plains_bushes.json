@@ -22,7 +22,7 @@
     },
     "distribution": {
       "iterations": 1,
-      "scatter_chance": 35,
+      "scatter_chance": 25,
       "coordinate_eval_order": "xzy",
       "x": {
         "distribution": "uniform",

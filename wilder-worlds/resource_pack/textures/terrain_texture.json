@@ -4,14 +4,65 @@
   "padding": 8,
   "num_mip_levels": 4,
   "texture_data": {
-    "ww_orange_leaves": {
-      "textures": "textures/blocks/ww_orange_leaves"
+    "ww_redwood_log": {
+      "textures": "textures/blocks/ww_redwood_log"
     },
-    "ww_yellow_leaves": {
-      "textures": "textures/blocks/ww_yellow_leaves"
+    "ww_redwood_log_top": {
+      "textures": "textures/blocks/ww_redwood_log_top"
     },
-    "ww_red_leaves": {
-      "textures": "textures/blocks/ww_red_leaves"
+    "ww_redwood_planks": {
+      "textures": "textures/blocks/ww_redwood_planks"
+    },
+    "ww_redwood_needles": {
+      "textures": "textures/blocks/ww_redwood_needles"
+    },
+    "ww_cypress_log": {
+      "textures": "textures/blocks/ww_cypress_log"
+    },
+    "ww_cypress_log_top": {
+      "textures": "textures/blocks/ww_cypress_log_top"
+    },
+    "ww_cypress_planks": {
+      "textures": "textures/blocks/ww_cypress_planks"
+    },
+    "ww_cypress_leaves": {
+      "textures": "textures/blocks/ww_cypress_leaves"
+    },
+    "ww_volcanic_ash": {
+      "textures": "textures/blocks/ww_volcanic_ash"
+    },
+    "ww_pumice": {
+      "textures": "textures/blocks/ww_pumice"
+    },
+    "ww_pumice_bricks": {
+      "textures": "textures/blocks/ww_pumice_bricks"
+    },
+    "ww_salt_block": {
+      "textures": "textures/blocks/ww_salt_block"
+    },
+    "ww_salt_bricks": {
+      "textures": "textures/blocks/ww_salt_bricks"
+    },
+    "ww_rose_salt_ore": {
+      "textures": "textures/blocks/ww_rose_salt_ore"
+    },
+    "ww_emberite_ore": {
+      "textures": "textures/blocks/ww_emberite_ore"
+    },
+    "ww_deepslate_emberite_ore": {
+      "textures": "textures/blocks/ww_deepslate_emberite_ore"
+    },
+    "ww_emberite_block": {
+      "textures": "textures/blocks/ww_emberite_block"
+    },
+    "ww_ember_lamp": {
+      "textures": "textures/blocks/ww_ember_lamp"
+    },
+    "ww_lavender": {
+      "textures": "textures/blocks/ww_lavender"
+    },
+    "ww_ember_shrub": {
+      "textures": "textures/blocks/ww_ember_shrub"
     }
   }
 }

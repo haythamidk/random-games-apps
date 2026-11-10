@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:redwood_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:redwood_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:redwood_log"
+      }
+    ],
+    "result": {
+      "item": "ww:redwood_planks",
+      "count": 4
+    }
+  }
+}

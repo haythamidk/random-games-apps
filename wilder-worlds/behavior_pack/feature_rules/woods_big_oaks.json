@@ -47,7 +47,7 @@
     },
     "distribution": {
       "iterations": 1,
-      "scatter_chance": 15,
+      "scatter_chance": 12,
       "coordinate_eval_order": "xzy",
       "x": {
         "distribution": "uniform",

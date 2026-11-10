@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:cypress_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:cypress_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:cypress_log"
+      }
+    ],
+    "result": {
+      "item": "ww:cypress_planks",
+      "count": 4
+    }
+  }
+}

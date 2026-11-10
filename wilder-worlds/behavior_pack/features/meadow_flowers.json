@@ -11,19 +11,15 @@
       },
       {
         "block": "minecraft:azure_bluet",
-        "weight": 4
+        "weight": 3
       },
       {
         "block": "minecraft:cornflower",
         "weight": 2
       },
       {
-        "block": "minecraft:dandelion",
-        "weight": 3
-      },
-      {
-        "block": "minecraft:allium",
-        "weight": 1
+        "block": "minecraft:poppy",
+        "weight": 2
       }
     ],
     "enforce_placement_rules": true,

@@ -1,0 +1,48 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ww:emberite_helmet",
+      "menu_category": {
+        "category": "equipment",
+        "group": "minecraft:itemGroup.name.helmet"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "ww_emberite_helmet"
+        }
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:durability": {
+        "max_durability": 280
+      },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": [
+              "ww:emberite_helmet"
+            ],
+            "repair_amount": "context.other->query.remaining_durability"
+          },
+          {
+            "items": [
+              "ww:emberite_ingot"
+            ],
+            "repair_amount": "query.max_durability * 0.25"
+          }
+        ]
+      },
+      "minecraft:enchantable": {
+        "slot": "armor_head",
+        "value": 18
+      },
+      "minecraft:fire_resistant": {},
+      "minecraft:wearable": {
+        "slot": "slot.armor.head",
+        "protection": 3
+      }
+    }
+  }
+}

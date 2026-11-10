@@ -6,8 +6,8 @@
     },
     "fancy_trunk": {
       "trunk_height": {
-        "base": 8,
-        "variance": 6,
+        "base": 5,
+        "variance": 12,
         "scale": 0.618
       },
       "trunk_width": 1,
@@ -73,9 +73,9 @@
       "minecraft:mangrove_leaves",
       "minecraft:cherry_leaves",
       "minecraft:pale_oak_leaves",
-      "ww:orange_leaves",
-      "ww:yellow_leaves",
-      "ww:red_leaves"
+      "ww:redwood_needles",
+      "ww:cypress_leaves",
+      "ww:lavender"
     ],
     "may_grow_through": [
       "minecraft:grass_block",
@@ -107,7 +107,8 @@
       "minecraft:blue_orchid",
       "minecraft:lily_of_the_valley",
       "minecraft:brown_mushroom",
-      "minecraft:red_mushroom"
+      "minecraft:red_mushroom",
+      "ww:lavender"
     ]
   }
 }

@@ -1,0 +1,36 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:ember_lamp"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      " G ",
+      "GEG",
+      " G "
+    ],
+    "key": {
+      "G": {
+        "item": "minecraft:glass"
+      },
+      "E": {
+        "item": "ww:emberite_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "minecraft:glass"
+      },
+      {
+        "item": "ww:emberite_ingot"
+      }
+    ],
+    "result": {
+      "item": "ww:ember_lamp",
+      "count": 2
+    }
+  }
+}

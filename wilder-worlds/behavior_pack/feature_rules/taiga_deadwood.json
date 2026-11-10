@@ -3,7 +3,7 @@
   "minecraft:feature_rules": {
     "description": {
       "identifier": "ww:taiga_deadwood",
-      "places_feature": "ww:taiga_deadwood_mix"
+      "places_feature": "ww:fallen_spruce"
     },
     "conditions": {
       "placement_pass": "surface_pass",

@@ -1,0 +1,21 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:ember_outcrop"
+    },
+    "count": 7,
+    "replace_rules": [
+      {
+        "places_block": "ww:emberite_ore",
+        "may_replace": [
+          "ww:volcanic_ash",
+          "ww:pumice",
+          "minecraft:smooth_basalt",
+          "minecraft:blackstone",
+          "minecraft:stone"
+        ]
+      }
+    ]
+  }
+}

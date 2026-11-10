@@ -1,0 +1,58 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:rock_small_salt"
+    },
+    "count": 5,
+    "replace_rules": [
+      {
+        "places_block": "ww:salt_block",
+        "may_replace": [
+          "minecraft:air",
+          "minecraft:short_grass",
+          "minecraft:fern",
+          "minecraft:tall_grass",
+          "minecraft:large_fern",
+          "minecraft:bush",
+          "minecraft:firefly_bush",
+          "minecraft:leaf_litter",
+          "minecraft:wildflowers",
+          "minecraft:moss_carpet",
+          "minecraft:short_dry_grass",
+          "minecraft:tall_dry_grass",
+          "minecraft:snow_layer",
+          "minecraft:dandelion",
+          "minecraft:poppy",
+          "minecraft:cornflower",
+          "minecraft:oxeye_daisy",
+          "minecraft:azure_bluet",
+          "minecraft:allium",
+          "minecraft:blue_orchid",
+          "minecraft:lily_of_the_valley",
+          "minecraft:brown_mushroom",
+          "minecraft:red_mushroom",
+          "minecraft:grass_block",
+          "minecraft:dirt",
+          "minecraft:coarse_dirt",
+          "minecraft:podzol",
+          "minecraft:moss_block",
+          "minecraft:mud",
+          "minecraft:dirt_with_roots",
+          "minecraft:mycelium",
+          "minecraft:sand",
+          "minecraft:red_sand",
+          "minecraft:gravel",
+          "minecraft:stone",
+          "minecraft:snow",
+          "ww:volcanic_ash",
+          "ww:pumice",
+          "ww:salt_block",
+          "minecraft:smooth_basalt",
+          "ww:lavender",
+          "ww:ember_shrub"
+        ]
+      }
+    ]
+  }
+}

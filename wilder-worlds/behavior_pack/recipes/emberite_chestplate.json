@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:emberite_chestplate"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "X X",
+      "XXX",
+      "XXX"
+    ],
+    "key": {
+      "X": {
+        "item": "ww:emberite_ingot"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:emberite_ingot"
+      }
+    ],
+    "result": {
+      "item": "ww:emberite_chestplate"
+    }
+  }
+}

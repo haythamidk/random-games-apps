@@ -7,7 +7,7 @@
     "places_feature": "ww:meadow_flowers",
     "project_input_to_floor": true,
     "distribution": {
-      "iterations": 9,
+      "iterations": 7,
       "coordinate_eval_order": "xzy",
       "x": {
         "distribution": "gaussian",

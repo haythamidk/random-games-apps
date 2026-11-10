@@ -1,0 +1,48 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ww:emberite_chestplate",
+      "menu_category": {
+        "category": "equipment",
+        "group": "minecraft:itemGroup.name.chestplate"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "ww_emberite_chestplate"
+        }
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:durability": {
+        "max_durability": 400
+      },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": [
+              "ww:emberite_chestplate"
+            ],
+            "repair_amount": "context.other->query.remaining_durability"
+          },
+          {
+            "items": [
+              "ww:emberite_ingot"
+            ],
+            "repair_amount": "query.max_durability * 0.25"
+          }
+        ]
+      },
+      "minecraft:enchantable": {
+        "slot": "armor_torso",
+        "value": 18
+      },
+      "minecraft:fire_resistant": {},
+      "minecraft:wearable": {
+        "slot": "slot.armor.chest",
+        "protection": 7
+      }
+    }
+  }
+}

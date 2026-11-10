@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:salt_rock_mix"
+    },
+    "features": [
+      [
+        "ww:boulder_salt",
+        2
+      ],
+      [
+        "ww:rock_small_salt",
+        5
+      ]
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "resource_pack_name": "wilder_worlds",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "ww_emberite_sword": {
+      "textures": "textures/items/ww_emberite_sword"
+    },
+    "ww_emberite_pickaxe": {
+      "textures": "textures/items/ww_emberite_pickaxe"
+    },
+    "ww_emberite_axe": {
+      "textures": "textures/items/ww_emberite_axe"
+    },
+    "ww_emberite_shovel": {
+      "textures": "textures/items/ww_emberite_shovel"
+    },
+    "ww_emberite_hoe": {
+      "textures": "textures/items/ww_emberite_hoe"
+    },
+    "ww_emberite_helmet": {
+      "textures": "textures/items/ww_emberite_helmet"
+    },
+    "ww_emberite_chestplate": {
+      "textures": "textures/items/ww_emberite_chestplate"
+    },
+    "ww_emberite_leggings": {
+      "textures": "textures/items/ww_emberite_leggings"
+    },
+    "ww_emberite_boots": {
+      "textures": "textures/items/ww_emberite_boots"
+    },
+    "ww_raw_emberite": {
+      "textures": "textures/items/ww_raw_emberite"
+    },
+    "ww_emberite_ingot": {
+      "textures": "textures/items/ww_emberite_ingot"
+    },
+    "ww_rose_salt": {
+      "textures": "textures/items/ww_rose_salt"
+    },
+    "ww_cured_meat": {
+      "textures": "textures/items/ww_cured_meat"
+    }
+  }
+}

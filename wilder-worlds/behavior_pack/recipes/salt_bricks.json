@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:salt_bricks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:salt_block"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:salt_block"
+      }
+    ],
+    "result": {
+      "item": "ww:salt_bricks",
+      "count": 4
+    }
+  }
+}

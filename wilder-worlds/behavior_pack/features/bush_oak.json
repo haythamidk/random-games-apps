@@ -5,21 +5,18 @@
       "identifier": "ww:bush_oak"
     },
     "trunk": {
-      "trunk_height": {
-        "range_min": 1,
-        "range_max": 2
-      },
+      "trunk_height": 1,
       "trunk_block": "minecraft:oak_log"
     },
     "canopy": {
       "canopy_offset": {
         "min": -1,
-        "max": 0
+        "max": 1
       },
-      "min_width": 1,
+      "min_width": 0,
       "canopy_slope": {
         "rise": 1,
-        "run": 2
+        "run": 1
       },
       "variation_chance": {
         "numerator": 1,
@@ -75,9 +72,9 @@
       "minecraft:mangrove_leaves",
       "minecraft:cherry_leaves",
       "minecraft:pale_oak_leaves",
-      "ww:orange_leaves",
-      "ww:yellow_leaves",
-      "ww:red_leaves"
+      "ww:redwood_needles",
+      "ww:cypress_leaves",
+      "ww:lavender"
     ],
     "may_grow_through": [
       "minecraft:grass_block",
@@ -109,7 +106,8 @@
       "minecraft:blue_orchid",
       "minecraft:lily_of_the_valley",
       "minecraft:brown_mushroom",
-      "minecraft:red_mushroom"
+      "minecraft:red_mushroom",
+      "ww:lavender"
     ]
   }
 }

@@ -1,12 +1,57 @@
 {
   "format_version": "1.19.30",
-  "ww:orange_leaves": {
+  "ww:redwood_log": {
+    "sound": "wood"
+  },
+  "ww:cypress_log": {
+    "sound": "wood"
+  },
+  "ww:redwood_planks": {
+    "sound": "wood"
+  },
+  "ww:cypress_planks": {
+    "sound": "wood"
+  },
+  "ww:redwood_needles": {
     "sound": "grass"
   },
-  "ww:yellow_leaves": {
+  "ww:cypress_leaves": {
     "sound": "grass"
   },
-  "ww:red_leaves": {
+  "ww:volcanic_ash": {
+    "sound": "sand"
+  },
+  "ww:pumice": {
+    "sound": "stone"
+  },
+  "ww:pumice_bricks": {
+    "sound": "stone"
+  },
+  "ww:salt_block": {
+    "sound": "stone"
+  },
+  "ww:salt_bricks": {
+    "sound": "stone"
+  },
+  "ww:rose_salt_ore": {
+    "sound": "stone"
+  },
+  "ww:emberite_ore": {
+    "sound": "stone"
+  },
+  "ww:deepslate_emberite_ore": {
+    "sound": "stone"
+  },
+  "ww:emberite_block": {
+    "sound": "metal"
+  },
+  "ww:ember_lamp": {
+    "sound": "glass"
+  },
+  "ww:lavender": {
+    "sound": "grass"
+  },
+  "ww:ember_shrub": {
     "sound": "grass"
   }
 }

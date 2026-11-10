@@ -4,7 +4,7 @@
     "description": {
       "identifier": "ww:boulder_lime_core"
     },
-    "count": 18,
+    "count": 16,
     "replace_rules": [
       {
         "places_block": "minecraft:calcite",
@@ -44,7 +44,13 @@
           "minecraft:red_sand",
           "minecraft:gravel",
           "minecraft:stone",
-          "minecraft:snow"
+          "minecraft:snow",
+          "ww:volcanic_ash",
+          "ww:pumice",
+          "ww:salt_block",
+          "minecraft:smooth_basalt",
+          "ww:lavender",
+          "ww:ember_shrub"
         ]
       }
     ]

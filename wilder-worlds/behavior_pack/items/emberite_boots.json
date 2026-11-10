@@ -1,0 +1,48 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ww:emberite_boots",
+      "menu_category": {
+        "category": "equipment",
+        "group": "minecraft:itemGroup.name.boots"
+      }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": {
+          "default": "ww_emberite_boots"
+        }
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:durability": {
+        "max_durability": 330
+      },
+      "minecraft:repairable": {
+        "repair_items": [
+          {
+            "items": [
+              "ww:emberite_boots"
+            ],
+            "repair_amount": "context.other->query.remaining_durability"
+          },
+          {
+            "items": [
+              "ww:emberite_ingot"
+            ],
+            "repair_amount": "query.max_durability * 0.25"
+          }
+        ]
+      },
+      "minecraft:enchantable": {
+        "slot": "armor_feet",
+        "value": 18
+      },
+      "minecraft:fire_resistant": {},
+      "minecraft:wearable": {
+        "slot": "slot.armor.feet",
+        "protection": 2
+      }
+    }
+  }
+}

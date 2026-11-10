@@ -1,0 +1,19 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_furnace": {
+    "description": {
+      "identifier": "ww:emberite_ingot_from_raw"
+    },
+    "unlock": [
+      {
+        "item": "ww:raw_emberite"
+      }
+    ],
+    "tags": [
+      "furnace",
+      "blast_furnace"
+    ],
+    "input": "ww:raw_emberite",
+    "output": "ww:emberite_ingot"
+  }
+}

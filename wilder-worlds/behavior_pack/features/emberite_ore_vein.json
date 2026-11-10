@@ -1,0 +1,23 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:emberite_ore_vein"
+    },
+    "count": 5,
+    "replace_rules": [
+      {
+        "places_block": "ww:emberite_ore",
+        "may_replace": [
+          "minecraft:stone"
+        ]
+      },
+      {
+        "places_block": "ww:deepslate_emberite_ore",
+        "may_replace": [
+          "minecraft:deepslate"
+        ]
+      }
+    ]
+  }
+}

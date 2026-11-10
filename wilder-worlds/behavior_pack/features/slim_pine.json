@@ -6,17 +6,17 @@
     },
     "trunk": {
       "trunk_height": {
-        "range_min": 10,
-        "range_max": 16
+        "range_min": 9,
+        "range_max": 14
       },
       "trunk_block": "minecraft:spruce_log"
     },
     "pine_canopy": {
       "canopy_height": {
-        "range_min": 4,
-        "range_max": 7
+        "range_min": 3,
+        "range_max": 5
       },
-      "base_radius": 2,
+      "base_radius": 1,
       "leaf_block": "minecraft:spruce_leaves"
     },
     "base_block": [
@@ -67,9 +67,9 @@
       "minecraft:mangrove_leaves",
       "minecraft:cherry_leaves",
       "minecraft:pale_oak_leaves",
-      "ww:orange_leaves",
-      "ww:yellow_leaves",
-      "ww:red_leaves"
+      "ww:redwood_needles",
+      "ww:cypress_leaves",
+      "ww:lavender"
     ],
     "may_grow_through": [
       "minecraft:grass_block",
@@ -101,7 +101,8 @@
       "minecraft:blue_orchid",
       "minecraft:lily_of_the_valley",
       "minecraft:brown_mushroom",
-      "minecraft:red_mushroom"
+      "minecraft:red_mushroom",
+      "ww:lavender"
     ]
   }
 }

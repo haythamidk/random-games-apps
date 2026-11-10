@@ -1,0 +1,22 @@
+{
+  "format_version": "1.16.100",
+  "minecraft:fog_settings": {
+    "description": {
+      "identifier": "ww:fog_salt_flats"
+    },
+    "distance": {
+      "air": {
+        "fog_start": 0.45,
+        "fog_end": 1.0,
+        "fog_color": "#e6eef4",
+        "render_distance_type": "render"
+      },
+      "water": {
+        "fog_start": 0,
+        "fog_end": 40.0,
+        "fog_color": "#7cc4cc",
+        "render_distance_type": "fixed"
+      }
+    }
+  }
+}

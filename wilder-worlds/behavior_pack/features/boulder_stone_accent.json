@@ -45,6 +45,12 @@
           "minecraft:gravel",
           "minecraft:stone",
           "minecraft:snow",
+          "ww:volcanic_ash",
+          "ww:pumice",
+          "ww:salt_block",
+          "minecraft:smooth_basalt",
+          "ww:lavender",
+          "ww:ember_shrub",
           "minecraft:stone"
         ]
       }

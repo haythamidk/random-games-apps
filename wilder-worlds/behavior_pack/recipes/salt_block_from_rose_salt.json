@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:salt_block_from_rose_salt"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:rose_salt"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:rose_salt"
+      }
+    ],
+    "result": {
+      "item": "ww:salt_block"
+    }
+  }
+}

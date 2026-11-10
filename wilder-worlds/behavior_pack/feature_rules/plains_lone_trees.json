@@ -3,7 +3,7 @@
   "minecraft:feature_rules": {
     "description": {
       "identifier": "ww:plains_lone_trees",
-      "places_feature": "ww:plains_lone_tree_mix"
+      "places_feature": "ww:green_oak"
     },
     "conditions": {
       "placement_pass": "surface_pass",

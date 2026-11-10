@@ -1,0 +1,27 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shapeless": {
+    "description": {
+      "identifier": "ww:cured_meat_from_cooked_beef"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "ingredients": [
+      {
+        "item": "minecraft:cooked_beef"
+      },
+      {
+        "item": "ww:rose_salt"
+      }
+    ],
+    "unlock": [
+      {
+        "item": "minecraft:cooked_beef"
+      }
+    ],
+    "result": {
+      "item": "ww:cured_meat"
+    }
+  }
+}

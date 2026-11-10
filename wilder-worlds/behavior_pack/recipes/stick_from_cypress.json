@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:stick_from_cypress"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#",
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:cypress_planks"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:cypress_planks"
+      }
+    ],
+    "result": {
+      "item": "minecraft:stick",
+      "count": 4
+    }
+  }
+}

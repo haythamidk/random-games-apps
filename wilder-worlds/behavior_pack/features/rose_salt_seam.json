@@ -1,0 +1,17 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:ore_feature": {
+    "description": {
+      "identifier": "ww:rose_salt_seam"
+    },
+    "count": 9,
+    "replace_rules": [
+      {
+        "places_block": "ww:rose_salt_ore",
+        "may_replace": [
+          "ww:salt_block"
+        ]
+      }
+    ]
+  }
+}

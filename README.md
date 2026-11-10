@@ -5,4 +5,4 @@ random apps/games claude built for me while im bored
 |---|---|---|---|
 | [Rustbloom](rustbloom/) | 3D open-world survival (Android) | [APK](rustbloom/release/Rustbloom.apk) | [ABOUT](rustbloom/ABOUT.md) |
 | [Hadal](hadal/) | 3D deep sea survival horror (Android) | [APK](hadal/release/Hadal.apk) | [ABOUT](hadal/ABOUT.md) |
-| [Wilder Worlds](wilder-worlds/) | Minecraft Bedrock add-on: new biomes + natural terrain | [MCADDON](wilder-worlds/release/WilderWorlds.mcaddon) | [ABOUT](wilder-worlds/ABOUT.md) |
+| [Wilder Worlds](wilder-worlds/) | Minecraft Bedrock add-on: new biomes, wood, ore, tools and armour | [MCADDON](wilder-worlds/release/WilderWorlds.mcaddon) | [ABOUT](wilder-worlds/ABOUT.md) |
