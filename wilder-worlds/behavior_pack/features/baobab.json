@@ -1,0 +1,151 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:tree_feature": {
+    "description": {
+      "identifier": "ww:baobab"
+    },
+    "acacia_trunk": {
+      "trunk_width": 2,
+      "trunk_height": {
+        "base": 6,
+        "intervals": [
+          3,
+          2
+        ]
+      },
+      "trunk_block": "ww:baobab_log",
+      "trunk_lean": {
+        "allow_diagonal_growth": false,
+        "lean_height": {
+          "range_min": 0,
+          "range_max": 4
+        },
+        "lean_steps": {
+          "range_min": 0,
+          "range_max": 3
+        }
+      },
+      "branches": {
+        "branch_chance": {
+          "numerator": 1,
+          "denominator": 3
+        },
+        "branch_length": {
+          "range_min": 2,
+          "range_max": 5
+        },
+        "branch_position": 1,
+        "branch_canopy": {
+          "acacia_canopy": {
+            "canopy_size": 2,
+            "leaf_block": "ww:baobab_leaves",
+            "simplify_canopy": true
+          }
+        }
+      }
+    },
+    "roofed_canopy": {
+      "canopy_height": 4,
+      "core_width": 2,
+      "outer_radius": 2,
+      "inner_radius": 3,
+      "leaf_block": "ww:baobab_leaves"
+    },
+    "base_block": [
+      "minecraft:dirt"
+    ],
+    "may_grow_on": [
+      "minecraft:grass_block",
+      "minecraft:dirt",
+      "minecraft:coarse_dirt",
+      "minecraft:podzol",
+      "minecraft:moss_block",
+      "minecraft:mud",
+      "minecraft:dirt_with_roots",
+      "minecraft:mycelium"
+    ],
+    "may_replace": [
+      "minecraft:air",
+      "minecraft:short_grass",
+      "minecraft:fern",
+      "minecraft:tall_grass",
+      "minecraft:large_fern",
+      "minecraft:bush",
+      "minecraft:firefly_bush",
+      "minecraft:leaf_litter",
+      "minecraft:wildflowers",
+      "minecraft:moss_carpet",
+      "minecraft:short_dry_grass",
+      "minecraft:tall_dry_grass",
+      "minecraft:snow_layer",
+      "minecraft:dandelion",
+      "minecraft:poppy",
+      "minecraft:cornflower",
+      "minecraft:oxeye_daisy",
+      "minecraft:azure_bluet",
+      "minecraft:allium",
+      "minecraft:blue_orchid",
+      "minecraft:lily_of_the_valley",
+      "minecraft:brown_mushroom",
+      "minecraft:red_mushroom",
+      "minecraft:oak_leaves",
+      "minecraft:spruce_leaves",
+      "minecraft:birch_leaves",
+      "minecraft:jungle_leaves",
+      "minecraft:acacia_leaves",
+      "minecraft:dark_oak_leaves",
+      "minecraft:azalea_leaves",
+      "minecraft:azalea_leaves_flowered",
+      "minecraft:mangrove_leaves",
+      "minecraft:cherry_leaves",
+      "minecraft:pale_oak_leaves",
+      "ww:lavender",
+      "ww:cattail",
+      "ww:glow_sprout",
+      "ww:frostbloom",
+      "ww:redwood_needles",
+      "ww:cypress_leaves",
+      "ww:jacaranda_blossoms",
+      "ww:willow_leaves",
+      "ww:frostpine_needles",
+      "ww:baobab_leaves",
+      "ww:glowcap_cap"
+    ],
+    "may_grow_through": [
+      "minecraft:grass_block",
+      "minecraft:dirt",
+      "minecraft:coarse_dirt",
+      "minecraft:podzol",
+      "minecraft:moss_block",
+      "minecraft:mud",
+      "minecraft:dirt_with_roots",
+      "minecraft:mycelium",
+      "minecraft:short_grass",
+      "minecraft:fern",
+      "minecraft:tall_grass",
+      "minecraft:large_fern",
+      "minecraft:bush",
+      "minecraft:firefly_bush",
+      "minecraft:leaf_litter",
+      "minecraft:wildflowers",
+      "minecraft:moss_carpet",
+      "minecraft:short_dry_grass",
+      "minecraft:tall_dry_grass",
+      "minecraft:snow_layer",
+      "minecraft:dandelion",
+      "minecraft:poppy",
+      "minecraft:cornflower",
+      "minecraft:oxeye_daisy",
+      "minecraft:azure_bluet",
+      "minecraft:allium",
+      "minecraft:blue_orchid",
+      "minecraft:lily_of_the_valley",
+      "minecraft:brown_mushroom",
+      "minecraft:red_mushroom",
+      "ww:lavender",
+      "ww:cattail",
+      "ww:glow_sprout",
+      "ww:frostbloom"
+    ]
+  }
+}

@@ -9,7 +9,8 @@
         "fog_identifier": "ww:fog_default"
       },
       "minecraft:water_appearance": {
-        "surface_color": "#44AFF5"
+        "surface_color": "#44AFF5",
+        "surface_opacity": 0.45
       },
       "minecraft:atmosphere_identifier": {
         "atmosphere_identifier": "minecraft:default_atmospherics"
@@ -32,6 +33,9 @@
       },
       "minecraft:biome_music": {
         "music_definition": "dripstone_caves"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

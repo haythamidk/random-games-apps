@@ -9,7 +9,8 @@
         "fog_identifier": "ww:fog_desert_hills"
       },
       "minecraft:water_appearance": {
-        "surface_color": "#1a7aa1"
+        "surface_color": "#1a7aa1",
+        "surface_opacity": 0.45
       },
       "minecraft:atmosphere_identifier": {
         "atmosphere_identifier": "minecraft:desert_atmospherics"
@@ -32,6 +33,9 @@
       },
       "minecraft:biome_music": {
         "music_definition": "desert_hills"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

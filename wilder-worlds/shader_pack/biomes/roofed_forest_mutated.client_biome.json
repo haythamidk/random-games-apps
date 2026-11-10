@@ -9,7 +9,8 @@
         "fog_identifier": "ww:fog_roofed_forest_mutated"
       },
       "minecraft:water_appearance": {
-        "surface_color": "#44AFF5"
+        "surface_color": "#44AFF5",
+        "surface_opacity": 0.45
       },
       "minecraft:dry_foliage_color": {
         "color": "#7B5334"
@@ -35,6 +36,9 @@
       },
       "minecraft:biome_music": {
         "music_definition": "roofed_forest_mutated"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

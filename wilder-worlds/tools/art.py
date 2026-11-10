@@ -526,6 +526,56 @@ def plant_lavender():
     return s.done(outline=None, shade=False)
 
 
+def plant_cattail():
+    """Reeds with fat brown seed heads, for the wetland."""
+    s = Sprite()
+    stalk, blade, head = (98, 134, 62), (124, 160, 76), (112, 70, 40)
+    for x, top in ((4, 4), (8, 1), (12, 5)):
+        s.line([(x, 15), (x, top)], stalk)
+        s.line([(x, top + 1), (x, top + 4)], head, 1)
+        s.dots([(x, top + 1)], (146, 96, 58))
+    for path in ([(6, 15), (5, 9), (3, 6)], [(10, 15), (11, 8), (13, 9)], [(7, 15), (7, 10)]):
+        s.line(path, blade)
+    return s.done(outline=None, shade=False)
+
+
+def plant_glow_sprout():
+    """A cluster of little teal mushrooms that light the forest floor."""
+    s = Sprite()
+    stem, cap, lit = (206, 200, 180), (56, 176, 170), (150, 240, 226)
+    for x, top, w in ((4, 9, 2), (9, 6, 3), (13, 11, 1)):
+        s.line([(x, 15), (x, top + 1)], stem)
+        s.line([(x - w, top + 1), (x + w, top + 1)], cap)
+        s.line([(x - w + 1, top), (x + w - 1, top)], cap)
+        s.hot([(x, top), (x - w + 1, top + 1)], lit)
+    return s.done(outline=None, shade=False)
+
+
+def plant_frostbloom():
+    """A pale star-shaped flower that grows through snow."""
+    s = Sprite()
+    stem, petal, heart = (104, 150, 140), (196, 226, 244), (255, 255, 255)
+    for x, top in ((5, 8), (10, 5)):
+        s.line([(x, 15), (x, top + 1)], stem)
+        s.dots([(x - 1, top), (x + 1, top), (x, top - 1), (x, top + 1),
+                (x - 2, top), (x + 2, top), (x, top - 2)], petal)
+        s.hot([(x, top)], heart)
+    s.dots([(6, 12), (9, 11), (4, 13), (11, 13)], (126, 172, 160))
+    return s.done(outline=None, shade=False)
+
+
+def cap(seed):
+    """Glowcap: a teal mushroom skin with pale luminous spots."""
+    img = grainy(seed, [(30, 120, 124), (40, 142, 142), (52, 164, 160), (70, 186, 178)], cell=8, jitter=0.25)
+    r = random.Random(seed + 1)
+    for _ in range(5):
+        x, y = r.randint(1, 13), r.randint(1, 13)
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            img.putpixel((x + dx, y + dy), rgba((176, 244, 230)))
+        img.putpixel((x, y), rgba((230, 255, 248)))
+    return img
+
+
 def plant_ember_shrub():
     """A charred, leafless bush whose buds still smoulder."""
     s = Sprite()
@@ -638,16 +688,17 @@ def armour_layer_2():
 # Pack icon
 # ---------------------------------------------------------------------------
 def pack_icon():
-    """Redwoods, a lavender field and a smoking ash cone under a wide sky."""
+    """Redwoods, jacarandas and a lavender field under a wide sky."""
     s = 32
     img = Image.new("RGB", (s, s))
     for y in range(s):
         for x in range(s):
             img.putpixel((x, y), mixc((120, 176, 228), (214, 230, 240), y / 20) if y < 20 else (0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.polygon([(17, 20), (23, 9), (25, 9), (31, 20)], fill=(70, 66, 72))       # ash cone
-    d.line([(23, 9), (25, 9)], fill=(246, 142, 44))
-    d.point([(24, 7), (25, 5), (24, 4)], fill=(200, 200, 204))                 # smoke
+    d.polygon([(17, 20), (22, 11), (26, 14), (31, 20)], fill=(150, 160, 176))  # far hills
+    for x, y in ((22, 10), (27, 12)):                                          # jacarandas
+        d.ellipse([x - 3, y - 2, x + 3, y + 3], fill=(128, 112, 214))
+        d.line([(x, y + 3), (x, y + 9)], fill=(98, 86, 82))
     d.rectangle([0, 20, 31, 31], fill=(126, 168, 78))
     for y in range(22, 32):                                                    # lavender rows
         for x in range(0, 32):
@@ -663,38 +714,65 @@ def pack_icon():
 # ---------------------------------------------------------------------------
 # Catalogue
 # ---------------------------------------------------------------------------
-REDWOOD = [(96, 44, 34), (118, 56, 42), (138, 68, 50), (156, 82, 58)]
-CYPRESS = [(88, 78, 66), (104, 92, 78), (120, 108, 92), (136, 124, 106)]
-REDWOOD_PLANK = [(150, 74, 54), (166, 86, 62), (180, 98, 72), (192, 110, 82)]
-CYPRESS_PLANK = [(186, 162, 110), (198, 176, 124), (210, 188, 138), (220, 200, 152)]
+# name: (bark palette, groove colour, groove spacing, ring colours, plank palette, seam,
+#        leaf texture name, leaf palette, holes, leaf lean)
+WOODS = {
+    "redwood": ([(96, 44, 34), (118, 56, 42), (138, 68, 50), (156, 82, 58)], (64, 28, 24), 4,
+                [(176, 96, 70), (160, 82, 60), (186, 108, 80), (150, 74, 54)],
+                [(150, 74, 54), (166, 86, 62), (180, 98, 72), (192, 110, 82)], (112, 52, 40),
+                "redwood_needles", [(26, 62, 44), (36, 80, 54), (48, 98, 64), (66, 120, 78)], 0.42, (1, 1)),
+    "cypress": ([(88, 78, 66), (104, 92, 78), (120, 108, 92), (136, 124, 106)], (60, 52, 46), 3,
+                [(214, 194, 146), (198, 176, 126), (224, 206, 160), (190, 168, 118)],
+                [(186, 162, 110), (198, 176, 124), (210, 188, 138), (220, 200, 152)], (150, 126, 82),
+                "cypress_leaves", [(30, 70, 60), (40, 88, 70), (52, 106, 80), (74, 130, 96)], 0.3, (0, 1)),
+    "jacaranda": ([(84, 72, 70), (98, 86, 82), (112, 100, 94), (128, 114, 108)], (58, 48, 48), 4,
+                  [(206, 180, 170), (190, 162, 154), (216, 192, 182), (182, 154, 146)],
+                  [(170, 140, 146), (184, 154, 158), (196, 168, 170), (208, 180, 182)], (130, 104, 112),
+                  "jacaranda_blossoms", [(92, 80, 176), (116, 102, 204), (142, 128, 228), (180, 168, 246)], 0.36, (1, 0)),
+    "willow": ([(70, 62, 44), (84, 76, 54), (98, 90, 64), (114, 104, 76)], (48, 42, 30), 3,
+               [(190, 184, 132), (174, 168, 118), (200, 194, 146), (166, 160, 110)],
+               [(150, 146, 96), (164, 160, 108), (178, 174, 120), (190, 186, 134)], (114, 110, 70),
+               "willow_leaves", [(84, 120, 44), (104, 142, 54), (126, 164, 66), (152, 188, 86)], 0.4, (0, 1)),
+    "frostpine": ([(120, 130, 146), (138, 148, 164), (156, 166, 182), (174, 184, 198)], (84, 94, 112), 4,
+                  [(220, 230, 238), (204, 216, 228), (230, 238, 244), (196, 208, 222)],
+                  [(186, 200, 214), (198, 212, 224), (210, 222, 232), (222, 232, 240)], (150, 166, 184),
+                  "frostpine_needles", [(112, 164, 182), (146, 194, 206), (184, 220, 228), (226, 244, 248)], 0.38, (1, 1)),
+    "baobab": ([(132, 112, 92), (148, 128, 106), (164, 144, 120), (180, 160, 134)], (100, 84, 68), 5,
+               [(226, 190, 136), (210, 172, 118), (236, 202, 150), (202, 164, 110)],
+               [(190, 140, 86), (202, 152, 96), (214, 164, 108), (224, 176, 120)], (150, 106, 62),
+               "baobab_leaves", [(74, 104, 40), (92, 124, 48), (112, 144, 58), (136, 166, 74)], 0.45, (1, 0)),
+    "glowcap": ([(196, 190, 170), (210, 204, 184), (222, 216, 198), (234, 228, 212)], (166, 158, 138), 4,
+                [(236, 232, 218), (222, 216, 200), (244, 240, 228), (214, 208, 190)],
+                [(148, 190, 184), (162, 202, 196), (176, 214, 206), (190, 224, 216)], (112, 154, 150),
+                None, None, 0, None),
+}
 
 
 def block_textures():
-    rose_ore = crystals(salt(31), 32, ROSE, 7)
-    return {
-        "redwood_log": bark(1, REDWOOD, (64, 28, 24), 4),
-        "redwood_log_top": log_top(2, (104, 48, 36),
-                                   [(176, 96, 70), (160, 82, 60), (186, 108, 80), (150, 74, 54)]),
-        "redwood_planks": planks(3, REDWOOD_PLANK, (112, 52, 40)),
-        "redwood_needles": leaves(4, [(26, 62, 44), (36, 80, 54), (48, 98, 64), (66, 120, 78)], 0.42, (1, 1)),
-        "cypress_log": bark(5, CYPRESS, (60, 52, 46), 3),
-        "cypress_log_top": log_top(6, (96, 84, 72),
-                                   [(214, 194, 146), (198, 176, 126), (224, 206, 160), (190, 168, 118)]),
-        "cypress_planks": planks(7, CYPRESS_PLANK, (150, 126, 82)),
-        "cypress_leaves": leaves(8, [(30, 70, 60), (40, 88, 70), (52, 106, 80), (74, 130, 96)], 0.3, (0, 1)),
-        "volcanic_ash": ash(9),
-        "pumice": pumice(10),
-        "pumice_bricks": bricks(pumice(11), (122, 118, 112)),
+    out = {}
+    for i, (wood, spec) in enumerate(WOODS.items()):
+        bark_pal, groove, every, rings, plank_pal, seam, leaf_name, leaf_pal, holes, lean = spec
+        stem = "glowcap_stem" if wood == "glowcap" else wood + "_log"
+        out[stem] = bark(100 + i * 10, bark_pal, groove, every)
+        out[stem + "_top"] = log_top(101 + i * 10, bark_pal[0], rings)
+        out[wood + "_planks"] = planks(102 + i * 10, plank_pal, seam)
+        if leaf_name:
+            out[leaf_name] = leaves(103 + i * 10, leaf_pal, holes, lean)
+    out.update({
+        "glowcap_cap": cap(40),
         "salt_block": salt(12),
         "salt_bricks": bricks(salt(13), (176, 190, 206)),
-        "rose_salt_ore": rose_ore,
+        "rose_salt_ore": crystals(salt(31), 32, ROSE, 7),
         "emberite_ore": nodules(stone(14), 15, EMBER, 4, rim=(58, 44, 46)),
         "deepslate_emberite_ore": nodules(stone(16, SLATE, layered=True), 17, EMBER, 4, rim=(30, 24, 28)),
         "emberite_block": metal_block(18),
         "ember_lamp": lamp(),
         "lavender": plant_lavender(),
-        "ember_shrub": plant_ember_shrub(),
-    }
+        "cattail": plant_cattail(),
+        "glow_sprout": plant_glow_sprout(),
+        "frostbloom": plant_frostbloom(),
+    })
+    return out
 
 
 def item_textures():

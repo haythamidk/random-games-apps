@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:golden_rock_mix"
+    },
+    "features": [
+      [
+        "ww:termite_mound",
+        3
+      ],
+      [
+        "ww:boulder_granite",
+        1
+      ]
+    ]
+  }
+}

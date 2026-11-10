@@ -61,9 +61,17 @@
       "minecraft:mangrove_leaves",
       "minecraft:cherry_leaves",
       "minecraft:pale_oak_leaves",
+      "ww:lavender",
+      "ww:cattail",
+      "ww:glow_sprout",
+      "ww:frostbloom",
       "ww:redwood_needles",
       "ww:cypress_leaves",
-      "ww:lavender"
+      "ww:jacaranda_blossoms",
+      "ww:willow_leaves",
+      "ww:frostpine_needles",
+      "ww:baobab_leaves",
+      "ww:glowcap_cap"
     ],
     "may_grow_through": [
       "minecraft:grass_block",
@@ -96,7 +104,10 @@
       "minecraft:lily_of_the_valley",
       "minecraft:brown_mushroom",
       "minecraft:red_mushroom",
-      "ww:lavender"
+      "ww:lavender",
+      "ww:cattail",
+      "ww:glow_sprout",
+      "ww:frostbloom"
     ]
   }
 }

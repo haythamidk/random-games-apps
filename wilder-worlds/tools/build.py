@@ -127,24 +127,39 @@ def loot(path, item, low, high):
     return "loot_tables/" + path + ".json"
 
 
+# wood: (log name, log display, leaf name, leaf display, log colour, plank colour, leaf colour)
+WOODS = {
+    "redwood": ("redwood_log", "Redwood Log", "redwood_needles", "Redwood Needles",
+                "#7a3c2c", "#b06448", "#2e5c3c"),
+    "cypress": ("cypress_log", "Cypress Log", "cypress_leaves", "Cypress Leaves",
+                "#6c5e50", "#ceb880", "#346a50"),
+    "jacaranda": ("jacaranda_log", "Jacaranda Log", "jacaranda_blossoms", "Jacaranda Blossoms",
+                  "#62564e", "#c0a0a4", "#8070d8"),
+    "willow": ("willow_log", "Willow Log", "willow_leaves", "Willow Leaves",
+               "#5a4e38", "#aaa670", "#70943a"),
+    "frostpine": ("frostpine_log", "Frostpine Log", "frostpine_needles", "Frostpine Needles",
+                  "#8e9aae", "#cad8e4", "#a8d0d8"),
+    "baobab": ("baobab_log", "Baobab Log", "baobab_leaves", "Baobab Leaves",
+               "#9c8468", "#d2a060", "#66883a"),
+    "glowcap": ("glowcap_stem", "Glowcap Stem", None, None, "#d6d0b8", "#a8d0c8", None),
+}
+
+
 def build_blocks():
     b = {}
-    b["redwood_log"] = log("redwood_log", "Redwood Log", "#7a3c2c")
-    b["cypress_log"] = log("cypress_log", "Cypress Log", "#6c5e50")
-    for wood, colour in (("redwood", "#b06448"), ("cypress", "#ceb880")):
+    for wood, (log_name, log_display, leaf_name, leaf_display, c_log, c_plank, c_leaf) in WOODS.items():
+        b[log_name] = log(log_name, log_display, c_log)
         b[wood + "_planks"] = block(
             wood + "_planks", wood.title() + " Planks", "wood",
-            "minecraft:itemGroup.name.planks", mining(2.0, AXE), map_colour=colour,
+            "minecraft:itemGroup.name.planks", mining(2.0, AXE), map_colour=c_plank,
             extra={"minecraft:flammable": {"catch_chance_modifier": 5, "destroy_chance_modifier": 20}})
-    b["redwood_needles"] = leaf("redwood_needles", "Redwood Needles", "#2e5c3c")
-    b["cypress_leaves"] = leaf("cypress_leaves", "Cypress Leaves", "#346a50")
+        if leaf_name:
+            b[leaf_name] = leaf(leaf_name, leaf_display, c_leaf)
+    # The glowcap's cap is a solid, softly glowing block rather than foliage.
+    b["glowcap_cap"] = block(
+        "glowcap_cap", "Glowcap Cap", "wood", None, mining(0.4, AXE), map_colour="#34a09c",
+        category="nature", extra={"minecraft:light_emission": 8})
 
-    b["volcanic_ash"] = block("volcanic_ash", "Volcanic Ash", "sand", None,
-                              mining(0.5, SHOVEL), map_colour="#3e3c40", category="nature")
-    b["pumice"] = block("pumice", "Pumice", "stone", None, mining(1.2, PICKAXE),
-                        map_colour="#a8a49e", category="nature")
-    b["pumice_bricks"] = block("pumice_bricks", "Pumice Bricks", "stone", None,
-                               mining(1.5, PICKAXE), map_colour="#a8a49e")
     b["salt_block"] = block("salt_block", "Salt Block", "stone", None, mining(1.0, PICKAXE),
                             map_colour="#eef2f6", category="nature")
     b["salt_bricks"] = block("salt_bricks", "Salt Bricks", "stone", None, mining(1.5, PICKAXE),
@@ -171,10 +186,9 @@ def build_blocks():
                             map_colour="#f08a2c", extra={"minecraft:light_emission": 15})
 
     b["lavender"] = plant("lavender", "Lavender", SOIL, "#9068c0")
-    b["ember_shrub"] = plant(
-        "ember_shrub", "Ember Shrub",
-        [b["volcanic_ash"], b["pumice"], mc("smooth_basalt"), mc("blackstone"), mc("coarse_dirt")],
-        "#c05a20", light=6)
+    b["cattail"] = plant("cattail", "Cattail", SOIL + [mc("sand"), mc("clay")], "#70562e")
+    b["glow_sprout"] = plant("glow_sprout", "Glow Sprout", SOIL, "#38b0aa", light=7)
+    b["frostbloom"] = plant("frostbloom", "Frostbloom", SOIL + [mc("snow")], "#c4e2f4")
     return b
 
 
@@ -341,13 +355,12 @@ def smelt(name, source, result):
 
 def build_recipes():
     ingot, stick = ww("emberite_ingot"), mc("stick")
-    for wood in ("redwood", "cypress"):
+    for wood, spec in WOODS.items():
         planks = ww(wood + "_planks")
-        shaped(wood + "_planks", ["#"], {"#": ww(wood + "_log")}, planks, 4)
+        shaped(wood + "_planks", ["#"], {"#": ww(spec[0])}, planks, 4)
         shaped("stick_from_" + wood, ["#", "#"], {"#": planks}, stick, 4)
         shaped("crafting_table_from_" + wood, ["##", "##"], {"#": planks}, mc("crafting_table"))
         shaped("chest_from_" + wood, ["###", "# #", "###"], {"#": planks}, mc("chest"))
-    shaped("pumice_bricks", ["##", "##"], {"#": ww("pumice")}, ww("pumice_bricks"), 4)
     shaped("salt_bricks", ["##", "##"], {"#": ww("salt_block")}, ww("salt_bricks"), 4)
     shaped("salt_block_from_rose_salt", ["##", "##"], {"#": ww("rose_salt")}, ww("salt_block"))
     shaped("emberite_block", ["###", "###", "###"], {"#": ingot}, ww("emberite_block"))
@@ -417,13 +430,13 @@ def build_shared_features(b):
     f["boulder_lime"] = boulder("boulder_lime", mc("calcite"), 16, mc("diorite"), 7)
     f["boulder_granite"] = boulder("boulder_granite", mc("granite"), 14, mc("stone"), 5)
     f["boulder_sandstone"] = boulder("boulder_sandstone", mc("sandstone"), 16)
-    f["boulder_pumice"] = boulder("boulder_pumice", b["pumice"], 18, mc("smooth_basalt"), 8)
-    f["boulder_basalt"] = boulder("boulder_basalt", mc("smooth_basalt"), 34, mc("blackstone"), 12)
+    f["boulder_ice"] = boulder("boulder_ice", mc("packed_ice"), 16, mc("blue_ice"), 6)
+    f["termite_mound"] = boulder("termite_mound", mc("packed_mud"), 10, mc("hardened_clay"), 4)
     f["boulder_salt"] = boulder("boulder_salt", b["salt_block"], 16, b["rose_salt_ore"], 5)
     f["rock_small"] = boulder("rock_small", mc("stone"), 4)
     f["rock_small_mossy"] = boulder("rock_small_mossy", mc("mossy_cobblestone"), 4)
-    f["rock_small_pumice"] = boulder("rock_small_pumice", b["pumice"], 5)
     f["rock_small_salt"] = boulder("rock_small_salt", b["salt_block"], 5)
+    f["ember_outcrop"] = blob("ember_outcrop", b["emberite_ore"], 5, [mc("stone"), mc("grass_block"), mc("dirt")])
     # Ground patches
     for name, material, count, repl in (
             ("coarse", mc("coarse_dirt"), 30, PATCH_REPLACE),
@@ -521,36 +534,6 @@ def build_biomes(b, f):
     rule("lavender_hills_grass", f["grass_tuft"], t, 3)
     rule("lavender_hills_flowers", f["meadow_flower_patch"], t, 1, 40)
 
-    # ---- Ashlands: a dead volcanic plain that still glows ---------------
-    ash, pumice = b["volcanic_ash"], b["pumice"]
-    ground = [ash, pumice, mc("smooth_basalt"), mc("blackstone"), mc("stone")]
-    f["ember_outcrop"] = blob("ember_outcrop", b["emberite_ore"], 7, ground)
-    f["magma_vent"] = blob("magma_vent", mc("magma"), 7, [ash, pumice])
-    f["ember_shrub"] = single("ember_shrub", b["ember_shrub"])
-    f["ember_shrub_patch"] = cluster("ember_shrub_patch", f["ember_shrub"], 9, 5)
-    surface = overworld_surface(top=ash, mid=ash, floor=mc("gravel"))
-    surface["foundation_material"] = mc("stone")
-    biome("ashlands",
-          climate={"downfall": 0.0, "temperature": 1.5},
-          surface=surface,
-          targets=["savanna", "savanna_plateau", "extreme_hills", "stony_peaks"],
-          amount=0.55, scale=22,
-          tags=["spawns_warm_variant_farm_animals"],
-          steep=mc("smooth_basalt"),
-          adjustments=[
-              adjust([0.35, 1.0], 0.06, top_material=mc("smooth_basalt"), mid_material=mc("smooth_basalt")),
-              adjust([-1.0, -0.5], 0.07, top_material=pumice, mid_material=pumice),
-              adjust([-0.06, 0.03], 0.05, top_material=mc("blackstone")),
-          ])
-    client_biome("ashlands", fog("fog_ashlands", "#8c8480", "#3c444c", 0.2, 0.9),
-                 "#4a5560", "#7a7a5a", "#6e6a50")
-    t = ["ashlands"]
-    mix("ash_rock_mix", [(f["boulder_pumice"], 4), (f["rock_small_pumice"], 5), (f["boulder_basalt"], 2)])
-    rock_rule("ashlands_rocks", ww("ash_rock_mix"), t, 1, 70)
-    ground_rule("ashlands_ember", f["ember_outcrop"], t, 1, 45)
-    ground_rule("ashlands_vents", f["magma_vent"], t, 1, 10)
-    rule("ashlands_shrubs", f["ember_shrub_patch"], t, 2)
-
     # ---- Salt Flats: a blinding white pan with rose crystal outcrops ----
     salt_block = b["salt_block"]
     f["rose_salt_seam"] = blob("rose_salt_seam", b["rose_salt_ore"], 9, [salt_block])
@@ -571,6 +554,139 @@ def build_biomes(b, f):
     mix("salt_rock_mix", [(f["boulder_salt"], 2), (f["rock_small_salt"], 5)])
     ground_rule("salt_flats_seams", f["rose_salt_seam"], t, 1, 50)
     rock_rule("salt_flats_rocks", ww("salt_rock_mix"), t, 1, 30)
+
+    # ---- Jacaranda Grove: violet-blue crowns over bright grass ----------
+    log, blossom = b["jacaranda_log"], b["jacaranda_blossoms"]
+    f["jacaranda"] = round_tree("jacaranda", log, blossom, (5, 8))
+    f["big_jacaranda"] = fancy_tree("big_jacaranda", log, blossom, 5, 12)
+    f["jacaranda_bush"] = bush("jacaranda_bush", log, blossom)
+    biome("jacaranda_grove",
+          climate={"downfall": 0.7, "snow_accumulation": [0.0, 0.125], "temperature": 0.75},
+          surface=overworld_surface(),
+          targets=["forest", "flower_forest"],
+          amount=0.5, scale=22,
+          tags=["animal", "bee_habitat", "spawns_warm_variant_farm_animals"])
+    client_biome("jacaranda_grove", "minecraft:fog_forest", "#4aa3e0", "#7fbf5a", "#6aa84a")
+    t = ["jacaranda_grove"]
+    mix("jacaranda_mix", [(f["jacaranda"], 6), (f["big_jacaranda"], 2), (f["jacaranda_bush"], 1)])
+    rule("jacaranda_grove_trees", ww("jacaranda_mix"), t, 4)
+    rule("jacaranda_grove_groves", ww("jacaranda_mix"), t,
+         "math.clamp(math.floor(query.noise(variable.originx * 0.012, variable.originz * 0.012) * 8), 0, 4)")
+    rule("jacaranda_grove_grass", f["grass_tuft"], t, 3)
+    rule("jacaranda_grove_flowers", f["meadow_flower_patch"], t, 1, 60)
+    rule("jacaranda_grove_wildflowers", f["wildflower_patch"], t, 1, 40)
+    rock_rule("jacaranda_grove_rocks", f["rock_small_mossy"], t, 1, 15)
+
+    # ---- Willow Wetland: weeping willows, cattails and ponds -----------
+    f["willow"] = round_tree("willow", b["willow_log"], b["willow_leaves"], (5, 8), hanging=True)
+    f["cattail"] = single("cattail", b["cattail"])
+    f["cattail_bed"] = cluster("cattail_bed", f["cattail"], 12, 4)
+    f["pond_weed"] = single("pond_weed", mc("seagrass"))
+    f["wetland_pond"] = add_feature("vegetation_patch_feature", "wetland_pond", {
+        "replaceable_blocks": SOIL + [mc(x) for x in ("sand", "gravel", "clay", "stone")],
+        "ground_block": mc("mud"),
+        "vegetation_feature": f["pond_weed"],
+        "surface": "floor",
+        "depth": 2,
+        "vertical_range": 3,
+        "vegetation_chance": 0.15,
+        "horizontal_radius": rng(2, 5),
+        "extra_deep_block_chance": 0.6,
+        "extra_edge_column_chance": 0.5,
+        "waterlogged": True,
+    })
+    surface = overworld_surface(floor=mc("mud"))
+    surface["type"] = "minecraft:swamp"
+    surface["max_puddle_depth_below_sea_level"] = 1
+    biome("willow_wetland",
+          climate={"downfall": 0.9, "snow_accumulation": [0.0, 0.125], "temperature": 0.7},
+          surface=surface,
+          targets=["swampland"],
+          amount=0.8, scale=22,
+          tags=["animal", "spawns_slimes_on_surface", "spawns_warm_variant_frogs"],
+          adjustments=[adjust([0.4, 1.0], 0.08, top_material=mc("mud")),
+                       adjust([-0.1, 0.0], 0.06, top_material=mc("moss_block"))])
+    client_biome("willow_wetland", "minecraft:fog_swampland", "#4f9a86", "#7aa84c", "#86b04a",
+                 water_opacity=0.6)
+    t = ["willow_wetland"]
+    rule("willow_wetland_ponds", f["wetland_pond"], t, 1, 55, placement_pass="before_surface_pass")
+    rule("willow_wetland_trees", f["willow"], t, 3)
+    rule("willow_wetland_cattails", f["cattail_bed"], t, 3)
+    rule("willow_wetland_reeds", f["reed_bed"], t, 2)
+    rule("willow_wetland_grass", f["grass_tuft"], t, 3)
+    rule("willow_wetland_ferns", f["fern_bed"], t, 1, 50)
+    rule("willow_wetland_deadwood", f["fallen_oak"], t, 1, 20)
+    ground_rule("willow_wetland_mud", f["patch_mud"], t, 1, 50)
+
+    # ---- Frostpine Tundra: pale blue pines on snow ----------------------
+    log, needles = b["frostpine_log"], b["frostpine_needles"]
+    f["frostpine"] = spruce_tree("frostpine", log, needles, (9, 14), (2, 3), (0, 2), (2, 3))
+    f["young_frostpine"] = spruce_tree("young_frostpine", log, needles, (5, 8), (1, 2), (0, 1), (2, 2))
+    f["slim_frostpine"] = pine_tree("slim_frostpine", log, needles, (8, 12), (3, 5), 1)
+    f["frostbloom"] = single("frostbloom", b["frostbloom"])
+    f["frostbloom_patch"] = cluster("frostbloom_patch", f["frostbloom"], 9, 4)
+    biome("frostpine_tundra",
+          climate={"downfall": 0.5, "snow_accumulation": [0.25, 1.0], "temperature": 0.0},
+          surface=overworld_surface(),
+          targets=["ice_plains", "cold_taiga", "snowy_slopes", "grove"],
+          amount=0.55, scale=22,
+          tags=["animal", "frozen", "cold", "spawns_cold_variant_farm_animals",
+                "spawns_white_rabbits", "spawns_snow_foxes"])
+    client_biome("frostpine_tundra", "minecraft:fog_ice_plains", "#3d8fd0", "#8fb8a8", "#9cc4b8",
+                 grading="minecraft:coolish_color_grading")
+    t = ["frostpine_tundra"]
+    mix("frostpine_mix", [(f["frostpine"], 5), (f["young_frostpine"], 3), (f["slim_frostpine"], 2)])
+    mix("frost_rock_mix", [(f["boulder_ice"], 2), (f["rock_small"], 3)])
+    rule("frostpine_tundra_trees", ww("frostpine_mix"), t, 2)
+    rule("frostpine_tundra_groves", ww("frostpine_mix"), t,
+         "math.clamp(math.floor(query.noise(variable.originx * 0.012, variable.originz * 0.012) * 10), 0, 5)")
+    rule("frostpine_tundra_blooms", f["frostbloom_patch"], t, 1, 70)
+    rock_rule("frostpine_tundra_rocks", ww("frost_rock_mix"), t, 1, 30)
+
+    # ---- Golden Savanna: fat baobabs and umbrella trees in tall dry grass
+    log, leaves = b["baobab_log"], b["baobab_leaves"]
+    f["baobab"] = roofed_tree("baobab", log, leaves)
+    f["umbrella_tree"] = acacia_tree("umbrella_tree", log, leaves)
+    biome("golden_savanna",
+          climate={"downfall": 0.1, "temperature": 1.2},
+          surface=overworld_surface(),
+          targets=["savanna", "savanna_plateau"],
+          amount=0.55, scale=22,
+          tags=["animal", "spawns_savanna_mobs", "spawns_warm_variant_farm_animals"],
+          adjustments=[adjust([0.45, 1.0], 0.07, top_material=mc("coarse_dirt"))])
+    client_biome("golden_savanna", "minecraft:fog_savanna", "#4aa0c8", "#c9b458", "#a8a04a")
+    t = ["golden_savanna"]
+    mix("savanna_tree_mix", [(f["umbrella_tree"], 3), (f["baobab"], 1)])
+    mix("golden_rock_mix", [(f["termite_mound"], 3), (f["boulder_granite"], 1)])
+    rule("golden_savanna_trees", ww("savanna_tree_mix"), t, 1, 80)
+    rule("golden_savanna_dry_grass", f["dry_grass_tuft"], t, 4)
+    rule("golden_savanna_grass", f["grass_tuft"], t, 2)
+    rock_rule("golden_savanna_mounds", ww("golden_rock_mix"), t, 1, 25)
+
+    # ---- Glowcap Hollow: giant glowing mushrooms in a dark wood ---------
+    stem, cap = b["glowcap_stem"], b["glowcap_cap"]
+    f["glowcap"] = round_tree("glowcap", stem, cap, (4, 7))
+    f["giant_glowcap"] = roofed_tree("giant_glowcap", stem, cap)
+    f["glow_sprout"] = single("glow_sprout", b["glow_sprout"])
+    f["glow_sprout_patch"] = cluster("glow_sprout_patch", f["glow_sprout"], 8, 4)
+    biome("glowcap_hollow",
+          climate={"downfall": 0.9, "snow_accumulation": [0.0, 0.125], "temperature": 0.6},
+          surface=overworld_surface(),
+          targets=["roofed_forest", "jungle_edge"],
+          amount=0.65, scale=22,
+          tags=["animal"],
+          adjustments=[adjust([0.15, 1.0], 0.07, top_material=mc("podzol")),
+                       adjust([-1.0, -0.45], 0.07, top_material=mc("moss_block"))])
+    client_biome("glowcap_hollow", "minecraft:fog_roofed_forest", "#2f8f9f", "#4f8f6a", "#3f8f7a")
+    t = ["glowcap_hollow"]
+    mix("glowcap_mix", [(f["glowcap"], 5), (f["giant_glowcap"], 2)])
+    rule("glowcap_hollow_trees", ww("glowcap_mix"), t, 4)
+    rule("glowcap_hollow_groves", ww("glowcap_mix"), t,
+         "math.clamp(math.floor(query.noise(variable.originx * 0.012, variable.originz * 0.012) * 8), 0, 3)")
+    rule("glowcap_hollow_sprouts", f["glow_sprout_patch"], t, 3)
+    rule("glowcap_hollow_mushrooms", f["mushrooms"], t, 3)
+    rule("glowcap_hollow_ferns", f["fern_bed"], t, 2)
+    rock_rule("glowcap_hollow_rocks", f["rock_small_mossy"], t, 1, 25)
 
     # ---- Emberite ore, everywhere underground ---------------------------
     add_feature("ore_feature", "emberite_ore_vein", {
@@ -639,6 +755,7 @@ def build_vanilla_rules(f):
     ground_rule("hills_patches", ww("hills_patch_mix"), hills, 2, None, not_hills)
     rock_rule("hills_rocks", ww("hills_rock_mix"), hills, 1, 45, not_hills)
     rule("hills_pines", ww("hills_tree_mix"), ["extreme_hills"], 1, 30, ("ww_biome",))
+    ground_rule("hills_ember", f["ember_outcrop"], hills, 1, 6, not_hills)
 
     savanna = ["savanna"]
     mix("savanna_rock_mix", [(f["boulder_granite"], 2), (f["rock_small"], 3)])
@@ -682,10 +799,11 @@ def main():
 
     blocks = build_blocks()
     # Rocks and trees must be allowed to sit in our own ground and foliage.
-    BOULDER_REPLACE.extend([blocks["volcanic_ash"], blocks["pumice"], blocks["salt_block"],
-                            mc("smooth_basalt"), blocks["lavender"], blocks["ember_shrub"]])
-    TREE_REPLACE.extend([blocks["lavender"]])
-    TREE_THROUGH.extend([blocks["lavender"]])
+    plants = [blocks[p] for p in ("lavender", "cattail", "glow_sprout", "frostbloom")]
+    own_leaves = [blocks[spec[2]] for spec in WOODS.values() if spec[2]] + [blocks["glowcap_cap"]]
+    BOULDER_REPLACE.extend([blocks["salt_block"]] + plants)
+    TREE_REPLACE.extend(plants + own_leaves)
+    TREE_THROUGH.extend(plants)
     build_items()
     build_recipes()
     features = build_shared_features(blocks)
@@ -695,7 +813,7 @@ def main():
     # Behavior pack
     write_json(BP / "manifest.json", manifest(
         "Wilder Worlds",
-        "4 new biomes, 2 wood sets, emberite tools and armour, rose salt. Use on a NEW world.",
+        "8 new biomes, 7 wood sets, emberite tools and armour, rose salt. Use on a NEW world.",
         BP_UUID, BP_MODULE_UUID, "data", RP_UUID))
     for folder, table, suffix in (
             ("biomes", BIOMES, ".biome.json"), ("features", FEATURES, ".json"),

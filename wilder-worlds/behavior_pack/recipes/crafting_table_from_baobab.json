@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:crafting_table_from_baobab"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:baobab_planks"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:baobab_planks"
+      }
+    ],
+    "result": {
+      "item": "minecraft:crafting_table"
+    }
+  }
+}

@@ -18,7 +18,7 @@ SHADER = ROOT / "shader_pack"
 RELEASE = ROOT / "release"
 
 NS = "ww"
-VERSION = [2, 0, 0]
+VERSION = [2, 1, 0]
 MIN_ENGINE = [1, 26, 30]
 FV_BIOME = "1.26.0"
 FV_CLIENT_BIOME = "1.21.120"
@@ -62,7 +62,7 @@ GROUND_PLANTS = [mc(b) for b in (
     "oxeye_daisy", "azure_bluet", "allium", "blue_orchid",
     "lily_of_the_valley", "brown_mushroom", "red_mushroom")]
 
-CUSTOM_LEAVES = ["redwood_needles", "cypress_leaves"]
+CUSTOM_LEAVES = []   # build.py adds the pack's own leaves once the blocks exist
 
 LEAVES = [mc(b) for b in (
     "oak_leaves", "spruce_leaves", "birch_leaves", "jungle_leaves",
@@ -137,8 +137,12 @@ HALF = {"numerator": 1, "denominator": 2}
 ALWAYS = {"numerator": 1, "denominator": 1}
 
 
-def round_tree(name, log, leaves, height, grow_on=None):
-    """Same canopy as the vanilla oak and birch: four layers, 5 wide then 3 wide."""
+def round_tree(name, log, leaves, height, grow_on=None, hanging=False):
+    """Same canopy as the vanilla oak and birch: four layers, 5 wide then 3 wide.
+
+    hanging adds strands of the leaf block below the canopy, the way the
+    vanilla jungle tree hangs vines.
+    """
     body = {
         "trunk": {"trunk_height": rng(*height), "trunk_block": log},
         "canopy": {
@@ -147,6 +151,13 @@ def round_tree(name, log, leaves, height, grow_on=None):
             "leaf_block": leaves,
         },
     }
+    if hanging:
+        body["canopy"]["canopy_decoration"] = {
+            "decoration_block": leaves,
+            "decoration_chance": {"numerator": 1, "denominator": 3},
+            "num_steps": 4,
+            "step_direction": "down",
+        }
     body.update(tree_base(grow_on))
     return add_feature("tree_feature", name, body)
 
@@ -162,6 +173,61 @@ def bush(name, log, leaves):
             "variation_chance": HALF,
             "leaf_block": leaves,
         },
+    }
+    body.update(tree_base())
+    return add_feature("tree_feature", name, body)
+
+
+def roofed_tree(name, log, leaves):
+    """Vanilla dark oak layout: a 2x2 trunk under one broad, flat-topped crown."""
+    body = {
+        "acacia_trunk": {
+            "trunk_width": 2,
+            "trunk_height": {"base": 6, "intervals": [3, 2]},
+            "trunk_block": log,
+            "trunk_lean": {
+                "allow_diagonal_growth": False,
+                "lean_height": rng(0, 4),
+                "lean_steps": rng(0, 3),
+            },
+            "branches": {
+                "branch_chance": {"numerator": 1, "denominator": 3},
+                "branch_length": rng(2, 5),
+                "branch_position": 1,
+                "branch_canopy": {"acacia_canopy": {
+                    "canopy_size": 2, "leaf_block": leaves, "simplify_canopy": True}},
+            },
+        },
+        "roofed_canopy": {
+            "canopy_height": 4, "core_width": 2, "outer_radius": 2, "inner_radius": 3,
+            "leaf_block": leaves,
+        },
+    }
+    body.update(tree_base())
+    return add_feature("tree_feature", name, body)
+
+
+def acacia_tree(name, log, leaves):
+    """Vanilla savanna tree layout: a leaning trunk, side branch and flat umbrella crowns."""
+    body = {
+        "acacia_trunk": {
+            "trunk_width": 1,
+            "trunk_height": {"base": 5, "intervals": [3, 3]},
+            "trunk_block": log,
+            "trunk_lean": {
+                "allow_diagonal_growth": True,
+                "lean_height": rng(1, 5),
+                "lean_steps": rng(1, 4),
+            },
+            "branches": {
+                "branch_chance": 100.0,
+                "branch_length": rng(1, 4),
+                "branch_position": rng(1, 3),
+                "branch_canopy": {"acacia_canopy": {
+                    "canopy_size": 2, "leaf_block": leaves, "simplify_canopy": True}},
+            },
+        },
+        "acacia_canopy": {"canopy_size": 3, "leaf_block": leaves},
     }
     body.update(tree_base())
     return add_feature("tree_feature", name, body)
@@ -415,6 +481,8 @@ def client_biome(name, fog, water, grass, foliage, grading="minecraft:default_co
 # textures. None of it costs frame rate.
 HAZE_START = 0.5      # fraction of render distance where the haze begins
 WATER_CLARITY = 1.6   # how much further you can see under water
+SKY = "#4f97ff"       # a deeper blue than the default sky
+WATER_OPACITY = 0.45  # water you can see the bottom through
 NOT_OVERWORLD = ("hell", "basalt_deltas", "crimson_forest", "warped_forest",
                  "soulsand_valley", "the_end")
 
@@ -463,6 +531,11 @@ def shader_fogs(samples):
         if not fog or fog["fog_identifier"] not in vanilla:
             continue
         fog["fog_identifier"] = haze(fog["fog_identifier"])
+        comps = data["minecraft:client_biome"]["components"]
+        comps.setdefault("minecraft:sky_color", {"sky_color": SKY})
+        water = comps.get("minecraft:water_appearance")
+        if water is not None and "surface_opacity" not in water:
+            water["surface_opacity"] = WATER_OPACITY
         write_json(SHADER / "biomes" / path.name, data)
 
 

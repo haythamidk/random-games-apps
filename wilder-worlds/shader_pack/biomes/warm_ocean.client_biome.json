@@ -33,6 +33,9 @@
           "chance": 0.01
         },
         "underwater_loop": "ambient.underwater.loop"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

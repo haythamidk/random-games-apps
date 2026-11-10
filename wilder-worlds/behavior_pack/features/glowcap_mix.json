@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:glowcap_mix"
+    },
+    "features": [
+      [
+        "ww:glowcap",
+        5
+      ],
+      [
+        "ww:giant_glowcap",
+        2
+      ]
+    ]
+  }
+}

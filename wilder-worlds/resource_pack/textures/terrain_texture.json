@@ -28,14 +28,65 @@
     "ww_cypress_leaves": {
       "textures": "textures/blocks/ww_cypress_leaves"
     },
-    "ww_volcanic_ash": {
-      "textures": "textures/blocks/ww_volcanic_ash"
+    "ww_jacaranda_log": {
+      "textures": "textures/blocks/ww_jacaranda_log"
     },
-    "ww_pumice": {
-      "textures": "textures/blocks/ww_pumice"
+    "ww_jacaranda_log_top": {
+      "textures": "textures/blocks/ww_jacaranda_log_top"
     },
-    "ww_pumice_bricks": {
-      "textures": "textures/blocks/ww_pumice_bricks"
+    "ww_jacaranda_planks": {
+      "textures": "textures/blocks/ww_jacaranda_planks"
+    },
+    "ww_jacaranda_blossoms": {
+      "textures": "textures/blocks/ww_jacaranda_blossoms"
+    },
+    "ww_willow_log": {
+      "textures": "textures/blocks/ww_willow_log"
+    },
+    "ww_willow_log_top": {
+      "textures": "textures/blocks/ww_willow_log_top"
+    },
+    "ww_willow_planks": {
+      "textures": "textures/blocks/ww_willow_planks"
+    },
+    "ww_willow_leaves": {
+      "textures": "textures/blocks/ww_willow_leaves"
+    },
+    "ww_frostpine_log": {
+      "textures": "textures/blocks/ww_frostpine_log"
+    },
+    "ww_frostpine_log_top": {
+      "textures": "textures/blocks/ww_frostpine_log_top"
+    },
+    "ww_frostpine_planks": {
+      "textures": "textures/blocks/ww_frostpine_planks"
+    },
+    "ww_frostpine_needles": {
+      "textures": "textures/blocks/ww_frostpine_needles"
+    },
+    "ww_baobab_log": {
+      "textures": "textures/blocks/ww_baobab_log"
+    },
+    "ww_baobab_log_top": {
+      "textures": "textures/blocks/ww_baobab_log_top"
+    },
+    "ww_baobab_planks": {
+      "textures": "textures/blocks/ww_baobab_planks"
+    },
+    "ww_baobab_leaves": {
+      "textures": "textures/blocks/ww_baobab_leaves"
+    },
+    "ww_glowcap_stem": {
+      "textures": "textures/blocks/ww_glowcap_stem"
+    },
+    "ww_glowcap_stem_top": {
+      "textures": "textures/blocks/ww_glowcap_stem_top"
+    },
+    "ww_glowcap_planks": {
+      "textures": "textures/blocks/ww_glowcap_planks"
+    },
+    "ww_glowcap_cap": {
+      "textures": "textures/blocks/ww_glowcap_cap"
     },
     "ww_salt_block": {
       "textures": "textures/blocks/ww_salt_block"
@@ -61,8 +112,14 @@
     "ww_lavender": {
       "textures": "textures/blocks/ww_lavender"
     },
-    "ww_ember_shrub": {
-      "textures": "textures/blocks/ww_ember_shrub"
+    "ww_cattail": {
+      "textures": "textures/blocks/ww_cattail"
+    },
+    "ww_glow_sprout": {
+      "textures": "textures/blocks/ww_glow_sprout"
+    },
+    "ww_frostbloom": {
+      "textures": "textures/blocks/ww_frostbloom"
     }
   }
 }

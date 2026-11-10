@@ -1,0 +1,22 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:jacaranda_mix"
+    },
+    "features": [
+      [
+        "ww:jacaranda",
+        6
+      ],
+      [
+        "ww:big_jacaranda",
+        2
+      ],
+      [
+        "ww:jacaranda_bush",
+        1
+      ]
+    ]
+  }
+}

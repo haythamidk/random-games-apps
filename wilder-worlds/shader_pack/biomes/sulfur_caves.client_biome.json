@@ -9,7 +9,8 @@
         "fog_identifier": "ww:fog_sulfur_caves"
       },
       "minecraft:water_appearance": {
-        "surface_color": "#34BF89"
+        "surface_color": "#34BF89",
+        "surface_opacity": 0.45
       },
       "minecraft:grass_appearance": {
         "color": "#ABA64F"
@@ -35,6 +36,9 @@
       },
       "minecraft:biome_music": {
         "music_definition": "sulfur_caves"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

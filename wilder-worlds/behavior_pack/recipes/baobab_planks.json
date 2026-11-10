@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:baobab_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:baobab_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:baobab_log"
+      }
+    ],
+    "result": {
+      "item": "ww:baobab_planks",
+      "count": 4
+    }
+  }
+}

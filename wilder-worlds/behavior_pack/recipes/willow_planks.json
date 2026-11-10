@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:willow_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:willow_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:willow_log"
+      }
+    ],
+    "result": {
+      "item": "ww:willow_planks",
+      "count": 4
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:chest_from_glowcap"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "###",
+      "# #",
+      "###"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:glowcap_planks"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:glowcap_planks"
+      }
+    ],
+    "result": {
+      "item": "minecraft:chest"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:jacaranda_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:jacaranda_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:jacaranda_log"
+      }
+    ],
+    "result": {
+      "item": "ww:jacaranda_planks",
+      "count": 4
+    }
+  }
+}

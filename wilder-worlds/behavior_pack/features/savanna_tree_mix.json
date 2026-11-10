@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.0",
+  "minecraft:weighted_random_feature": {
+    "description": {
+      "identifier": "ww:savanna_tree_mix"
+    },
+    "features": [
+      [
+        "ww:umbrella_tree",
+        3
+      ],
+      [
+        "ww:baobab",
+        1
+      ]
+    ]
+  }
+}

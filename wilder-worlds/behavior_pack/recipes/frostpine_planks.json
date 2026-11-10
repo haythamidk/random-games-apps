@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:frostpine_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:frostpine_log"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:frostpine_log"
+      }
+    ],
+    "result": {
+      "item": "ww:frostpine_planks",
+      "count": 4
+    }
+  }
+}

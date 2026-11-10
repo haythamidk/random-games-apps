@@ -9,7 +9,8 @@
         "fog_identifier": "ww:fog_forest"
       },
       "minecraft:water_appearance": {
-        "surface_color": "#1E97F2"
+        "surface_color": "#1E97F2",
+        "surface_opacity": 0.45
       },
       "minecraft:biome_music": {
         "music_definition": "forest"
@@ -32,6 +33,9 @@
           "chance": 0.01
         },
         "underwater_loop": "ambient.underwater.loop"
+      },
+      "minecraft:sky_color": {
+        "sky_color": "#4f97ff"
       }
     }
   }

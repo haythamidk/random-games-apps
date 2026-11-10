@@ -1,0 +1,28 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "ww:glowcap_planks"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "#"
+    ],
+    "key": {
+      "#": {
+        "item": "ww:glowcap_stem"
+      }
+    },
+    "unlock": [
+      {
+        "item": "ww:glowcap_stem"
+      }
+    ],
+    "result": {
+      "item": "ww:glowcap_planks",
+      "count": 4
+    }
+  }
+}

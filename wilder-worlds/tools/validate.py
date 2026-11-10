@@ -26,7 +26,8 @@ SHADER = ROOT / "shader_pack"
 FEATURE_KEYS = {
     "minecraft:tree_feature": {
         "description", "base_block", "base_cluster", "may_grow_on", "may_replace",
-        "may_grow_through", "trunk", "fallen_trunk", "fancy_trunk", "mega_trunk",
+        "may_grow_through", "trunk", "fallen_trunk", "fancy_trunk", "mega_trunk", "acacia_trunk",
+        "acacia_canopy", "roofed_canopy",
         "spruce_canopy", "pine_canopy", "canopy", "fancy_canopy", "mega_pine_canopy"},
     "minecraft:ore_feature": {
         "description", "count", "discard_chance_on_air_exposure", "replace_rules"},
@@ -56,6 +57,9 @@ TREE_PART_KEYS = {
     "canopy": {"canopy_offset", "min_width", "canopy_slope", "variation_chance",
                "leaf_block", "canopy_decoration"},
     "fancy_canopy": {"height", "radius", "leaf_block"},
+    "acacia_trunk": {"trunk_width", "trunk_height", "trunk_block", "trunk_lean", "branches"},
+    "acacia_canopy": {"canopy_size", "leaf_block", "simplify_canopy"},
+    "roofed_canopy": {"canopy_height", "core_width", "outer_radius", "inner_radius", "leaf_block"},
     "mega_trunk": {"trunk_width", "trunk_height", "trunk_block", "trunk_decoration", "branches"},
     "mega_pine_canopy": {"canopy_height", "base_radius", "radius_step_modifier", "core_width",
                          "leaf_block"},
@@ -272,7 +276,7 @@ def main():
                 if part in body and set(body[part]) - allowed:
                     err(path.name, "%s has undocumented keys %s" % (
                         part, sorted(set(body[part]) - allowed)))
-            if not ({"trunk", "fallen_trunk", "fancy_trunk", "mega_trunk"} & set(body)):
+            if not ({"trunk", "fallen_trunk", "fancy_trunk", "mega_trunk", "acacia_trunk"} & set(body)):
                 err(path.name, "tree has no trunk")
         features[ident] = (path.name, kinds[0], body)
         walk_blocks(path.name, body)
@@ -401,6 +405,10 @@ def main():
         if fog["fog_identifier"] not in shader_fogs:
             err(path.name, "points at a fog the shader does not define")
         fog["fog_identifier"] = fog["fog_identifier"].replace("ww:", "minecraft:")
+        for side in (data, theirs):   # the shader may also set the sky and water opacity
+            comps = side["minecraft:client_biome"]["components"]
+            comps.pop("minecraft:sky_color", None)
+            comps.get("minecraft:water_appearance", {}).pop("surface_opacity", None)
         if data != theirs:
             err(path.name, "differs from the original by more than its fog")
     for name, size in (("sun.png", (64, 64)), ("moon_phases.png", (256, 128))):

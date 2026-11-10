@@ -12,23 +12,28 @@ Every texture is drawn for this pack. Nothing is a recolour of the game's art.
 
 | Biome | Shows up in | What it looks like |
 |---|---|---|
-| **Redwood Valley** `ww:redwood_valley` | taiga, old growth taiga, windswept forest, birch forest | Red-barked giants with 2x2 trunks, slimmer redwoods with bare lower trunks, a floor of ferns, podzol, moss and mossy rocks. |
-| **Lavender Hills** `ww:lavender_hills` | plains, sunflower plains, meadows | Rolling purple lavender fields, broken up by tall, narrow cypress trees and pale limestone rocks. |
-| **Ashlands** `ww:ashlands` | savanna, savanna plateau, windswept hills, stony peaks | A dead volcanic plain of grey ash, pumice and basalt under a hazy sky. Ember shrubs glow at night and emberite ore shows at the surface. No rain, no farm animals. |
-| **Salt Flats** `ww:salt_flats` | desert | A flat white salt pan with pink rose salt deposits and salt boulders, under a bright washed-out sky. |
+| **Redwood Valley** `ww:redwood_valley` | taiga, old growth taiga, windswept forest, birch forest | Red-barked giants with 2x2 trunks over ferns, podzol, moss and mossy rocks. |
+| **Lavender Hills** `ww:lavender_hills` | plains, sunflower plains, meadows | Purple lavender fields with tall, narrow cypress trees and pale limestone rocks. |
+| **Jacaranda Grove** `ww:jacaranda_grove` | forest, flower forest | Trees with violet-blue crowns, some huge and branching, over bright grass and flowers. |
+| **Willow Wetland** `ww:willow_wetland` | swamps | Weeping willows with hanging leaves, cattail beds, reeds, mud and small ponds. |
+| **Frostpine Tundra** `ww:frostpine_tundra` | snowy plains, snowy taiga, snowy slopes, grove | Pale blue pines on snow, frostblooms and blocks of ice. |
+| **Golden Savanna** `ww:golden_savanna` | savanna, savanna plateau | Golden grass, fat-trunked baobabs, flat umbrella trees and termite mounds. |
+| **Glowcap Hollow** `ww:glowcap_hollow` | dark forest, jungle edge | Giant teal mushrooms whose caps glow at night, with glow sprouts on the forest floor. |
+| **Salt Flats** `ww:salt_flats` | desert | A flat white salt pan with pink rose salt deposits and salt boulders. |
+
+The grey Ashlands biome from 2.0 is gone, along with its ash and pumice blocks.
 
 ## New blocks
 
-- **Redwood** and **cypress**: log, planks and leaves for each. Logs lie sideways when you place them on a wall. Planks craft into sticks, crafting tables and chests.
-- **Volcanic ash**, **pumice** and **pumice bricks**.
+- **Seven wood sets**: redwood, cypress, jacaranda, willow, frostpine, baobab and glowcap. Each has a log (or stem), planks and leaves (the glowcap has a glowing cap block). Logs lie sideways when you place them on a wall. All planks craft into sticks, crafting tables and chests.
 - **Salt block** and **salt bricks**.
-- **Lavender** (crafts into purple dye) and **ember shrub** (gives off a little light).
+- **Plants**: lavender (crafts into purple dye), cattail, frostbloom and glow sprout (gives off light).
 - **Ember lamp**: a full-brightness light block. 4 glass around 1 emberite ingot makes 2.
 - **Block of emberite**.
 
 ## Emberite
 
-A volcanic metal. The ore glows faintly, so you can spot it in dark caves. It generates below Y 20 everywhere, in stone and deepslate, and lies open on the surface in the Ashlands. Smelt raw emberite into ingots.
+A volcanic metal. The ore glows faintly, so you can spot it in dark caves. It generates below Y 20 everywhere, in stone and deepslate, and now and then shows at the surface in hills. Smelt raw emberite into ingots.
 
 It sits between iron and diamond, with two things of its own: **nothing made of it burns in fire or lava**, and it **enchants better than diamond**.
 
@@ -51,11 +56,13 @@ A light pass: fallen logs, bushes and mossy rocks in forests, taller spruces and
 
 ## Lite shader
 
-An optional resource pack in the same download. Turn it on under Resource Packs. Distant land fades into a soft haze, you see further under water, and the sun and moon are round.
+An optional resource pack in the same download. Turn it on under Resource Packs. It gives a deeper blue sky, clearer water you can see the bottom through, a soft haze over distant land, and a round sun and moon.
+
+It is not a true shader. Bedrock on phones cannot load shader code, and the built-in Vibrant Visuals mode is not offered on every phone. This pack changes everything a resource pack is allowed to.
 
 ## Good to know
 
 - The shape of the land stays vanilla. Bedrock does not let add-ons change it.
 - The new leaves do not decay when you cut the trunk, and there are no saplings yet, so the new trees do not regrow.
 - Everything is placed once when a chunk generates. There are no scripts or mobs, so it costs nothing while you play.
-- Version 2 replaced the four biomes from version 1. Start a new world.
+- Biomes changed again in 2.1. Start a new world.

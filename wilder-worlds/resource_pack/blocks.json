@@ -3,29 +3,65 @@
   "ww:redwood_log": {
     "sound": "wood"
   },
-  "ww:cypress_log": {
-    "sound": "wood"
-  },
   "ww:redwood_planks": {
-    "sound": "wood"
-  },
-  "ww:cypress_planks": {
     "sound": "wood"
   },
   "ww:redwood_needles": {
     "sound": "grass"
   },
+  "ww:cypress_log": {
+    "sound": "wood"
+  },
+  "ww:cypress_planks": {
+    "sound": "wood"
+  },
   "ww:cypress_leaves": {
     "sound": "grass"
   },
-  "ww:volcanic_ash": {
-    "sound": "sand"
+  "ww:jacaranda_log": {
+    "sound": "wood"
   },
-  "ww:pumice": {
-    "sound": "stone"
+  "ww:jacaranda_planks": {
+    "sound": "wood"
   },
-  "ww:pumice_bricks": {
-    "sound": "stone"
+  "ww:jacaranda_blossoms": {
+    "sound": "grass"
+  },
+  "ww:willow_log": {
+    "sound": "wood"
+  },
+  "ww:willow_planks": {
+    "sound": "wood"
+  },
+  "ww:willow_leaves": {
+    "sound": "grass"
+  },
+  "ww:frostpine_log": {
+    "sound": "wood"
+  },
+  "ww:frostpine_planks": {
+    "sound": "wood"
+  },
+  "ww:frostpine_needles": {
+    "sound": "grass"
+  },
+  "ww:baobab_log": {
+    "sound": "wood"
+  },
+  "ww:baobab_planks": {
+    "sound": "wood"
+  },
+  "ww:baobab_leaves": {
+    "sound": "grass"
+  },
+  "ww:glowcap_stem": {
+    "sound": "wood"
+  },
+  "ww:glowcap_planks": {
+    "sound": "wood"
+  },
+  "ww:glowcap_cap": {
+    "sound": "wood"
   },
   "ww:salt_block": {
     "sound": "stone"
@@ -51,7 +87,13 @@
   "ww:lavender": {
     "sound": "grass"
   },
-  "ww:ember_shrub": {
+  "ww:cattail": {
+    "sound": "grass"
+  },
+  "ww:glow_sprout": {
+    "sound": "grass"
+  },
+  "ww:frostbloom": {
     "sound": "grass"
   }
 }

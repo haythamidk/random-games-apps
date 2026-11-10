@@ -4,16 +4,14 @@
     "description": {
       "identifier": "ww:ember_outcrop"
     },
-    "count": 7,
+    "count": 5,
     "replace_rules": [
       {
         "places_block": "ww:emberite_ore",
         "may_replace": [
-          "ww:volcanic_ash",
-          "ww:pumice",
-          "minecraft:smooth_basalt",
-          "minecraft:blackstone",
-          "minecraft:stone"
+          "minecraft:stone",
+          "minecraft:grass_block",
+          "minecraft:dirt"
         ]
       }
     ]

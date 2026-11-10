@@ -1,0 +1,33 @@
+{
+  "format_version": "1.21.120",
+  "minecraft:block": {
+    "description": {
+      "identifier": "ww:glowcap_cap",
+      "menu_category": {
+        "category": "nature"
+      }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "ww_glowcap_cap",
+          "render_method": "opaque"
+        }
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.4,
+        "item_specific_speeds": [
+          {
+            "item": {
+              "tags": "q.any_tag('minecraft:is_axe')"
+            },
+            "destroy_speed": 6
+          }
+        ]
+      },
+      "minecraft:map_color": "#34a09c",
+      "minecraft:light_emission": 8
+    }
+  }
+}
