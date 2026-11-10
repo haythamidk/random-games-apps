@@ -239,7 +239,7 @@ class UiManager(
         box.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
         box.addView(button(button, size = 14f, accent = accent) { onDone() }, lp(dp(220f), WRAP).apply { gravity = Gravity.END })
         val f = framed(box, Color.argb(190, 2, 3, 8))
-        (box.layoutParams as FrameLayout.LayoutParams).apply { width = (root.width * 0.62f).toInt().coerceAtLeast(dp(420f)); height = (root.height * 0.86f).toInt(); gravity = Gravity.CENTER }
+        (box.layoutParams as FrameLayout.LayoutParams).apply { width = (root.width * 0.7f).toInt().coerceAtLeast(dp(420f)); height = (root.height * 0.9f).toInt(); gravity = Gravity.CENTER }
         show(f, name, onDone, again)
     }
 
@@ -608,7 +608,7 @@ class UiManager(
         outer.addView(top)
         val row = hbox()
         row.gravity = Gravity.TOP
-        val cols = (((root.width - safeL - safeR) / 2 - dp(34f)) / dp(TILE)).coerceIn(2, 7)
+        val cols = (((root.width - safeL - safeR) / 2 - dp(22f)) / dp(TILE)).coerceIn(2, 7)
         fun side(name: String, inv: Inventory, other: Inventory): View {
             val b = vbox(8f)
             b.background = bg(CARD, 12f)

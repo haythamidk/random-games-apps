@@ -264,7 +264,7 @@ class SoundEngine(ctx: Context) : SoundSink {
                 }
             }
             voices.removeAll { it.done }
-            music.mix(sL, sR, block, m * musicVolume * 0.3f, a)
+            music.mix(sL, sR, block, m * musicVolume * 0.55f, a)
             for (i in 0 until block) {
                 wlpL += (wL[i] - wlpL) * wk; wlpR += (wR[i] - wlpR) * wk
                 val l = softClip(sL[i] + wlpL * wgain); val r = softClip(sR[i] + wlpR * wgain)

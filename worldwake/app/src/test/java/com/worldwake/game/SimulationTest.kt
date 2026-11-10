@@ -219,4 +219,111 @@ class SimulationTest {
         assertEquals(6, WorldGen.pois.count { it.kind == PoiKind.OUTPOST })
         assertEquals(38, WorldGen.pois.count { it.kind == PoiKind.WATCHER })
     }
+
+    private fun ready(g: GameState, input: InputState) {
+        g.newGame(); g.paused = false
+        var guard = 0
+        while (!g.worldReady && guard++ < 800) { g.update(0.016f, input); Thread.sleep(10) }
+        assertTrue("world loads", g.worldReady)
+    }
+
+    @Test
+    fun pickUpOreCraftAndSurviveDeath() {
+        val g = GameState(Settings().also { it.viewDistance = 2 })
+        val input = InputState()
+        var died = 0
+        g.ui = object : com.worldwake.game.game.GameUi {
+            override fun onPlayerDied() { died++ }
+            override fun showLog(title: String, body: String) {}
+            override fun openStorage(title: String, inv: com.worldwake.game.game.Inventory) {}
+            override fun openFabricator() {}
+            override fun refreshMenus() {}
+            override fun toast(text: String) {}
+            override fun vibrate(ms: Long) {}
+            override fun onEnding() {}
+        }
+        ready(g, input)
+        val p = g.player
+        // walk up to the nearest ore and pick it up through the real targeting code
+        var best: com.worldwake.game.world.Node? = null; var bd = 1e9f
+        g.chunks.forEachNodeNear(p.pos.x, p.pos.z, 120f) { n ->
+            val d = (n.x - p.pos.x) * (n.x - p.pos.x) + (n.z - p.pos.z) * (n.z - p.pos.z)
+            if (n.type.isOre && d < bd) { bd = d; best = n }
+        }
+        val ore = best!!
+        p.pos.set(ore.x - 1.2f, WorldGen.height(ore.x - 1.2f, ore.z), ore.z)
+        p.vel.set(0f, 0f, 0f)
+        p.yaw = 1.5708f; p.pitch = -0.9f
+        repeat(3) { g.update(0.016f, input) }
+        assertEquals(com.worldwake.game.game.TargetKind.ORE, g.targetKind)
+        assertTrue(g.prompt.startsWith("Pick up"))
+        input.push(Action.INTERACT)
+        g.update(0.016f, input)
+        assertEquals(1, p.inv.count(ore.type.item!!))
+        assertTrue(!ore.alive)
+
+        // field recipe works anywhere, fabricator recipes need a fabricator
+        p.inv.add(Item.ICE, 2); p.inv.add(Item.FERRITE, 4); p.inv.add(Item.MAGNESIUM, 2)
+        p.pos.set(WorldGen.lander.x + 60f, WorldGen.height(WorldGen.lander.x + 60f, WorldGen.lander.z), WorldGen.lander.z)
+        assertTrue(g.craft(Recipes.all.first { it.out == Item.WATER }))
+        assertEquals(2, p.inv.count(Item.WATER))
+        assertTrue("no fabricator out here", !g.craft(Recipes.all.first { it.out == Item.ALLOY }))
+        p.pos.set(WorldGen.lander.x + 5f, WorldGen.height(WorldGen.lander.x + 5f, WorldGen.lander.z), WorldGen.lander.z)
+        assertTrue("the lander has a fabricator", g.craft(Recipes.all.first { it.out == Item.ALLOY }))
+
+        // running out of air kills you, and you wake up back at shelter with nothing lost
+        p.pos.set(WorldGen.lander.x + 200f, WorldGen.height(WorldGen.lander.x + 200f, WorldGen.lander.z), WorldGen.lander.z)
+        p.o2 = 0.5f
+        repeat(900) { g.update(0.033f, input) }
+        assertTrue("blacked out", p.dead && died == 1)
+        val carried = p.inv.total
+        g.respawn()
+        assertTrue(!p.dead && p.health > 0f)
+        assertEquals(carried, p.inv.total)
+        assertTrue(p.pos.distXZ(WorldGen.lander.x, WorldGen.lander.z) < 12f)
+    }
+
+    @Test
+    fun everyStageRunsAndEndsAtTheVault() {
+        val g = GameState(Settings().also { it.viewDistance = 2 })
+        val input = InputState()
+        var ending = 0
+        g.ui = object : com.worldwake.game.game.GameUi {
+            override fun onPlayerDied() {}
+            override fun showLog(title: String, body: String) {}
+            override fun openStorage(title: String, inv: com.worldwake.game.game.Inventory) {}
+            override fun openFabricator() {}
+            override fun refreshMenus() {}
+            override fun toast(text: String) {}
+            override fun vibrate(ms: Long) {}
+            override fun onEnding() { ending++ }
+        }
+        ready(g, input)
+        val p = g.player
+        input.setPadMove(0.3f, 1f)
+        for (k in 0..Planet.LAST) {
+            g.heat = Planet.thresholds[k] + (if (k < Planet.LAST) (Planet.thresholds[k + 1] - Planet.thresholds[k]) * 0.5 else 1.0)
+            repeat(400) {
+                p.yaw += 0.01f
+                p.o2 = p.o2Max; p.water = 100f; p.food = 100f
+                g.update(0.05f, input)
+            }
+            assertEquals(k, g.stageReached)
+            assertTrue(g.objective.isNotEmpty())
+        }
+        input.setPadMove(0f, 0f)
+        assertTrue(g.env.v.breathable)
+        assertTrue(BuildType.entries.all { g.unlocked(it) })
+        // the door opens for a finished world
+        val v = WorldGen.vault
+        p.pos.set(v.x, WorldGen.height(v.x, v.z + 11f), v.z + 11f)
+        p.vel.set(0f, 0f, 0f)
+        p.yaw = 3.1416f; p.pitch = 0.05f
+        repeat(3) { g.update(0.016f, input) }
+        assertEquals("Enter the vault", g.prompt)
+        input.push(Action.INTERACT)
+        g.update(0.016f, input)
+        assertEquals(1, ending)
+        assertTrue(g.ended)
+    }
 }

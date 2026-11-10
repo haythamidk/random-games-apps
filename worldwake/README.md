@@ -7,7 +7,7 @@ You are Waker Seven, sent alone to the frozen moon Ysmere to finish a job nine p
 ![The dead world under the ringed giant Maren](docs/dead-world.jpg)
 ![Ysmere awake](docs/awake.jpg)
 
-More: [thaw](docs/thaw.jpg), [night](docs/night.jpg), [the Shards](docs/shards.jpg). These pictures were rendered off-device from the game's own shaders, geometry and textures (see Tools). Shadows and weather particles are not in them.
+More: [thaw](docs/thaw.jpg), [moss](docs/moss.jpg), [meadow](docs/meadow.jpg), [night](docs/night.jpg), [the Shards](docs/shards.jpg). These pictures were rendered off-device from the game's own shaders, geometry and textures (see Tools). Shadows and weather particles are not in them.
 
 ## Install
 Copy `release/Worldwake.apk` to your phone and open it. You need to allow installs from unknown sources. Requires Android 8.0+ and OpenGL ES 3.0.
