@@ -321,7 +321,7 @@ class UiManager(
             else -> packTab()
         }
         outer.addView(content, LinearLayout.LayoutParams(0, MATCH, 1f).apply { leftMargin = dp(8f) })
-        show(framed(outer.apply { layoutParams = FrameLayout.LayoutParams(MATCH, MATCH) }), "game", { callbacks.onResumeGame() }) { showGameMenu(tab) }
+        show(framed(outer.apply { layoutParams = FrameLayout.LayoutParams(MATCH, MATCH) }, PANEL), "game", { callbacks.onResumeGame() }) { showGameMenu(tab) }
     }
 
     private fun header(title: String, sub: String): LinearLayout {
@@ -623,7 +623,7 @@ class UiManager(
         row.addView(side("Your pack", p.inv, st), LinearLayout.LayoutParams(0, MATCH, 1f).apply { rightMargin = dp(5f) })
         row.addView(side(storageTitle, st, p.inv), LinearLayout.LayoutParams(0, MATCH, 1f).apply { leftMargin = dp(5f) })
         outer.addView(row, LinearLayout.LayoutParams(MATCH, 0, 1f).apply { topMargin = dp(8f) })
-        show(framed(outer.apply { layoutParams = FrameLayout.LayoutParams(MATCH, MATCH) }), "storage", { callbacks.onResumeGame() }) { showStorage() }
+        show(framed(outer.apply { layoutParams = FrameLayout.LayoutParams(MATCH, MATCH) }, PANEL), "storage", { callbacks.onResumeGame() }) { showStorage() }
     }
 
     // ------------------------------------------------------------------ settings

@@ -121,7 +121,7 @@ object PropMeshes {
             }
             PropType.ORE_FERRITE -> nuggets(b, rng, 0.3f, 0.26f, 0.3f, 0.19f, 4, Mat.METAL, flat = true)
             PropType.ORE_COBALT -> nuggets(b, rng, 0.16f, 0.34f, 0.95f, 0.17f, 4, Mat.METAL, flat = true)
-            PropType.ORE_MAGNESIUM -> nuggets(b, rng, 0.92f, 0.93f, 0.97f, 0.16f, 5, Mat.CRYSTAL, flat = true)
+            PropType.ORE_MAGNESIUM -> nuggets(b, rng, 0.8f, 0.86f, 0.98f, 0.16f, 5, Mat.METAL, flat = true)
             PropType.ORE_OSMIUM -> nuggets(b, rng, 0.12f, 0.42f, 0.46f, 0.15f, 4, Mat.METAL, flat = false)
             PropType.ORE_ALUMINIUM -> nuggets(b, rng, 0.86f, 0.74f, 0.8f, 0.2f, 3, Mat.GRAVEL, flat = false)
             PropType.ORE_TITANIUM -> {
@@ -178,12 +178,12 @@ object PropMeshes {
                 if (lod == 0) { b.color(0.8f, 0.3f, 0.42f).mat(Mat.MOSS); b.sphere(0.35f, 0.02f, 0.25f, 0.26f, 0.12f, 0.24f, 3, 6, 0.25f, 5) }
             }
             PropType.GRASS -> {
-                val n = if (lod == 0) 9 else 5
+                val n = if (lod == 0) 18 else 9
                 for (i in 0 until n) {
-                    val a = rng.range(0f, TWO_PI); val d = rng.range(0f, 0.4f)
+                    val a = rng.range(0f, TWO_PI); val d = rng.range(0f, 0.62f)
                     val tone = rng.nextFloat()
-                    b.color(0.86f - tone * 0.1f, 0.52f - tone * 0.16f, 0.26f + tone * 0.12f).mat(Mat.GRASS_BLADE)
-                    b.blade(cos(a) * d, sin(a) * d, rng.range(0.07f, 0.11f), rng.range(0.45f, 0.8f), rng.range(0f, PI_F), rng.range(-0.25f, 0.25f))
+                    b.color(0.9f - tone * 0.08f, 0.72f - tone * 0.2f, 0.48f + tone * 0.06f).mat(Mat.GRASS_BLADE)
+                    b.blade(cos(a) * d, sin(a) * d, rng.range(0.035f, 0.06f), rng.range(0.28f, 0.62f), rng.range(0f, PI_F), rng.range(-0.22f, 0.22f))
                 }
             }
             PropType.FLOWER_LANTERN -> {
@@ -241,6 +241,8 @@ object PropMeshes {
                 val n = if (lod == 0) 4 else 3
                 b.color(0.55f, 0.5f, 0.52f).mat(Mat.BARK)
                 b.cylinder(0f, 0f, 0f, 0.07f, 0.04f, 0.5f, 5, caps = false)
+                b.color(0.5f, 0.16f, 0.18f)
+                b.sphere(0f, 0.55f, 0f, 0.62f, 0.42f, 0.62f, 5, 8)
                 for (i in 0 until n) {
                     val a = i * TWO_PI / n + rng.range(0f, 0.6f)
                     b.color(rng.range(0.9f, 1f), rng.range(0.38f, 0.5f), rng.range(0.36f, 0.46f)).mat(Mat.LEAVES)
@@ -361,7 +363,7 @@ object PropMeshes {
             val a = i * TWO_PI / nb + rng.range(0f, 1f)
             b.color(0.88f, 0.86f, 0.84f).mat(Mat.BARK)
             b.push().trs(top[0] * 0.7f, top[1] - 1.3f, top[2] * 0.7f, a, 0.95f, 0f)
-            b.cylinder(0f, 0f, 0f, 0.1f, 0.04f, 2.1f, 5, caps = false)
+            b.cylinder(0f, 0f, 0f, 0.055f, 0.02f, 1.5f, 5, caps = false)
             b.pop()
         }
         val n = if (lod == 0) 8 else 5
@@ -371,8 +373,12 @@ object PropMeshes {
             val y = top[1] + (if (i == 0) 0.9f else rng.range(-0.5f, 0.55f))
             val s = if (i == 0) 1.75f else rng.range(1.15f, 1.55f)
             val tone = rng.nextFloat()
+            val bx = top[0] + cos(a) * d; val bz = top[2] + sin(a) * d
+            // a dark heart inside each clump, so gaps in the leaves show depth instead of sky
+            b.color(0.42f, 0.05f, 0.1f)
+            b.sphere(bx, y, bz, s * 0.8f, s * 0.6f, s * 0.8f, 4, if (lod == 0) 7 else 5)
             b.color(0.78f + tone * 0.2f, 0.12f + tone * 0.22f, 0.2f + tone * 0.08f).mat(Mat.LEAVES)
-            b.sphere(top[0] + cos(a) * d, y, top[2] + sin(a) * d, s, s * 0.78f, s, if (lod == 0) 6 else 4, if (lod == 0) 9 else 6, 0.22f, i + 20)
+            b.sphere(bx, y, bz, s, s * 0.78f, s, if (lod == 0) 6 else 4, if (lod == 0) 9 else 6, 0.14f, i + 20)
         }
     }
 
@@ -382,6 +388,8 @@ object PropMeshes {
         trunk(b, rng, 3.6f, 0.36f, 0.16f, 0.5f, if (lod == 0) 8 else 5, top)
         b.cylinder(0f, -0.25f, 0f, 0.6f, 0.36f, 0.5f, if (lod == 0) 8 else 5, caps = false)
         // umbrella crown
+        b.color(0.5f, 0.12f, 0.3f)
+        b.dome(top[0], top[1] - 0.45f, top[2], 2.2f, 1.1f, 3, if (lod == 0) 10 else 7)
         b.color(0.92f, 0.36f, 0.6f).mat(Mat.LEAVES)
         b.dome(top[0], top[1] - 0.5f, top[2], 2.5f, 1.3f, if (lod == 0) 5 else 3, if (lod == 0) 12 else 8)
         // hanging veils
@@ -419,6 +427,8 @@ object PropMeshes {
             b.color(0.98f - tone * 0.08f, 0.6f + tone * 0.12f, 0.42f + tone * 0.1f).mat(Mat.LEAVES)
             val ox = top[0] * (y / 9f) * (y / 9f); val oz = top[2] * (y / 9f) * (y / 9f)
             b.dome(ox, y - 0.15f, oz, r, r * 0.42f, if (lod == 0) 4 else 3, if (lod == 0) 11 else 7)
+            b.color(0.55f, 0.28f, 0.2f)
+            b.dome(ox, y - 0.13f, oz, r * 0.86f, r * 0.33f, 3, if (lod == 0) 9 else 6)
             if (lod == 0) {
                 b.color(1f, 0.85f, 0.6f, 0.5f)
                 for (k in 0 until 4) {

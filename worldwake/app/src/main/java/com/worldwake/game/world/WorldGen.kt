@@ -182,7 +182,7 @@ object WorldGen {
         val soil = clamp01(1f - silt - sulfur - gravel)
         val sum = soil + silt + sulfur + gravel
         out[0] = soil / sum; out[1] = silt / sum; out[2] = sulfur / sum; out[3] = gravel / sum
-        out[4] = clamp((h - 34f) / 38f, -0.25f, 1.3f) - wVe * 0.8f + rim * 0.6f
+        out[4] = clamp((h - 30f) / 38f, -0.08f, 1.3f) - wVe * 0.8f + rim * 0.6f
         out[5] = fertility(x, z, h)
         out[6] = clamp01(wSp * 0.55f + rim * 0.5f)
         out[7] = 0f

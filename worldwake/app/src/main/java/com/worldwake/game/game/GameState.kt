@@ -594,7 +594,7 @@ class GameState(val settings: Settings) {
                 val h = POD_CELL * 0.5f; val t = 0.28f
                 for (s in 0 until 4) {
                     val st = sideState(pod, s)
-                    val gap = when (st) { 1 -> 0.78f; 2 -> 2.15f; else -> -1f }
+                    val gap = when (st) { 1 -> 0.92f; 2 -> 2.15f; else -> -1f }
                     // wall line runs along the lateral axis at distance h from the centre
                     if (sideDx[s] != 0) {
                         val wx0 = if (sideDx[s] > 0) cx + h - t else cx - h; val wx1 = wx0 + t

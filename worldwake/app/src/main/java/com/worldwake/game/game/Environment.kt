@@ -126,7 +126,7 @@ class Environment {
             fogColor[c] = horizon[c] * 0.9f
         }
         fogDensity = lerp(0.00022f, 0.0015f, atmo) + rain * 0.0045f + clouds * 0.0005f
-        exposure = lerp(1f, 1.75f, nightFactor)
+        exposure = lerp(1.05f, 1.9f, nightFactor)
         starVis = max(nightFactor, v.starDay) * (1f - clouds * 0.9f)
         giantVis = lerp(1f, 0.6f, atmo * dayFactor) * (1f - clouds * 0.75f)
         aurora = v.aurora * smoothstep(0.55f, 0.95f, nightFactor)

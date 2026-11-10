@@ -1,0 +1,110 @@
+<!doctype html><html><body style="margin:0;background:#000"><canvas id="c"></canvas><script>
+(async () => {
+const q = new URLSearchParams(location.search); const scene = q.get('scene'); const W = +(q.get('w') || 1560), H = +(q.get('h') || 720);
+const cv = document.getElementById('c'); cv.width = W; cv.height = H;
+const gl = cv.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+const hdr = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
+const txt = async u => (await fetch(u)).text(); const bin = async u => (await fetch(u)).arrayBuffer();
+const sc = JSON.parse(await txt(scene + '/scene.json'));
+const progs = {};
+async function prog(n, vsName) {
+  if (progs[n]) return progs[n];
+  const vs = await txt('shaders/' + (vsName || n) + '.vert'), fs = await txt('shaders/' + n + '.frag');
+  const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(n + ': ' + gl.getShaderInfoLog(sh)); return sh; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(n + ' link: ' + gl.getProgramInfoLog(p));
+  const us = []; const cnt = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < cnt; i++) { const a = gl.getActiveUniform(p, i); const name = a.name.replace('[0]', ''); us.push({ name, type: a.type, size: a.size, loc: gl.getUniformLocation(p, a.name) }); }
+  return progs[n] = { p, us };
+}
+function setU(pr, ...srcs) {
+  for (const u of pr.us) {
+    let v; for (const s of srcs) if (s && s[u.name] !== undefined) { v = s[u.name]; break; }
+    if (v === undefined) continue;
+    switch (u.type) {
+      case gl.FLOAT: gl.uniform1f(u.loc, v[0]); break;
+      case gl.FLOAT_VEC2: gl.uniform2fv(u.loc, v); break;
+      case gl.FLOAT_VEC3: gl.uniform3fv(u.loc, v); break;
+      case gl.FLOAT_VEC4: gl.uniform4fv(u.loc, v); break;
+      case gl.FLOAT_MAT4: gl.uniformMatrix4fv(u.loc, false, v); break;
+      default: gl.uniform1i(u.loc, v[0]);
+    }
+  }
+}
+// textures
+function tex2d(data, size) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data)); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); return t; }
+function texArr(data, size, layers) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D_ARRAY, t); gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, size, size, layers, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(data)); gl.generateMipmap(gl.TEXTURE_2D_ARRAY); gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); return t; }
+const noise = tex2d(await bin('tex/noise.bin'), 256);
+const albedo = texArr(await bin('tex/albedo.bin'), 512, 16);
+const normal = texArr(await bin('tex/normal.bin'), 256, 16);
+const shadow = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, shadow); gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, 4, 4, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+function bindTex() {
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, noise); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, shadow); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, shadow);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D_ARRAY, albedo); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D_ARRAY, normal); gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, noise); gl.activeTexture(gl.TEXTURE0);
+}
+const meshes = {};
+async function mesh(id) {
+  if (meshes[id]) return meshes[id];
+  const m = sc.meshes[id]; const v = await bin(scene + '/' + m.v), ix = await bin(scene + '/' + m.i);
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+  const st = m.stride * 4;
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, st, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, st, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, st, 24);
+  if (m.stride >= 14) { gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 4, gl.FLOAT, false, st, 40); }
+  const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(ix), gl.STATIC_DRAW);
+  gl.bindVertexArray(null);
+  return meshes[id] = { vao, n: m.n };
+}
+function rt(w, h, depth) {
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  if (hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  if (depth) { const r = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, r); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r); }
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('fbo');
+  return { t, f, w, h };
+}
+const outScale = hdr ? 1 : 0.25; sc.common.u_outScale = [outScale];
+const sceneRT = rt(W, H, true);
+gl.bindFramebuffer(gl.FRAMEBUFFER, sceneRT.f); gl.viewport(0, 0, W, H);
+gl.clearColor(sc.clear[0], sc.clear[1], sc.clear[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.cullFace(gl.BACK); gl.frontFace(gl.CCW);
+bindTex();
+const instBuf = {};
+for (const d of sc.draws) {
+  const pr = await prog(d.sh); const m = await mesh(d.mesh);
+  gl.useProgram(pr.p); setU(pr, d.u, sc.common);
+  if (d.cd) gl.clear(gl.DEPTH_BUFFER_BIT);
+  if (d.cull) gl.enable(gl.CULL_FACE); else gl.disable(gl.CULL_FACE);
+  gl.depthMask(d.dw);
+  if (d.blend === 1) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); } else gl.disable(gl.BLEND);
+  gl.bindVertexArray(m.vao);
+  if (d.inst) {
+    let b = instBuf[d.inst]; if (!b) { b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(await bin(scene + '/' + d.inst)), gl.STATIC_DRAW); instBuf[d.inst] = b; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(3, 1);
+    gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(4, 1);
+    gl.drawElementsInstanced(gl.TRIANGLES, m.n, gl.UNSIGNED_INT, 0, d.instN);
+    gl.disableVertexAttribArray(3); gl.disableVertexAttribArray(4);
+  } else gl.drawElements(gl.TRIANGLES, m.n, gl.UNSIGNED_INT, 0);
+}
+// post
+gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND); gl.depthMask(false);
+const sky = await mesh(sc.draws.find(d => d.sh === 'sky').mesh);
+const down = await prog('down'), up = await prog('up'), comp = await prog('composite', 'down');
+const bl = []; let bw = W, bh = H; for (let i = 0; i < 4; i++) { bw = Math.max(4, bw >> 1); bh = Math.max(4, bh >> 1); bl.push(rt(bw, bh, false)); }
+let src = sceneRT; gl.bindVertexArray(sky.vao);
+for (let i = 0; i < 4; i++) { const dst = bl[i]; gl.bindFramebuffer(gl.FRAMEBUFFER, dst.f); gl.viewport(0, 0, dst.w, dst.h); gl.useProgram(down.p); setU(down, { u_tex: [0], u_texel: [1 / src.w, 1 / src.h], u_threshold: [i === 0 ? 1.15 * outScale : 0] }); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src.t); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); src = dst; }
+gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+for (let i = 3; i >= 1; i--) { const from = bl[i], to = bl[i - 1]; gl.bindFramebuffer(gl.FRAMEBUFFER, to.f); gl.viewport(0, 0, to.w, to.h); gl.useProgram(up.p); setU(up, { u_tex: [0], u_texel: [1 / from.w, 1 / from.h] }); gl.bindTexture(gl.TEXTURE_2D, from.t); gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0); }
+gl.disable(gl.BLEND);
+gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+gl.useProgram(comp.p); setU(comp, { u_scene: [0], u_bloom: [1], u_noise: [2], u_inScale: [1 / outScale], u_underwater: [0], u_noiseOffset: [0.3, 0.7] }, sc.post);
+gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sceneRT.t); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, bl[0].t); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, noise);
+gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, 0);
+gl.finish(); window.DONE = 'ok hdr=' + hdr + ' err=' + gl.getError();
+})().catch(e => { window.DONE = 'ERR ' + e.message; });
+</script></body></html>

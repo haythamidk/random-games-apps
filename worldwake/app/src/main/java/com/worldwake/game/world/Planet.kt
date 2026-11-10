@@ -85,7 +85,7 @@ object Planet {
 
     fun visuals(s: Float, v: Visuals) {
         v.s = s
-        v.frost = 1f - smoothstep(2f, 4.6f, s)
+        v.frost = 1f - smoothstep(2f, 5f, s)
         v.atmo = smoothstep(0f, 6f, s)
         v.cloudBase = smoothstep(3f, 4.2f, s) * 0.42f
         v.rainAllowed = s >= 4f
@@ -120,8 +120,8 @@ object Planet {
         floatArrayOf(1f, 0.4f, 0.5f), floatArrayOf(1f, 0.48f, 0.38f), floatArrayOf(1f, 0.52f, 0.34f), floatArrayOf(1f, 0.55f, 0.32f),
     )
     private val sun = arrayOf(
-        floatArrayOf(4.6f, 4.9f, 5.8f), floatArrayOf(4.5f, 4.7f, 5.5f), floatArrayOf(4.3f, 4.3f, 4.9f),
-        floatArrayOf(4.1f, 4f, 4.3f), floatArrayOf(4f, 3.8f, 3.7f), floatArrayOf(3.9f, 3.7f, 3.3f), floatArrayOf(3.9f, 3.6f, 3.1f),
+        floatArrayOf(2.15f, 2.3f, 2.8f), floatArrayOf(2.15f, 2.25f, 2.7f), floatArrayOf(2.15f, 2.15f, 2.45f),
+        floatArrayOf(2.15f, 2.1f, 2.2f), floatArrayOf(2.2f, 2.08f, 1.95f), floatArrayOf(2.25f, 2.1f, 1.8f), floatArrayOf(2.3f, 2.1f, 1.75f),
     )
 
     private fun key(table: Array<FloatArray>, s: Float, out: FloatArray) {
@@ -139,9 +139,9 @@ object Planet {
     // ------------------------------------------------------------------ fixed palette
 
     /** Linear frost colour used where shaders cannot sample the texture. */
-    val frostColor = floatArrayOf(0.62f, 0.6f, 0.82f)
+    val frostColor = floatArrayOf(0.5f, 0.48f, 0.72f)
     val waterAbsorb = floatArrayOf(0.5f, 0.085f, 0.16f)
-    val waterScatter = floatArrayOf(0.012f, 0.13f, 0.11f)
+    val waterScatter = floatArrayOf(0.008f, 0.085f, 0.075f)
     val waterFog = floatArrayOf(0.015f, 0.1f, 0.095f)
     val waterTint = floatArrayOf(0.35f, 0.75f, 0.7f)
 

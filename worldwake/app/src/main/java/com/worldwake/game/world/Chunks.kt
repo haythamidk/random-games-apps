@@ -410,7 +410,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
                 type == PropType.COLUMNS -> 0.7f + sv * 0.7f
                 type == PropType.SHARD_BIG -> 0.6f + sv * 1.0f
                 type == PropType.ICE_SPIKE -> 0.6f + sv * 1.1f
-                type.isOre -> 0.95f + sv * 0.3f
+                type.isOre -> 1.5f + sv * 0.45f
                 else -> 0.8f + sv * 0.5f
             }
             val growThr = if (type.grow == Grow.NONE) 0f else rng.nextFloat() * 0.82f

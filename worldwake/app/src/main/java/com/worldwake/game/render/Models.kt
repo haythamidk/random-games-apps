@@ -588,6 +588,7 @@ object Models {
     /** The Waker's arm and builder tool, in view space (x right, y up, -z forward). */
     fun viewTool(): Pair<MeshData, MeshData> {
         val s = MeshBuilder(512); val g = MeshBuilder()
+        s.trs(0f, 0f, 0f, 0f, 0f, 0f, 0.6f, 0.6f, 0.6f); g.trs(0f, 0f, 0f, 0f, 0f, 0f, 0.6f, 0.6f, 0.6f)
         // forearm
         s.color(0.22f, 0.24f, 0.3f).mat(Mat.GRIP)
         s.push().trs(0.06f, -0.1f, 0.34f, 0f, PI_F * 0.5f - 0.18f, 0f); s.cylinder(0f, -0.3f, 0f, 0.075f, 0.058f, 0.56f, 10); s.pop()

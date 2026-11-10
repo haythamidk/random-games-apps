@@ -24,7 +24,7 @@ import kotlin.math.sqrt
 object ProceduralTextures {
     const val SIZE = 512
     const val NSIZE = 256
-    private const val VERSION = 1
+    private const val VERSION = 4
 
     class Result(val albedo: List<ByteArray>, val normals: List<ByteArray>)
 
@@ -229,13 +229,13 @@ object ProceduralTextures {
                     val crack = smoothstep(0.05f, 0.0f, w[1]) * smoothstep(0.45f, 0.6f, fbm(u, v, 3, 3, 17))
                     val i = y * n + x
                     val s = (0.8f + grain * 0.3f) * (1f - crack * 0.5f)
-                    img.set(i, (0.22f + f * 0.1f) * s, (0.16f + f * 0.07f) * s, (0.21f + f * 0.09f) * s)
+                    img.set(i, (0.2f + f * 0.08f) * s, (0.22f + f * 0.09f) * s, (0.26f + f * 0.1f) * s)
                     img.h[i] = f * 0.6f + grain * 0.2f - crack * 0.5f
                     img.rough[i] = 0.92f
                 }
                 for (k in 0 until 260) {
-                    val g = rng.range(0.16f, 0.34f)
-                    img.ellipse(rng.range(0f, n.toFloat()), rng.range(0f, n.toFloat()), rng.range(1.5f, 5f), rng.range(1.2f, 3.5f), rng.range(0f, 6.28f), g * 0.95f, g * 0.92f, g * 1.08f, 0.8f)
+                    val g = rng.range(0.14f, 0.36f)
+                    img.ellipse(rng.range(0f, n.toFloat()), rng.range(0f, n.toFloat()), rng.range(1.5f, 5f), rng.range(1.2f, 3.5f), rng.range(0f, 6.28f), g * 0.9f, g * 0.98f, g * 1.12f, 0.8f)
                 }
             }
             Mat.FROST -> {
@@ -249,8 +249,9 @@ object ProceduralTextures {
                     worley(u, v, 14, 47, w)
                     val plate = smoothstep(0.0f, 0.12f, w[1])
                     val i = y * n + x
-                    val c = 0.8f + f * 0.12f + rip * 0.04f
-                    img.set(i, c * 0.95f * (0.93f + plate * 0.07f), c * 0.94f * (0.93f + plate * 0.07f), c * 1.06f)
+                    val drift = smoothstep(0.35f, 0.7f, fbm(u, v, 3, 3, 49))
+                    val c = 0.6f + f * 0.16f + rip * 0.05f + drift * 0.06f
+                    img.set(i, c * 0.93f * (0.9f + plate * 0.1f), c * 0.92f * (0.9f + plate * 0.1f), c * 1.12f)
                     img.h[i] = f * 0.7f + rip * 0.25f + plate * 0.1f
                     img.rough[i] = if (sp > 0.955f) 0.08f else 0.5f
                 }
@@ -297,9 +298,9 @@ object ProceduralTextures {
                     val fine = vnoise(u, v, 200, 200, 55)
                     val pale = smoothstep(0.6f, 0.75f, fbm(u, v, 4, 3, 57))
                     val i = y * n + x
-                    val s = 0.55f + cushion * 0.6f + fine * 0.15f
-                    var cr = (0.5f + f * 0.14f) * s; var cg = (0.1f + f * 0.05f) * s; var cb = (0.26f + f * 0.1f) * s
-                    cr = lerp(cr, 0.78f * s, pale * 0.5f); cg = lerp(cg, 0.3f * s, pale * 0.5f); cb = lerp(cb, 0.42f * s, pale * 0.5f)
+                    val s = 0.6f + cushion * 0.45f + fine * 0.12f
+                    var cr = (0.4f + f * 0.1f) * s; var cg = (0.09f + f * 0.04f) * s; var cb = (0.16f + f * 0.06f) * s
+                    cr = lerp(cr, 0.62f * s, pale * 0.5f); cg = lerp(cg, 0.26f * s, pale * 0.5f); cb = lerp(cb, 0.3f * s, pale * 0.5f)
                     img.set(i, cr, cg, cb)
                     img.h[i] = cushion * 0.8f + fine * 0.15f
                     img.rough[i] = 0.95f
@@ -315,9 +316,9 @@ object ProceduralTextures {
                     val bl = max(blades, blades2)
                     val rose = smoothstep(0.5f, 0.7f, fbm(u, v, 3, 3, 69))
                     val i = y * n + x
-                    var cr = lerp(0.6f, 0.82f, base); var cg = lerp(0.42f, 0.58f, base); var cb = lerp(0.16f, 0.26f, base)
-                    cr = lerp(cr, 0.8f, rose * 0.6f); cg = lerp(cg, 0.36f, rose * 0.6f); cb = lerp(cb, 0.34f, rose * 0.6f)
-                    val s = 0.6f + bl * 0.6f
+                    var cr = lerp(0.66f, 0.8f, base); var cg = lerp(0.5f, 0.6f, base); var cb = lerp(0.34f, 0.42f, base)
+                    cr = lerp(cr, 0.74f, rose * 0.7f); cg = lerp(cg, 0.44f, rose * 0.7f); cb = lerp(cb, 0.42f, rose * 0.7f)
+                    val s = 0.78f + bl * 0.3f
                     img.set(i, cr * s, cg * s, cb * s)
                     img.h[i] = bl * 0.7f + base * 0.3f
                     img.rough[i] = 0.9f
@@ -376,9 +377,9 @@ object ProceduralTextures {
                 alphaMask = true
                 strength = 6f
                 for (i in 0 until n * n) { img.a[i] = 0f; img.set(i, 0.5f, 0.5f, 0.5f) }
-                for (c in 0 until 76) {
+                for (c in 0 until 150) {
                     val cx = rng.range(0f, n.toFloat()); val cy = rng.range(0f, n.toFloat())
-                    val count = 10 + rng.nextInt(10)
+                    val count = 12 + rng.nextInt(10)
                     for (k in 0 until count) {
                         val a = rng.range(0f, 6.28f); val d = rng.range(0f, 30f)
                         val s = rng.range(0.72f, 1.28f)

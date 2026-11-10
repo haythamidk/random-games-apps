@@ -476,13 +476,13 @@ out vec4 fragColor;
 // base ground slots: soil, silt, sulfur crust, gravel
 const float LAYER[4] = float[4](0.0, 3.0, 6.0, 7.0);
 // average linear colors for the untextured path
-const vec3 C_SOIL = vec3(0.04, 0.022, 0.038);
+const vec3 C_SOIL = vec3(0.035, 0.04, 0.055);
 const vec3 C_SILT = vec3(0.2, 0.18, 0.23);
 const vec3 C_SULF = vec3(0.3, 0.26, 0.035);
 const vec3 C_GRAV = vec3(0.05, 0.05, 0.065);
 const vec3 C_ROCK = vec3(0.035, 0.05, 0.07);
-const vec3 C_MOSS = vec3(0.2, 0.012, 0.05);
-const vec3 C_GRASS = vec3(0.45, 0.2, 0.05);
+const vec3 C_MOSS = vec3(0.14, 0.012, 0.03);
+const vec3 C_GRASS = vec3(0.4, 0.27, 0.11);
 
 void main() {
     vec3 gn = normalize(v_normal);
@@ -494,10 +494,10 @@ void main() {
     float fert = v_wb.y;
     float flatness = 1.0 - smoothstep(0.2, 0.42, slope);
     float sub = smoothstep(u_waterLevel + 0.2, u_waterLevel - 0.5, v_world.y);
-    float mossC = smoothstep(0.0, 0.22, u_moss * 1.3 - (meso.g * 0.6 + macro.b * 0.4) * 0.8 - (1.0 - fert) * 0.9) * (1.0 - rockW * 0.65) * (1.0 - sub);
-    float grassC = smoothstep(0.0, 0.25, u_grass * 1.35 - (meso.b * 0.5 + macro.g * 0.5) * 0.85 - (1.0 - fert) * 1.1) * flatness * (1.0 - rockW) * (1.0 - sub);
-    float fr = u_frost * 1.5 + v_wb.x - (meso.r * 0.6 + macro.a * 0.4) * 0.7 - slope * 0.55;
-    float frostC = smoothstep(0.45, 0.7, fr);
+    float mossC = smoothstep(0.0, 0.14, u_moss * 1.05 - (meso.g * 0.6 + macro.b * 0.4) * 1.0 - (1.0 - fert) * 0.9) * (1.0 - rockW * 0.65) * (1.0 - sub);
+    float grassC = smoothstep(0.0, 0.2, u_grass * 1.2 - (meso.b * 0.5 + macro.g * 0.5) * 0.95 - (1.0 - fert) * 1.1) * flatness * (1.0 - rockW) * (1.0 - sub);
+    float fr = u_frost * 1.6 + v_wb.x - (meso.r * 0.6 + macro.a * 0.4) * 0.8 - slope * 0.55;
+    float frostC = smoothstep(0.2, 0.45, fr);
     vec3 albedo;
     vec3 n = gn;
     float rough = 0.85;
@@ -730,8 +730,8 @@ float cloudDensity(vec2 p) {
     float d = texture(u_noise, p + w).r * 0.55;
     d += texture(u_noise, p * 2.3 + w * 1.7 + d * 0.15).g * 0.3;
     d += texture(u_noise, p * 5.1 + w * 2.9).b * 0.15;
-    float thr = mix(0.7, 0.3, u_cloudCover);
-    return smoothstep(thr, thr + 0.25, d) * smoothstep(0.0, 0.08, u_cloudCover);
+    float thr = mix(0.66, 0.28, u_cloudCover);
+    return smoothstep(thr, thr + 0.32, d) * smoothstep(0.02, 0.3, u_cloudCover);
 }
 void main() {
     vec3 d = normalize(v_dir - u_camPos);
@@ -769,7 +769,7 @@ void main() {
             dc *= 0.5 + 0.5 * z;
             float edge = 1.0 - smoothstep(0.93, 1.0, r2);
             discMask = edge;
-            gcol = dc * (lit * 1.25 + 0.012 * u_night);
+            gcol = dc * (lit * 1.25 + 0.02 + 0.02 * u_night);
             galpha = edge * smoothstep(0.0, 0.2, lit + 0.02 + u_night * 0.3);
         }
         vec2 e = vec2(q.x, q.y / 0.26);
@@ -810,7 +810,7 @@ void main() {
     }
 
     if (u_clouds > 0 && d.y > 0.0 && u_cloudCover > 0.005) {
-        vec2 p = d.xz / (d.y + 0.1) * 0.32;
+        vec2 p = d.xz / (d.y + 0.12) * 0.2;
         float dens = cloudDensity(p);
         if (dens > 0.001) {
             float toward = cloudDensity(p + u_trueSunDir.xz * 0.04);
@@ -826,7 +826,7 @@ void main() {
         if (u_clouds > 1) {
             vec2 q = d.xz / (d.y + 0.2) * 0.12;
             float ci = texture(u_noise, vec2(q.x * 3.0, q.y * 0.6) + u_time * 0.001).a;
-            ci = smoothstep(0.7, 0.9, ci) * (1.0 - u_cloudCover) * smoothstep(0.05, 0.4, d.y) * smoothstep(0.0, 0.15, u_cloudCover);
+            ci = smoothstep(0.5, 1.0, ci) * (1.0 - u_cloudCover) * smoothstep(0.05, 0.4, d.y) * smoothstep(0.0, 0.15, u_cloudCover);
             col += (u_sunColor * 0.12 + u_skyAmb * 0.3) * ci * 0.18;
         }
     }
