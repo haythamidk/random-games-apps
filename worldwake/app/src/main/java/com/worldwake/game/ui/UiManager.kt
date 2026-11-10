@@ -67,6 +67,14 @@ class UiManager(
     private var settingsFrom = "main"
     private var backAction: (() -> Unit)? = null
     private var rebuild: (() -> Unit)? = null
+    private var safeL = 0
+    private var safeR = 0
+
+    /** Keeps menus clear of the camera cutout and rounded corners. */
+    fun setSafeArea(left: Int, right: Int) {
+        safeL = left; safeR = right
+        current?.setPadding(safeL, 0, safeR, 0)
+    }
 
     private val TEAL = Color.rgb(89, 240, 224)
     private val GOLD = Color.rgb(255, 208, 96)
@@ -152,6 +160,7 @@ class UiManager(
         backAction = back
         rebuild = again
         game.menuOpen = name == "game" || name == "storage" || name == "log"
+        v.setPadding(safeL, 0, safeR, 0)
         root.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         if (scrollY > 0) findScroll(v)?.let { s -> s.post { s.scrollTo(0, scrollY) } }
         if (game.settings.controls != ControlScheme.TOUCH) v.post { firstButton(v)?.requestFocus() }
@@ -325,21 +334,27 @@ class UiManager(
     private fun itemTile(item: Item, count: Int, sel: Boolean, onClick: () -> Unit): View {
         val b = Button(act)
         b.isAllCaps = false
-        b.text = count.toString()
-        b.textSize = 12f
-        b.setTextColor(Color.WHITE)
-        b.gravity = Gravity.BOTTOM or Gravity.END
-        b.setPadding(0, 0, dp(7f), dp(3f))
+        b.text = ""
         b.background = btnBg(if (sel) Color.argb(255, 34, 60, 78) else CARD, if (sel) GOLD else TEAL)
         b.stateListAnimator = null
         b.minWidth = 0; b.minimumWidth = 0; b.minHeight = 0; b.minimumHeight = 0
+        b.contentDescription = item.label
         b.setOnClickListener { game.sound?.play(Sfx.UI, 0.5f); onClick() }
         val f = FrameLayout(act)
         f.addView(b, FrameLayout.LayoutParams(MATCH, MATCH))
         val iv = ImageView(act).apply { setImageDrawable(ItemIcon(item)) }
-        f.addView(iv, FrameLayout.LayoutParams(dp(36f), dp(36f), Gravity.TOP or Gravity.START).apply { setMargins(dp(5f), dp(4f), 0, 0) })
+        f.addView(iv, FrameLayout.LayoutParams(dp(38f), dp(38f), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(5f) })
+        val name = label(item.label, 9.5f, Color.rgb(205, 212, 228)).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
+        f.addView(name, FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM).apply { setMargins(dp(3f), 0, dp(3f), dp(5f)) })
+        val badge = label(count.toString(), 11f, Color.WHITE, true).apply {
+            background = bg(Color.argb(230, 8, 12, 24), 8f, if (sel) GOLD else Color.argb(120, 89, 240, 224))
+            setPadding(dp(6f), 0, dp(6f), dp(1f))
+        }
+        f.addView(badge, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(3f), dp(3f), 0) })
         return f
     }
+
+    private val TILE = 80f
 
     private fun grid(inv: Inventory, columns: Int, sel: Item?, onClick: (Item) -> Unit): GridLayout {
         val g = GridLayout(act)
@@ -348,7 +363,7 @@ class UiManager(
             val n = inv.count(i)
             if (n <= 0) continue
             val tile = itemTile(i, n, i == sel) { onClick(i) }
-            g.addView(tile, GridLayout.LayoutParams().apply { width = dp(62f); height = dp(58f); setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) })
+            g.addView(tile, GridLayout.LayoutParams().apply { width = dp(TILE - 6f); height = dp(70f); setMargins(dp(3f), dp(3f), dp(3f), dp(3f)) })
         }
         return g
     }
@@ -360,7 +375,7 @@ class UiManager(
         val left = vbox(6f)
         left.addView(header("Pack", p.inv.total.toString() + " / " + p.inv.capacity + " carried"))
         val sv = ScrollView(act)
-        val cols = ((root.width - dp(430f)) / dp(68f)).coerceIn(3, 9)
+        val cols = ((root.width - safeL - safeR - dp(410f)) / dp(TILE)).coerceIn(3, 9)
         sv.addView(grid(p.inv, cols, selected) { selected = it; showGameMenu("pack") })
         left.addView(sv, LinearLayout.LayoutParams(MATCH, 0, 1f))
         if (p.inv.total == 0) left.addView(label("Nothing yet. Ore lies on the ground all over the flats.", 12f, DIM))
@@ -593,7 +608,7 @@ class UiManager(
         outer.addView(top)
         val row = hbox()
         row.gravity = Gravity.TOP
-        val cols = ((root.width / 2 - dp(30f)) / dp(68f)).coerceIn(3, 7)
+        val cols = (((root.width - safeL - safeR) / 2 - dp(34f)) / dp(TILE)).coerceIn(2, 7)
         fun side(name: String, inv: Inventory, other: Inventory): View {
             val b = vbox(8f)
             b.background = bg(CARD, 12f)

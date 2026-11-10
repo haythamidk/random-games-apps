@@ -44,6 +44,15 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true
+        // UI screenshots: point ROBO_DEPS at a folder holding the Robolectric android-all jar to run offline
+        unitTests.all { t ->
+            System.getenv("ROBO_DEPS")?.let {
+                t.systemProperty("robolectric.offline", "true")
+                t.systemProperty("robolectric.dependency.dir", it)
+            }
+            t.maxHeapSize = "2g"
+        }
     }
 }
 
@@ -56,4 +65,5 @@ kotlin {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

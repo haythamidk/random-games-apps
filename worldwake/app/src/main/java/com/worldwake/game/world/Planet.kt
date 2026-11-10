@@ -37,7 +37,7 @@ object Planet {
     )
 
     /** Wake Index needed to reach each stage. */
-    val thresholds = doubleArrayOf(0.0, 150.0, 1500.0, 12e3, 60e3, 400e3, 1.8e6, 9e6, 32e6, 130e6, 400e6, 1.1e9)
+    val thresholds = doubleArrayOf(0.0, 150.0, 1500.0, 12e3, 60e3, 300e3, 1.0e6, 3.6e6, 13e6, 45e6, 115e6, 270e6)
     const val LAST = 11
 
     fun stageOf(wi: Double): Float {

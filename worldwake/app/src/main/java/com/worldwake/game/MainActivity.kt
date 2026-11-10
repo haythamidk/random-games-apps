@@ -68,6 +68,13 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         setContentView(root)
         ui = UiManager(this, root, game, this)
         glView.setOnCapturedPointerListener { _, e -> onCapturedPointer(e) }
+        root.setOnApplyWindowInsetsListener { _, insets ->
+            val cut = if (Build.VERSION.SDK_INT >= 28) insets.displayCutout else null
+            val l = cut?.safeInsetLeft ?: 0; val r = cut?.safeInsetRight ?: 0
+            hud.setSafeArea(l, r)
+            ui.setSafeArea(l, r)
+            insets
+        }
         hideSystemUi()
         hud.visibility = View.INVISIBLE
         ui.showMainMenu()
@@ -126,6 +133,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
 
     private fun freeze() {
         game.paused = true
+        hud.visibility = View.INVISIBLE
         hud.releaseAll()
         input.reset()
         releasePointer()
@@ -194,6 +202,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
     // ------------------------------------------------------------------ GameUi (called from the GL thread)
 
     override fun onPlayerDied() = runOnUiThread { freeze(); game.paused = false; ui.showDeath() }
+    // (the HUD stays hidden behind every menu and comes back in enterGame)
     override fun showLog(title: String, body: String) = pauseFor { ui.showLog(title, body) }
     override fun openStorage(title: String, inv: Inventory) = pauseFor { ui.openStorage(title, inv) }
     override fun openFabricator() = pauseFor { ui.showGameMenu("craft") }

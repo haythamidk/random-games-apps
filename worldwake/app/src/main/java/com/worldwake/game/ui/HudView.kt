@@ -43,6 +43,14 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
     var onMenu: (() -> Unit)? = null
     var onPack: (() -> Unit)? = null
     var onBuild: (() -> Unit)? = null
+    /** Space kept clear of the camera cutout and rounded corners on each side, in pixels. */
+    private var safeL = 0f
+    private var safeR = 0f
+
+    fun setSafeArea(left: Int, right: Int) {
+        safeL = left.toFloat(); safeR = right.toFloat()
+        if (width > 0) onSizeChanged(width, height, width, height)
+    }
 
     private val text = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 12.5f * d; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL) }
     private val bold = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 13f * d; typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
@@ -96,7 +104,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
     init { isClickable = true; isFocusable = false }
 
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
-        val fw = w.toFloat(); val fh = h.toFloat()
+        val fw = w.toFloat() - safeR; val fh = h.toFloat()
         fun place(b: Btn, x: Float, y: Float, r: Float) { b.x = x; b.y = y; b.r = r * d }
         place(btnUse, fw - 86 * d, fh - 92 * d, 42f)
         place(btnJump, fw - 178 * d, fh - 52 * d, 30f)
@@ -139,7 +147,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         if (game.player.dead) return
         if (x < width * 0.42f && y > height * 0.3f && joyPointer == -1) {
             joyPointer = id
-            joyCx = max(x, joyR + 8 * d); joyCy = min(y, height - joyR - 8 * d)
+            joyCx = max(x, joyR + 8 * d + safeL); joyCy = min(y, height - joyR - 8 * d)
             joyX = 0f; joyY = 0f
             input.setTouchMove(0f, 0f)
             return
@@ -276,7 +284,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         }
 
         // ---- suit gauges, top left
-        val gx = 14 * d; var gy = 12 * d
+        val gx = 14 * d + safeL; var gy = 12 * d
         val gw = 150 * d
         gauge(c, gx, gy, gw, o2Frac, TEAL, "AIR", if (breathable) "open" else p.o2.toInt().toString(), o2Frac < 0.2f && !p.sheltered && !breathable)
         gy += 19 * d
@@ -387,7 +395,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
             c.drawText(if (g.deconMode) "RT take apart   B cancel" else "RT place   LB / RB rotate   D-pad switch   B cancel", cx, h - 16 * d, small)
         }
         drawTop(c)
-        if (g.settings.showFps) { small.textAlign = Paint.Align.LEFT; small.color = Color.WHITE; c.drawText("${g.fps} fps", 14 * d, h - 8 * d, small) }
+        if (g.settings.showFps) { small.textAlign = Paint.Align.LEFT; small.color = Color.WHITE; c.drawText("${g.fps} fps", 14 * d + safeL, h - 8 * d, small) }
         postInvalidateOnAnimation()
     }
 
@@ -436,7 +444,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
 
     private fun drawPlanet(c: Canvas, w: Float) {
         val g = game
-        val x1 = w - 14 * d
+        val x1 = w - 14 * d - safeR
         val y = 58 * d
         val pct = g.stage / Planet.LAST * 100f
         val pctText = String.format(java.util.Locale.US, if (pct < 10f) "%.2f%%" else "%.1f%%", pct)
@@ -513,7 +521,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
             c.drawCircle(joyCx + joyX * joyR, joyCy + joyY * joyR, 22 * d, fill)
         } else {
             stroke.color = Color.argb((70 * a).toInt(), 255, 255, 255); stroke.strokeWidth = 1.4f * d
-            c.drawCircle(96 * d, height - 96 * d, joyR * 0.8f, stroke)
+            c.drawCircle(96 * d + safeL, height - 96 * d, joyR * 0.8f, stroke)
         }
         btnRotate.visible = g.buildType != null
         btnCancel.visible = building
