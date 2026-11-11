@@ -278,7 +278,7 @@ class SceneDumpTest {
         val tool = Models.viewTool()
         val tproj = FloatArray(16); val vvp = FloatArray(16); val local = FloatArray(16)
         Mat4.perspective(tproj, 58f, aspect, 0.03f, 10f); Mat4.mul(vvp, tproj, view)
-        Mat4.fromTRS(local, 0.25f, -0.13f, -0.44f, 0.62f, 0.2f, -0.1f, 1f, 1f, 1f); Mat4.mul(m, invView, local)
+        Mat4.fromTRS(local, 0.13f, -0.105f, -0.52f, 0.6f, 0.1f, -0.1f, 1f, 1f, 1f); Mat4.mul(m, invView, local)
         draw("lit", mesh(tool.first), lit(m, 0f, 0.3f, 0f, 2.2f).put("u_vp", arr(*vvp)), clearDepth = true)
         draw("lit", mesh(tool.second), lit(m, 0.8f, 0.3f, 0f, 2.2f).put("u_vp", arr(*vvp)))
 
