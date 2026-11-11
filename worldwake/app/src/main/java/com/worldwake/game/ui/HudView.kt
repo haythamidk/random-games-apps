@@ -113,6 +113,8 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         place(btnMenu, fw - 28 * d, 30 * d, 19f)
         place(btnPack, fw - 76 * d, 30 * d, 20f)
         place(btnBuild, fw - 126 * d, 30 * d, 20f)
+        // the stick has one home and never moves
+        joyCx = safeL + 104 * d; joyCy = fh - 100 * d
         subtitleLayout = null; objectiveLayout = null; feedLayout = null
     }
 
@@ -147,9 +149,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         if (game.player.dead) return
         if (x < width * 0.42f && y > height * 0.3f && joyPointer == -1) {
             joyPointer = id
-            joyCx = max(x, joyR + 8 * d + safeL); joyCy = min(y, height - joyR - 8 * d)
-            joyX = 0f; joyY = 0f
-            input.setTouchMove(0f, 0f)
+            move(id, x, y)
             return
         }
         if (lookPointer == -1) {
@@ -178,11 +178,7 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         if (id == joyPointer) {
             var dx = (x - joyCx) / joyR; var dy = (y - joyCy) / joyR
             val l = hypot(dx, dy)
-            if (l > 1f) {
-                dx /= l; dy /= l
-                // the stick follows a thumb that drifts past its edge
-                joyCx = x - dx * joyR; joyCy = y - dy * joyR
-            }
+            if (l > 1f) { dx /= l; dy /= l }
             joyX = dx; joyY = dy
             val dead = 0.12f
             val m = hypot(dx, dy)
@@ -512,17 +508,14 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         if (g.player.dead) return
         val a = g.settings.touchOpacity
         // joystick: only drawn while held, where the thumb went down
-        if (joyPointer != -1) {
-            fill.color = Color.argb((70 * a).toInt(), 8, 12, 24)
-            c.drawCircle(joyCx, joyCy, joyR, fill)
-            stroke.color = Color.argb((150 * a).toInt(), 89, 240, 224); stroke.strokeWidth = 1.6f * d
-            c.drawCircle(joyCx, joyCy, joyR, stroke)
-            fill.color = Color.argb((200 * a).toInt(), 89, 240, 224)
-            c.drawCircle(joyCx + joyX * joyR, joyCy + joyY * joyR, 22 * d, fill)
-        } else {
-            stroke.color = Color.argb((70 * a).toInt(), 255, 255, 255); stroke.strokeWidth = 1.4f * d
-            c.drawCircle(96 * d + safeL, height - 96 * d, joyR * 0.8f, stroke)
-        }
+        val held = joyPointer != -1
+        fill.color = Color.argb(((if (held) 90 else 55) * a).toInt(), 8, 12, 24)
+        c.drawCircle(joyCx, joyCy, joyR, fill)
+        stroke.color = if (held) Color.argb((170 * a).toInt(), 89, 240, 224) else Color.argb((90 * a).toInt(), 255, 255, 255)
+        stroke.strokeWidth = 1.6f * d
+        c.drawCircle(joyCx, joyCy, joyR, stroke)
+        fill.color = if (held) Color.argb((210 * a).toInt(), 89, 240, 224) else Color.argb((90 * a).toInt(), 255, 255, 255)
+        c.drawCircle(joyCx + joyX * joyR, joyCy + joyY * joyR, 22 * d, fill)
         btnRotate.visible = g.buildType != null
         btnCancel.visible = building
         val useLabel = if (g.buildType != null) "PLACE" else if (g.deconMode) "TAKE" else "USE"

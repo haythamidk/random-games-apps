@@ -50,6 +50,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         sound = SoundEngine(this)
         sound.master = settings.masterVolume
         sound.musicVolume = settings.musicVolume
+        sound.voiceOn = settings.wrenVoice
         game.sound = sound
         game.ui = this
         game.menuStage = SaveSystem.peekStage(filesDir).coerceAtLeast(0f)
@@ -188,6 +189,7 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
     override fun onSettingsChanged() {
         sound.master = settings.masterVolume
         sound.musicVolume = settings.musicVolume
+        sound.voiceOn = settings.wrenVoice
         glView.applyRenderScale()
         updatePointerCapture()
     }

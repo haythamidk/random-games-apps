@@ -34,6 +34,7 @@ class SoundEngine(ctx: Context) : SoundSink {
 
     @Volatile var master = 0.8f
     @Volatile var musicVolume = 0.7f
+    @Volatile var voiceOn = true
     @Volatile private var running = false
     @Volatile private var paused = false
     private var thread: Thread? = null
@@ -87,6 +88,12 @@ class SoundEngine(ctx: Context) : SoundSink {
 
     private fun start() {
         if (running) return
+        track = newTrack()
+        running = true
+        thread = Thread({ mixLoop() }, "audio-mix").apply { priority = Thread.MAX_PRIORITY; start() }
+    }
+
+    private fun newTrack(): AudioTrack {
         val minBuf = AudioTrack.getMinBufferSize(outRate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
         val frames = max(minBuf / 4, outRate / 25)
         val t = AudioTrack.Builder()
@@ -96,14 +103,16 @@ class SoundEngine(ctx: Context) : SoundSink {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
-        track = t
-        running = true
         t.play()
-        thread = Thread({ mixLoop() }, "audio-mix").apply { priority = Thread.MAX_PRIORITY; start() }
+        return t
     }
 
     fun pause() { paused = true; try { track?.pause() } catch (_: Throwable) {} }
-    fun resume() { if (!loaded) return; paused = false; try { track?.play() } catch (_: Throwable) {} }
+    fun resume() {
+        if (!loaded) return
+        try { track?.play() } catch (_: Throwable) { track = try { newTrack() } catch (_: Throwable) { null } }
+        paused = false
+    }
 
     fun release() {
         running = false
@@ -136,18 +145,17 @@ class SoundEngine(ctx: Context) : SoundSink {
 
     override fun speak(chars: Int) {
         if (!loaded || paused) return
-        val n = (chars / 3).coerceIn(4, 34)
-        val gap = (outRate * 0.068f).toInt()
+        if (!voiceOn) return
+        val n = if (chars > 70) 3 else 2
+        val gap = (outRate * 0.13f).toInt()
         var delay = 0
-        var note = 4 + rnd(4)
+        var note = 1 + rnd(3)
         synchronized(pending) {
             for (i in 0 until n) {
-                // a little melody that wanders and settles, with pauses like commas
-                note = (note + rnd(5) - 2).coerceIn(0, blips.size - 1)
-                if (i == n - 1) note = max(0, note - 3)
-                val v = 0.2f * master
+                val v = 0.075f * master
                 pending.add(Voice(blips[note], v, v, srcRate.toDouble() / outRate, false, delay))
-                delay += gap + (if (rnd(7) == 0) gap * 2 else 0) + rnd(gap / 3)
+                note = (note + 1 + rnd(2)).coerceIn(0, blips.size - 1)
+                delay += gap
             }
         }
     }
@@ -196,6 +204,17 @@ class SoundEngine(ctx: Context) : SoundSink {
         val a = Ambience()
         while (running) {
             if (paused) { try { Thread.sleep(50) } catch (_: InterruptedException) {}; continue }
+            try { mixBlock(block, wL, wR, sL, sR, out, a) } catch (t: Throwable) {
+                // one bad block must not end the sound for the rest of the session
+                android.util.Log.e("Worldwake", "audio block failed", t)
+                voices.clear(); wlpL = 0f; wlpR = 0f
+                try { Thread.sleep(20) } catch (_: InterruptedException) {}
+            }
+        }
+    }
+
+    private fun mixBlock(block: Int, wL: FloatArray, wR: FloatArray, sL: FloatArray, sR: FloatArray, out: ShortArray, a: Ambience) {
+        run {
             synchronized(pending) { voices.addAll(pending); pending.clear() }
             synchronized(lock) { a.copyFrom(amb) }
             val dt = block.toFloat() / outRate
@@ -265,13 +284,28 @@ class SoundEngine(ctx: Context) : SoundSink {
             }
             voices.removeAll { it.done }
             music.mix(sL, sR, block, m * musicVolume * 0.55f, a)
+            // a single bad sample would otherwise poison the filter and mute everything after it
+            if (wlpL.isNaN() || wlpR.isNaN() || wlpL.isInfinite() || wlpR.isInfinite()) { wlpL = 0f; wlpR = 0f }
+            if (wk.isNaN()) wk = 0.1f
+            if (wgain.isNaN()) wgain = 0.4f
             for (i in 0 until block) {
-                wlpL += (wL[i] - wlpL) * wk; wlpR += (wR[i] - wlpR) * wk
-                val l = softClip(sL[i] + wlpL * wgain); val r = softClip(sR[i] + wlpR * wgain)
+                var w0 = wL[i]; var w1 = wR[i]
+                if (w0.isNaN() || w1.isNaN()) { w0 = 0f; w1 = 0f }
+                wlpL += (w0 - wlpL) * wk; wlpR += (w1 - wlpR) * wk
+                var l = softClip(sL[i] + wlpL * wgain); var r = softClip(sR[i] + wlpR * wgain)
+                if (l.isNaN()) l = 0f
+                if (r.isNaN()) r = 0f
                 out[i * 2] = (l * 32000f).toInt().toShort()
                 out[i * 2 + 1] = (r * 32000f).toInt().toShort()
             }
-            try { track?.write(out, 0, out.size) } catch (_: Throwable) { try { Thread.sleep(5) } catch (_: InterruptedException) {} }
+            val t = track
+            val wrote = try { t?.write(out, 0, out.size) ?: -1 } catch (_: Throwable) { -1 }
+            if (wrote < 0) {
+                // the output was taken away (headphones, a call, another app): open a new one
+                try { t?.release() } catch (_: Throwable) {}
+                try { Thread.sleep(120) } catch (_: InterruptedException) {}
+                track = try { newTrack() } catch (_: Throwable) { null }
+            }
         }
     }
 
@@ -406,7 +440,7 @@ class SoundEngine(ctx: Context) : SoundSink {
         Sfx.STEP_WATER -> norm(mix(noiseBurst(0.28f, 0.33f, 0.01f, 0.08f), tone(0.2f, 480f + v * 70f, 240f, 0.005f, 0.05f, 1, 0.2f)), 0.5f)
         Sfx.LAND -> norm(mix(tone(0.3f, 95f, 45f, 0.002f, 0.09f, 2, 0.9f), noiseBurst(0.25f, 0.12f, 0.002f, 0.07f, 1f)), 0.8f)
         Sfx.JET -> { val b = buf(0.22f); var y = 0f; for (i in b.indices) { val t = i.toFloat() / b.size; y += (noise() - y) * (0.2f + v * 0.05f); b[i] = y * sin(t * PI.toFloat()) + sin(i * 0.05f) * 0.1f * sin(t * PI.toFloat()) }; norm(highpass(b, 0.9f), 0.5f) }
-        Sfx.PICKUP -> norm(mix(noiseBurst(0.1f, 0.3f, 0.002f, 0.025f, 0.5f), tone(0.16f, 740f + v * 90f, 1110f + v * 130f, 0.004f, 0.06f, 1, 0.3f), shift(tone(0.2f, 1480f + v * 180f, 1480f + v * 180f, 0.003f, 0.08f, 1, 0.14f), 0.05f)), 0.5f)
+        Sfx.PICKUP -> norm(mix(noiseBurst(0.07f, 0.16f, 0.002f, 0.016f, 0.5f), tone(0.11f, 250f + v * 14f, 190f, 0.003f, 0.035f, 1, 0.5f)), 0.3f)
         Sfx.BUILD -> norm(mix(
             tone(0.5f, 180f, 560f + v * 60f, 0.02f, 0.3f, 3, 0.35f),
             shift(noiseBurst(0.2f, 0.25f, 0.001f, 0.04f, 1f), 0.34f),
@@ -457,15 +491,15 @@ class SoundEngine(ctx: Context) : SoundSink {
     /** One syllable of WREN: a short, round, slightly vowel-like chirp. */
     private fun blip(i: Int): FloatArray {
         val scale = floatArrayOf(0f, 2f, 4f, 7f, 9f, 12f, 14f, 16f, 19f, 21f, 24f, 26f, 28f, 31f)
-        val f = 392f * 2f.pow(scale[i % scale.size] / 12f)
-        val b = buf(0.085f)
+        val f = 247f * 2f.pow(scale[i % scale.size] / 12f)
+        val b = buf(0.16f)
         var ph = 0.0
         for (k in b.indices) {
             val t = k.toFloat() / b.size
             val ff = f * (1f + 0.06f * sin(t * PI.toFloat())) * (1f - 0.05f * t)
             ph += 2.0 * PI * ff / srcRate
-            val e = sin(t * PI.toFloat()).pow(0.7f)
-            b[k] = ((sin(ph) + 0.35 * sin(ph * 2.0) + 0.12 * sin(ph * 3.0)) * e * 0.5).toFloat()
+            val e = sin(t * PI.toFloat()).pow(1.6f)
+            b[k] = ((sin(ph) + 0.12 * sin(ph * 2.0)) * e * 0.5).toFloat()
         }
         return b
     }

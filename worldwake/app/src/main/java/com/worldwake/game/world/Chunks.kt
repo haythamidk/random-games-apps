@@ -58,6 +58,8 @@ class Chunk(val cx: Int, val cz: Int) {
     var water: Mesh? = null
     var lod = -1
     var requestedLod = -1
+    /** Index count without the skirts. */
+    var mainIdx = 0
     var minY = 0f
     var maxY = 0f
     val inst = arrayOfNulls<InstanceBuffer>(PropType.entries.size)
@@ -76,6 +78,7 @@ class ChunkBuild(
     val terrain: MeshData, val water: MeshData?,
     val nodes: List<Node>?, val decor: List<Node>?,
     val minY: Float, val maxY: Float,
+    val mainIdx: Int = 0,
 )
 
 /**
@@ -155,6 +158,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             c.water = b.water?.let { Mesh(it) }
             c.hasWater = b.water != null
             c.lod = b.lod
+            c.mainIdx = b.mainIdx
             c.minY = b.minY; c.maxY = b.maxY
             if (b.nodes != null && !c.nodesReady) {
                 c.nodes = b.nodes
@@ -311,11 +315,14 @@ class ChunkManager(private val harvest: HarvestRegistry) {
         }
         // skirts hide cracks between LOD levels (double sided)
         val skirt = 1.5f + step
+        val mainIdx = ii
         fun edge(idx: IntArray) {
             val first = vi
             for (k in idx) {
                 System.arraycopy(vb, k * TERRAIN_FLOATS, vb, vi * TERRAIN_FLOATS, TERRAIN_FLOATS)
                 vb[vi * TERRAIN_FLOATS + 1] -= skirt
+                // shaded as if it sat on the surface, so a crack between chunks never shows as a dark line
+                vb[vi * TERRAIN_FLOATS + 13] = skirt
                 vi++
             }
             for (k in 0 until idx.size - 1) {
@@ -366,7 +373,7 @@ class ChunkManager(private val harvest: HarvestRegistry) {
             nodes = pair.first
             decor = pair.second
         }
-        return ChunkBuild(cx, cz, lod, terrain, water, nodes, decor, minY, maxY)
+        return ChunkBuild(cx, cz, lod, terrain, water, nodes, decor, minY, maxY, mainIdx)
     }
 
     private fun depthAt(mb: MeshBuilder, index: Int): Float = mb.vertexFloat(index, 6)

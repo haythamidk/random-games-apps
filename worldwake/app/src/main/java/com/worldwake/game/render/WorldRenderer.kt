@@ -9,6 +9,7 @@ import com.worldwake.game.engine.GLCaps
 import com.worldwake.game.engine.GLUtil
 import com.worldwake.game.engine.Mat4
 import com.worldwake.game.engine.Mesh
+import com.worldwake.game.engine.MsaaTarget
 import com.worldwake.game.engine.MeshData
 import com.worldwake.game.engine.NoiseImage
 import com.worldwake.game.engine.PI_F
@@ -136,6 +137,8 @@ class WorldRenderer(private val game: GameState) {
     private val fxBuf: FloatBuffer = ByteBuffer.allocateDirect(420 * VERTEX_FLOATS * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
 
     private var sceneRT: RenderTarget? = null
+    private var msaaRT: MsaaTarget? = null
+    private var msaaFailed = false
     private var refractRT: RenderTarget? = null
     private var ldrRT: RenderTarget? = null
     private val bloomRT = arrayOfNulls<RenderTarget>(4)
@@ -255,6 +258,7 @@ class WorldRenderer(private val game: GameState) {
 
     private fun releaseTargets() {
         sceneRT?.release(); sceneRT = null
+        msaaRT?.release(); msaaRT = null
         refractRT?.release(); refractRT = null
         ldrRT?.release(); ldrRT = null
         for (i in bloomRT.indices) { bloomRT[i]?.release(); bloomRT[i] = null }
@@ -264,7 +268,8 @@ class WorldRenderer(private val game: GameState) {
         val s = game.settings
         val scale = clamp(if (s.dynamicRes) min(dynScale, s.renderScale) else s.renderScale, 0.4f, 1f)
         val w = max(16, (width * scale).toInt()); val h = max(16, (height * scale).toInt())
-        if (sceneRT != null && sceneW == w && sceneH == h && (ldrRT != null) == s.fxaa) return true
+        val wantMs = s.antiAlias >= 2 && !msaaFailed
+        if (sceneRT != null && sceneW == w && sceneH == h && (ldrRT != null) == (s.antiAlias >= 1) && (msaaRT != null) == wantMs) return true
         releaseTargets()
         sceneW = w; sceneH = h
         var rt = RenderTarget(w, h, hdrFormat, true)
@@ -281,7 +286,12 @@ class WorldRenderer(private val game: GameState) {
             bw = max(4, bw / 2); bh = max(4, bh / 2)
             bloomRT[i] = RenderTarget(bw, bh, hdrFormat, false)
         }
-        if (s.fxaa) ldrRT = RenderTarget(width, height, false, false)
+        if (s.antiAlias >= 1) ldrRT = RenderTarget(width, height, false, false)
+        if (wantMs) {
+            // some phones cannot multisample a float target: fall back to FXAA alone and do not try again
+            val ms = try { MsaaTarget(w, h, hdrFormat, 4) } catch (_: Throwable) { null }
+            if (ms != null && ms.complete) msaaRT = ms else { ms?.release(); msaaFailed = true }
+        }
         return true
     }
 
@@ -367,7 +377,7 @@ class WorldRenderer(private val game: GameState) {
         }
         val sm = if (useShadows) shadowMode else 0
 
-        if (postActive) sceneRT!!.bind() else { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, width, height) }
+        if (postActive) (msaaRT?.bind() ?: sceneRT!!.bind()) else { glBindFramebuffer(GL_FRAMEBUFFER, 0); glViewport(0, 0, width, height) }
         glDepthMask(true)
         glClearColor(env.fogColor[0], env.fogColor[1], env.fogColor[2], 1f)
         glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
@@ -393,6 +403,12 @@ class WorldRenderer(private val game: GameState) {
         drawViewModel(sm, rw, rh)
 
         if (postActive) {
+            msaaRT?.let { ms ->
+                ms.resolveTo(sceneRT!!)
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, ms.fbo)
+                glInvalidateFramebuffer(GL_READ_FRAMEBUFFER, 2, intArrayOf(GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT), 0)
+                glBindFramebuffer(GL_FRAMEBUFFER, sceneRT!!.fbo)
+            }
             glInvalidateFramebuffer(GL_FRAMEBUFFER, 1, intArrayOf(GL_DEPTH_ATTACHMENT), 0)
             postProcess()
         } else {
@@ -507,7 +523,7 @@ class WorldRenderer(private val game: GameState) {
         for (c in game.chunks.chunks.values) {
             val t = c.terrain ?: continue
             if (!nearXZ(c, p.pos.x, p.pos.z, r)) continue
-            t.draw()
+            if (c.mainIdx > 0) t.drawFirst(c.mainIdx) else t.draw()
         }
         for (i in structSolid.indices) {
             val geo = game.structures.geos[i]
@@ -882,11 +898,11 @@ class WorldRenderer(private val game: GameState) {
 
     private fun copySceneForRefraction() {
         val src = sceneRT!!; val dst = refractRT!!
+        msaaRT?.resolveTo(src)
         glBindFramebuffer(GL_READ_FRAMEBUFFER, src.fbo)
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo)
         glBlitFramebuffer(0, 0, src.width, src.height, 0, 0, dst.width, dst.height, GL_COLOR_BUFFER_BIT, GL_LINEAR)
-        glBindFramebuffer(GL_FRAMEBUFFER, src.fbo)
-        glViewport(0, 0, src.width, src.height)
+        if (msaaRT != null) msaaRT!!.bind() else { glBindFramebuffer(GL_FRAMEBUFFER, src.fbo); glViewport(0, 0, src.width, src.height) }
         glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, dst.texture); glActiveTexture(GL_TEXTURE0)
     }
 
@@ -1049,10 +1065,10 @@ class WorldRenderer(private val game: GameState) {
         val kick = game.toolKick
         val k = sin(kick * PI_F) * kick
         val building = game.buildType != null || game.deconMode
-        val ox = 0.3f + bobX
-        val oy = -0.25f + bobY + k * 0.03f + (if (building) 0.03f else 0f)
-        val oz = -0.42f + k * 0.07f
-        Mat4.fromTRS(local, ox, oy, oz, 0.16f, 0.08f - k * 0.35f, 0f, 1f, 1f, 1f)
+        val ox = 0.19f + bobX
+        val oy = -0.125f + bobY + k * 0.03f + (if (building) 0.03f else 0f)
+        val oz = -0.38f + k * 0.07f
+        Mat4.fromTRS(local, ox, oy, oz, 0.3f, 0.06f + k * 0.3f, 0.06f, 1f, 1f, 1f)
         Mat4.mul(model, invView, local)
         lit.m4("u_model", model)
         lit.f1("u_emissiveScale", 0f)

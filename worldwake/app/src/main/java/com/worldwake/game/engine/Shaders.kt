@@ -448,12 +448,13 @@ out vec4 v_wb;
 out vec4 v_sp0;
 out vec4 v_sp1;
 void main() {
-    v_world = a_pos;
+    vec3 sp = a_pos + vec3(0.0, a_splatB.w, 0.0);
+    v_world = sp;
     v_normal = a_normal;
     v_wa = a_splatA;
     v_wb = a_splatB;
-    v_sp0 = u_lightVP0 * vec4(a_pos, 1.0);
-    v_sp1 = u_lightVP1 * vec4(a_pos, 1.0);
+    v_sp0 = u_lightVP0 * vec4(sp, 1.0);
+    v_sp1 = u_lightVP1 * vec4(sp, 1.0);
     gl_Position = u_vp * vec4(a_pos, 1.0);
 }
 """

@@ -506,18 +506,18 @@ object Models {
         // roof slab with a raised hump and a rounded rim
         hull(s); s.box(0f, top - 0.12f, 0f, POD_CELL, 0.24f, POD_CELL)
         s.box(0f, top + 0.12f, 0f, POD_CELL - 1.0f, 0.24f, POD_CELL - 1.0f)
-        teal(s); s.box(0f, top - 0.27f, 0f, POD_CELL + 0.06f, 0.1f, POD_CELL + 0.06f)
+        teal(s); s.box(0f, top - 0.3f, 0f, POD_CELL + 0.08f, 0.1f, POD_CELL + 0.08f)
         dark(s); s.box(1.3f, top + 0.36f, -1.2f, 1.0f, 0.3f, 0.8f); s.cylinder(-1.6f, top + 0.24f, 1.5f, 0.03f, 0.02f, 1.4f, 5)
         g.color(0.35f, 1f, 0.95f, 1.4f); g.sphere(-1.6f, top + 1.66f, 1.5f, 0.05f, 0.05f, 0.05f, 4, 6)
         // ceiling light panel
         g.color(1f, 0.96f, 0.86f, 1.2f); g.box(0f, top - 0.245f, 0f, 2.2f, 0.01f, 0.5f)
         for (i in 0 until 4) {
             val x = if (i % 2 == 0) -1f else 1f; val z = if (i < 2) -1f else 1f
-            hull(s); s.box(x * (h - 0.2f), top * 0.5f, z * (h - 0.2f), 0.4f, top - 0.1f, 0.4f)
+            hull(s); s.box(x * (h - 0.23f), (POD_FLOOR + top - 0.3f) * 0.5f, z * (h - 0.23f), 0.4f, top - 0.3f - POD_FLOOR, 0.4f)
             dark(s); s.cylinder(x * (h - 0.35f), -3.2f, z * (h - 0.35f), 0.11f, 0.11f, 3.2f, 6)
             s.beam(x * (h - 0.35f), -0.1f, z * (h - 0.35f), x * (h - 1.5f), -0.9f, z * (h - 0.35f), 0.07f)
         }
-        dark(s); s.box(0f, -0.14f, 0f, POD_CELL - 0.6f, 0.2f, POD_CELL - 0.6f)
+        dark(s); s.box(0f, -0.13f, 0f, POD_CELL - 0.6f, 0.2f, POD_CELL - 0.6f)
         return Pair(s.build(), g.build())
     }
 
@@ -585,29 +585,91 @@ object Models {
 
     // ------------------------------------------------------------------ first person
 
-    /** The Waker's arm and builder tool, in view space (x right, y up, -z forward). */
+    /**
+     * The Waker's gloved right hand holding the builder: a pistol-grip tool with a small tilted screen.
+     * View space: x right, y up, -z forward. The grip sits at the origin.
+     */
     fun viewTool(): Pair<MeshData, MeshData> {
-        val s = MeshBuilder(512); val g = MeshBuilder()
-        s.trs(0f, 0f, 0f, 0f, 0f, 0f, 0.6f, 0.6f, 0.6f); g.trs(0f, 0f, 0f, 0f, 0f, 0f, 0.6f, 0.6f, 0.6f)
-        // forearm
-        s.color(0.22f, 0.24f, 0.3f).mat(Mat.GRIP)
-        s.push().trs(0.06f, -0.1f, 0.34f, 0f, PI_F * 0.5f - 0.18f, 0f); s.cylinder(0f, -0.3f, 0f, 0.075f, 0.058f, 0.56f, 10); s.pop()
-        s.color(0.9f, 0.91f, 0.95f).mat(Mat.HULL)
-        s.push().trs(0.06f, -0.1f, 0.34f, 0f, PI_F * 0.5f - 0.18f, 0f); s.cylinder(0f, -0.18f, 0f, 0.085f, 0.08f, 0.2f, 10); s.pop()
-        s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL)
-        s.push().trs(0.06f, -0.1f, 0.34f, 0f, PI_F * 0.5f - 0.18f, 0f); s.cylinder(0f, 0.03f, 0f, 0.083f, 0.083f, 0.03f, 10); s.pop()
-        // glove
-        s.color(0.2f, 0.21f, 0.26f).mat(Mat.GRIP); s.sphere(0.055f, -0.045f, 0.02f, 0.062f, 0.055f, 0.08f, 5, 8)
-        s.box(0.0f, -0.02f, -0.03f, 0.03f, 0.03f, 0.08f)
-        // the tool: a chunky handheld with a small screen and an emitter
-        s.color(0.9f, 0.91f, 0.95f).mat(Mat.HULL); s.box(0.02f, 0.03f, -0.1f, 0.13f, 0.1f, 0.3f)
-        s.color(0.3f, 0.32f, 0.38f).mat(Mat.METAL); s.box(0.02f, 0.03f, -0.29f, 0.09f, 0.07f, 0.1f)
-        s.push().trs(0.02f, 0.03f, -0.36f, 0f, PI_F * 0.5f, 0f); s.cylinder(0f, -0.03f, 0f, 0.03f, 0.045f, 0.07f, 10); s.pop()
-        s.color(0.96f, 0.8f, 0.3f).mat(Mat.HULL); s.box(0.02f, -0.025f, -0.13f, 0.132f, 0.016f, 0.2f)
-        s.color(0.3f, 0.32f, 0.38f).mat(Mat.METAL); s.box(0.02f, 0.11f, -0.05f, 0.11f, 0.06f, 0.14f)
-        g.color(0.35f, 1f, 0.95f, 1f); g.box(0.02f, 0.143f, -0.05f, 0.09f, 0.004f, 0.11f)
+        val s = MeshBuilder(2048); val g = MeshBuilder()
+        fun glove() = s.color(0.25f, 0.27f, 0.34f).mat(Mat.GRIP)
+        fun pad() = s.color(0.9f, 0.3f, 0.34f).mat(Mat.GRIP)
+        fun shell() = s.color(0.92f, 0.93f, 0.96f).mat(Mat.HULL)
+        fun gun() = s.color(0.26f, 0.28f, 0.34f).mat(Mat.METAL)
+
+        // ---- the tool
+        // grip, raked back like a pistol
+        s.push().trs(0f, -0.045f, 0.012f, 0f, 0.22f, 0f)
+        gun(); s.box(0f, 0f, 0f, 0.034f, 0.105f, 0.046f)
+        s.color(0.1f, 0.1f, 0.12f).mat(Mat.GRIP); s.box(0f, -0.005f, 0.001f, 0.038f, 0.08f, 0.04f)
+        s.pop()
+        // body
+        shell(); s.box(0f, 0.035f, -0.075f, 0.058f, 0.058f, 0.21f)
+        gun(); s.box(0f, 0.035f, -0.07f, 0.064f, 0.03f, 0.15f)
+        s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL); s.box(0f, 0.067f, -0.1f, 0.03f, 0.008f, 0.12f)
+        gun(); s.box(0f, 0.004f, -0.045f, 0.012f, 0.03f, 0.05f)   // trigger guard
+        // barrel: a stepped emitter with cooling rings
+        s.push().trs(0f, 0.035f, -0.18f, 0f, -PI_F * 0.5f, 0f)
+        gun(); s.cylinder(0f, 0f, 0f, 0.027f, 0.024f, 0.07f, 12)
+        steel(s); s.cylinder(0f, 0.07f, 0f, 0.019f, 0.019f, 0.05f, 12)
+        gun(); s.torus(0f, 0.025f, 0f, 0.028f, 0.005f, 12, 5); s.torus(0f, 0.05f, 0f, 0.026f, 0.005f, 12, 5)
+        shell(); s.cylinder(0f, 0.12f, 0f, 0.025f, 0.021f, 0.022f, 12)
+        s.pop()
         g.color(0.35f, 1f, 0.95f, 1.6f)
-        g.push().trs(0.02f, 0.03f, -0.395f, 0f, PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.028f, 10, false); g.pop()
+        g.push().trs(0f, 0.035f, -0.324f, 0f, -PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.017f, 12, true); g.pop()
+        // rear cap and a small power cell on the side
+        shell(); s.box(0f, 0.035f, 0.034f, 0.05f, 0.05f, 0.012f)
+        gun(); s.box(0f, 0.035f, 0.042f, 0.036f, 0.036f, 0.006f)
+        s.color(0.96f, 0.8f, 0.3f).mat(Mat.HULL); s.push().trs(-0.036f, 0.03f, -0.03f, 0f, -PI_F * 0.5f, 0f); s.cylinder(0f, 0f, 0f, 0.011f, 0.011f, 0.06f, 8); s.pop()
+        // the screen: a little slate on an arm, tipped toward your eyes
+        gun(); s.box(0f, 0.075f, -0.01f, 0.014f, 0.03f, 0.014f)
+        s.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
+        gun(); s.box(0f, 0f, 0f, 0.084f, 0.008f, 0.06f)
+        shell(); s.box(0f, -0.006f, 0f, 0.089f, 0.005f, 0.065f)
+        s.pop()
+        g.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
+        g.color(0.12f, 0.5f, 0.5f, 0.45f); g.box(0f, 0.0048f, 0f, 0.074f, 0.001f, 0.05f)
+        // build glyph: a little pod with a roof
+        g.color(0.7f, 1f, 0.97f, 0.9f)
+        g.box(0f, 0.0058f, 0.007f, 0.026f, 0.001f, 0.016f)
+        g.box(0f, 0.0058f, -0.007f, 0.036f, 0.001f, 0.005f)
+        g.box(-0.029f, 0.0058f, 0f, 0.003f, 0.001f, 0.038f); g.box(0.029f, 0.0058f, 0f, 0.003f, 0.001f, 0.038f)
+        g.pop()
+
+        // ---- the hand wrapped around the grip
+        s.push().trs(0f, -0.045f, 0.012f, 0f, 0.22f, 0f)
+        // palm behind and to the right of the grip
+        glove(); s.box(0.012f, 0.004f, 0.03f, 0.07f, 0.082f, 0.034f)
+        s.sphere(0.03f, -0.01f, 0.03f, 0.03f, 0.04f, 0.028f, 5, 8)        // heel of the thumb
+        pad(); s.box(0.014f, 0.012f, 0.05f, 0.05f, 0.04f, 0.006f)           // back-of-hand plate
+        // four fingers curl round the front: each is three short segments
+        for (i in 0 until 4) {
+            val y = 0.036f - i * 0.0235f
+            val len = if (i == 0 || i == 3) 0.9f else 1f
+            glove()
+            s.box(0.03f, y, 0.006f, 0.018f, 0.02f, 0.05f)                    // along the right side
+            s.box(0.012f * len, y, -0.03f, 0.05f * len, 0.02f, 0.02f)        // across the front
+            s.box(-0.022f * len, y, -0.016f, 0.016f, 0.019f, 0.03f)          // fingertip back round the left
+            pad(); s.box(0.041f, y, 0.008f, 0.004f, 0.014f, 0.026f)          // knuckle pad
+        }
+        // index finger rests on the trigger
+        glove(); s.box(0.012f, 0.058f, -0.036f, 0.046f, 0.019f, 0.02f)
+        // thumb lies along the left side, pointing forward
+        s.push().trs(-0.024f, 0.045f, 0.012f, 0.25f, -0.15f, 0f)
+        glove(); s.box(0f, 0f, -0.012f, 0.02f, 0.022f, 0.05f); s.sphere(0f, 0f, -0.04f, 0.011f, 0.012f, 0.014f, 4, 6)
+        s.pop()
+        s.pop()
+
+        // ---- wrist and forearm, coming in from the lower right
+        s.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
+        glove(); s.cylinder(0f, 0f, 0f, 0.034f, 0.036f, 0.035f, 12, caps = false)
+        shell(); s.cylinder(0f, 0.03f, 0f, 0.046f, 0.048f, 0.03f, 12)
+        s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL); s.cylinder(0f, 0.06f, 0f, 0.049f, 0.049f, 0.012f, 12, caps = false)
+        s.color(0.2f, 0.22f, 0.28f).mat(Mat.GRIP); s.cylinder(0f, 0.072f, 0f, 0.047f, 0.06f, 0.5f, 12, caps = false)
+        shell(); s.box(0f, 0.2f, -0.052f, 0.05f, 0.14f, 0.012f)              // forearm plate
+        g.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
+        g.color(0.35f, 1f, 0.95f, 0.8f); g.box(0f, 0.2f, -0.0595f, 0.01f, 0.07f, 0.002f)
+        g.pop()
+        s.pop()
         return Pair(s.build(), g.build())
     }
 

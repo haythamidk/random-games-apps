@@ -152,6 +152,13 @@ class Mesh(data: MeshData, val primitive: Int = GL_TRIANGLES) {
         glDrawElements(primitive, indexCount, GL_UNSIGNED_INT, 0)
     }
 
+    /** Draws only the first [count] indices. */
+    fun drawFirst(count: Int) {
+        if (count <= 0) return
+        glBindVertexArray(vao)
+        glDrawElements(primitive, minOf(count, indexCount), GL_UNSIGNED_INT, 0)
+    }
+
     fun drawArrays(mode: Int, count: Int = vertexCount) {
         if (count <= 0) return
         glBindVertexArray(vao)
@@ -282,6 +289,40 @@ class TextureArray(val size: Int, layers: List<ByteArray>, anisotropy: Float) {
         glBindTexture(GL_TEXTURE_2D_ARRAY, 0)
     }
     fun release() = glDeleteTextures(1, intArrayOf(id), 0)
+}
+
+/** Multisampled colour and depth renderbuffers; resolved into a [RenderTarget] of the same size with a blit. */
+class MsaaTarget(val width: Int, val height: Int, hdr: Boolean, samples: Int) {
+    val fbo: Int
+    private val colorRb: Int
+    private val depthRb: Int
+    val complete: Boolean
+    init {
+        val ids = IntArray(1)
+        glGenFramebuffers(1, ids, 0); fbo = ids[0]
+        glGenRenderbuffers(1, ids, 0); colorRb = ids[0]
+        glGenRenderbuffers(1, ids, 0); depthRb = ids[0]
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+        glBindRenderbuffer(GL_RENDERBUFFER, colorRb)
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, if (hdr) GL_RGBA16F else GL_RGBA8, width, height)
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorRb)
+        glBindRenderbuffer(GL_RENDERBUFFER, depthRb)
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24, width, height)
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRb)
+        complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE && glGetError() == GL_NO_ERROR
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    }
+    fun bind() { glBindFramebuffer(GL_FRAMEBUFFER, fbo); glViewport(0, 0, width, height) }
+    /** Averages the samples into [dst], which must be the same size. */
+    fun resolveTo(dst: RenderTarget) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo)
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst.fbo)
+        glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST)
+    }
+    fun release() {
+        glDeleteFramebuffers(1, intArrayOf(fbo), 0)
+        glDeleteRenderbuffers(2, intArrayOf(colorRb, depthRb), 0)
+    }
 }
 
 /** Offscreen color target with optional depth renderbuffer. */

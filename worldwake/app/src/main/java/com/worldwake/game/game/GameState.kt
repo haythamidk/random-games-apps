@@ -102,6 +102,8 @@ class GameState(val settings: Settings) {
     val buildPos = Vec3()
     var buildYaw = 0f
     var buildDoor = 0
+    /** Quarter turns the player has added to the pod door. */
+    var doorTurn = 0
     @Volatile var buildValid = false
     @Volatile var buildWhy = ""
     @Volatile var deconMode = false
@@ -391,8 +393,8 @@ class GameState(val settings: Settings) {
                 }
                 Action.INTERACT -> if (buildType != null) tryPlace() else if (deconMode) tryDeconstruct() else interact()
                 Action.PLACE -> if (buildType != null) tryPlace() else if (deconMode) tryDeconstruct() else interact()
-                Action.ROTATE -> { buildYaw += PI_F / 8f; rotPreview++ }
-                Action.ROTATE_BACK -> { buildYaw -= PI_F / 8f; rotPreview-- }
+                Action.ROTATE -> turnBuild(1)
+                Action.ROTATE_BACK -> turnBuild(-1)
                 Action.CANCEL -> { buildType = null; deconMode = false }
                 Action.NEXT_BUILD -> cycleBuild(1)
                 Action.PREV_BUILD -> cycleBuild(-1)
@@ -407,13 +409,27 @@ class GameState(val settings: Settings) {
         val list = BuildType.entries.filter { it.cat == cur.cat && unlocked(it) }
         if (list.isEmpty()) return
         val i = list.indexOf(cur)
-        buildType = list[(i + dir + list.size) % list.size]
+        startBuild(list[(i + dir + list.size) % list.size])
+    }
+
+    private fun turnStep(t: BuildType) = if (t.indoor || t == BuildType.POD) PI_F / 2f else PI_F / 4f
+
+    private fun turnBuild(dir: Int) {
+        val t = buildType ?: return
+        rotPreview += dir
+        if (t == BuildType.POD) { doorTurn = (doorTurn + dir + 4) % 4; return }
+        val step = turnStep(t)
+        buildYaw = kotlin.math.round((buildYaw + dir * step) / step) * step
+        sound?.play(Sfx.UI, 0.4f)
     }
 
     fun startBuild(t: BuildType) {
         deconMode = false
         buildType = t
-        buildYaw = player.yaw + PI_F
+        doorTurn = 0
+        // start square to the world, facing the player, so every turn is a clean step
+        val step = turnStep(t)
+        buildYaw = kotlin.math.round((player.yaw + PI_F) / step) * step
     }
 
     // ------------------------------------------------------------------ movement
@@ -581,7 +597,10 @@ class GameState(val settings: Settings) {
         for (pl in placed) {
             if (pl.type == BuildType.POD) continue
             if (abs(pl.x - p.pos.x) > 6f || abs(pl.z - p.pos.z) > 6f) continue
-            if (feet < pl.y + pl.type.height && feet + 1.8f > pl.y) pushOut(pl.x, pl.z, pl.type.radius * 0.72f)
+            if (feet < pl.y + pl.type.height && feet + 1.8f > pl.y) {
+                if (pl.type.indoor) { val hx = halfX(pl.type, pl.yaw); val hz = halfZ(pl.type, pl.yaw); pushBox(pl.x - hx, pl.z - hz, pl.x + hx, pl.z + hz) }
+                else pushOut(pl.x, pl.z, pl.type.radius * 0.72f)
+            }
         }
         // pod walls
         var inside = false
@@ -878,7 +897,7 @@ class GameState(val settings: Settings) {
         }
         buildPos.set(cx, y, cz)
         val pdx = player.pos.x - cx; val pdz = player.pos.z - cz
-        buildDoor = if (abs(pdx) > abs(pdz)) (if (pdx > 0) 0 else 2) else (if (pdz > 0) 1 else 3)
+        buildDoor = ((if (abs(pdx) > abs(pdz)) (if (pdx > 0) 0 else 2) else (if (pdz > 0) 1 else 3)) + doorTurn) % 4
         if (pods.containsKey(cellKey(gx, gz))) { buildWhy = "A pod is already here"; return }
         if (!joined && hi - lo > 1.9f) { buildWhy = "Ground is too uneven"; return }
         if (hi < 0.6f) { buildWhy = "Too low, this will flood"; return }
@@ -906,21 +925,36 @@ class GameState(val settings: Settings) {
             return
         }
         val cx = (pod.gx + 0.5f) * POD_CELL; val cz = (pod.gz + 0.5f) * POD_CELL
-        val lim = POD_CELL * 0.5f - 0.3f - t.radius
-        // furniture slides along the walls instead of poking through them
+        // furniture is a box: it slides flush against the walls instead of stopping short or poking through
+        val hx = halfX(t, buildYaw); val hz = halfZ(t, buildYaw)
+        val wall = POD_CELL * 0.5f - 0.28f
         val lx = buildPos.x - cx; val lz = buildPos.z - cz
-        fun limit(v: Float, side: Int, side2: Int): Float {
+        fun limit(v: Float, half: Float, side: Int, side2: Int): Float {
             val hiOpen = sideState(pod, side) == 2; val loOpen = sideState(pod, side2) == 2
-            return clamp(v, if (loOpen) -3f else -lim, if (hiOpen) 3f else lim)
+            return clamp(v, if (loOpen) -3f else -(wall - half), if (hiOpen) 3f else wall - half)
         }
-        buildPos.x = cx + limit(lx, 0, 2); buildPos.z = cz + limit(lz, 1, 3)
+        var bx = limit(lx, hx, 0, 2); var bz = limit(lz, hz, 1, 3)
+        // close to a wall: snap onto it
+        if (sideState(pod, 0) != 2 && wall - hx - bx < 0.35f) bx = wall - hx
+        if (sideState(pod, 2) != 2 && bx + wall - hx < 0.35f) bx = -(wall - hx)
+        if (sideState(pod, 1) != 2 && wall - hz - bz < 0.35f) bz = wall - hz
+        if (sideState(pod, 3) != 2 && bz + wall - hz < 0.35f) bz = -(wall - hz)
+        buildPos.x = cx + bx; buildPos.z = cz + bz
         for (pl in placed) {
-            if (!pl.type.indoor) continue
-            val dd = sqrt((pl.x - buildPos.x) * (pl.x - buildPos.x) + (pl.z - buildPos.z) * (pl.z - buildPos.z))
-            if (dd < pl.type.radius + t.radius - 0.15f && abs(pl.y - buildPos.y) < 1f) { if (buildWhy.isEmpty()) buildWhy = "Something is in the way"; return }
+            if (!pl.type.indoor || abs(pl.y - buildPos.y) > 1f) continue
+            if (abs(pl.x - buildPos.x) < halfX(pl.type, pl.yaw) + hx - 0.02f && abs(pl.z - buildPos.z) < halfZ(pl.type, pl.yaw) + hz - 0.02f) {
+                if (buildWhy.isEmpty()) buildWhy = "Something is in the way"; return
+            }
         }
-        if (player.pos.distXZ(buildPos.x, buildPos.z) < t.radius + 0.3f) { if (buildWhy.isEmpty()) buildWhy = "Step back" }
+        if (abs(player.pos.x - buildPos.x) < hx + 0.3f && abs(player.pos.z - buildPos.z) < hz + 0.3f) { if (buildWhy.isEmpty()) buildWhy = "Step back" }
     }
+
+    /** Half size of a piece of furniture along world x and z. Furniture always sits square to the pod. */
+    private fun halfW(t: BuildType) = when (t) { BuildType.FABRICATOR -> 0.82f; BuildType.LOCKER -> 0.53f; BuildType.PLANTER -> 0.77f; else -> t.radius }
+    private fun halfD(t: BuildType) = when (t) { BuildType.FABRICATOR -> 0.47f; BuildType.LOCKER -> 0.33f; BuildType.PLANTER -> 0.42f; else -> t.radius }
+    private fun sideways(yaw: Float) = abs(sin(yaw)) > 0.7f
+    fun halfX(t: BuildType, yaw: Float) = if (sideways(yaw)) halfD(t) else halfW(t)
+    fun halfZ(t: BuildType, yaw: Float) = if (sideways(yaw)) halfW(t) else halfD(t)
 
     private fun tryPlace() {
         val t = buildType ?: return
@@ -1082,7 +1116,7 @@ class GameState(val settings: Settings) {
                 n.alive = false
                 harvest.harvest(n.key, time / 86400.0, 45f / 1440f)
                 chunks.markDirty(n.x, n.z)
-                sound?.play(Sfx.PICKUP, 0.6f)
+                sound?.play(Sfx.PICKUP, 0.4f)
                 toolKick = 1f
                 note("+1 " + item.label + "  (" + p.inv.count(item) + ")")
                 for (i in 0 until 4) fx.emit(n.x, n.y + 0.2f, n.z, fx.rs() * 0.8f, 1f + fx.rnd(), fx.rs() * 0.8f, 0.5f, 0.25f, 0.4f,

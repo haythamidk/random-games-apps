@@ -694,6 +694,7 @@ class UiManager(
         step("Volume", (s.masterVolume * 100).toInt().toString() + "%", { s.masterVolume = (s.masterVolume - 0.1f).coerceAtLeast(0f) }, { s.masterVolume = (s.masterVolume + 0.1f).coerceAtMost(1f) })
         step("Music", (s.musicVolume * 100).toInt().toString() + "%", { s.musicVolume = (s.musicVolume - 0.1f).coerceAtLeast(0f) }, { s.musicVolume = (s.musicVolume + 0.1f).coerceAtMost(1f) })
         cycle("WREN subtitles", onOff(s.subtitles)) { s.subtitles = !s.subtitles }
+        cycle("WREN chime when she talks", onOff(s.wrenVoice)) { s.wrenVoice = !s.wrenVoice }
         list.addView(label("GRAPHICS", 11.5f, TEAL, true), lp(margin = 4f))
         cycle("Quality", s.preset.label) {
             val order = listOf(GraphicsPreset.LOW, GraphicsPreset.MEDIUM, GraphicsPreset.HIGH, GraphicsPreset.ULTRA)
@@ -702,6 +703,7 @@ class UiManager(
         step("Resolution", (s.renderScale * 100).toInt().toString() + "%", { s.renderScale = (s.renderScale - 0.05f).coerceAtLeast(0.4f); s.preset = GraphicsPreset.CUSTOM }, { s.renderScale = (s.renderScale + 0.05f).coerceAtMost(1f); s.preset = GraphicsPreset.CUSTOM })
         step("View distance", (s.viewDistance * 64).toString() + " m", { s.viewDistance = (s.viewDistance - 1).coerceAtLeast(2); s.preset = GraphicsPreset.CUSTOM }, { s.viewDistance = (s.viewDistance + 1).coerceAtMost(8); s.preset = GraphicsPreset.CUSTOM })
         cycle("Shadows", arrayOf("Off", "Hard", "Soft", "Soft, far")[s.shadowQuality.coerceIn(0, 3)]) { s.shadowQuality = (s.shadowQuality + 1) % 4; s.preset = GraphicsPreset.CUSTOM }
+        cycle("Anti-aliasing", arrayOf("Off", "Fast (FXAA)", "Best (MSAA 4x)")[s.antiAlias.coerceIn(0, 2)]) { s.antiAlias = (s.antiAlias + 1) % 3; s.fxaa = s.antiAlias >= 1 }
         cycle("Bloom and film tone", onOff(s.postFx)) { s.postFx = !s.postFx; s.preset = GraphicsPreset.CUSTOM }
         cycle("Textures", arrayOf("Flat", "Textured", "Textured with relief")[s.texQuality.coerceIn(0, 2)]) { s.texQuality = (s.texQuality + 1) % 3; s.preset = GraphicsPreset.CUSTOM }
         step("Ground plants", (s.decorDensity * 100).toInt().toString() + "%", { s.decorDensity = (s.decorDensity - 0.1f).coerceAtLeast(0.1f); s.preset = GraphicsPreset.CUSTOM }, { s.decorDensity = (s.decorDensity + 0.1f).coerceAtMost(1f); s.preset = GraphicsPreset.CUSTOM })

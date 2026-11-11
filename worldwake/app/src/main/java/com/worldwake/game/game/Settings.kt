@@ -37,6 +37,9 @@ class Settings {
     var dayLengthMinutes = 24
     var musicVolume = 0.7f
     var subtitles = true
+    var wrenVoice = true
+    /** 0 off, 1 FXAA, 2 MSAA 4x with FXAA. */
+    var antiAlias = 2
 
     fun applyPreset(p: GraphicsPreset) {
         preset = p
@@ -86,6 +89,9 @@ class Settings {
         dayLengthMinutes = p.getInt("dayLength", dayLengthMinutes)
         musicVolume = p.getFloat("musicVolume", musicVolume)
         subtitles = p.getBoolean("subtitles", subtitles)
+        wrenVoice = p.getBoolean("wrenVoice", wrenVoice)
+        antiAlias = p.getInt("antiAlias", antiAlias)
+        fxaa = antiAlias >= 1
     }
 
     fun save(ctx: Context) {
@@ -120,6 +126,8 @@ class Settings {
             .putInt("dayLength", dayLengthMinutes)
             .putFloat("musicVolume", musicVolume)
             .putBoolean("subtitles", subtitles)
+            .putBoolean("wrenVoice", wrenVoice)
+            .putInt("antiAlias", antiAlias)
             .apply()
     }
 }
