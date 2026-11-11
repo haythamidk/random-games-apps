@@ -1,4 +1,6 @@
 :root {
+  /* One deliberate dark look in both host themes. */
+  color-scheme: dark;
   --ink: #0f1a1f;
   --panel: rgba(15, 26, 31, 0.74);
   --panel-solid: #16252c;
@@ -439,21 +441,40 @@ button {
 
 /* ---------- Orientation ---------- */
 
+/* Portrait stays playable; the hint only suggests turning the phone. */
 #rotate-hint {
   position: fixed;
-  inset: 0;
+  left: 50%;
+  top: calc(96px + var(--safe-t));
+  transform: translateX(-50%);
   display: none;
-  place-items: center;
-  padding: 24px;
-  text-align: center;
-  background: var(--ink);
-  font-size: 18px;
-  z-index: 10;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-@media (orientation: portrait) and (max-width: 700px) {
+@media (orientation: portrait) {
   #rotate-hint {
-    display: grid;
+    display: block;
+  }
+
+  /* Lift the thumb buttons clear of the hotbar, which spans the width here. */
+  .btn-act {
+    bottom: calc(92px + var(--safe-b));
+    right: calc(18px + var(--safe-r));
+  }
+
+  .btn-jump {
+    bottom: calc(180px + var(--safe-b));
+    right: calc(28px + var(--safe-r));
+  }
+
+  .toast {
+    bottom: calc(74px + var(--safe-b));
   }
 }
 

@@ -10,6 +10,9 @@ const FOG_FAR = 200;
 /** Chunks whose bounding sphere is entirely beyond the fog are not drawn. */
 const CHUNK_CULL = FOG_FAR + 4;
 
+const FOV_LANDSCAPE = 62;
+const FOV_PORTRAIT = 88;
+
 const MAX_PIXEL_RATIO = 1.5;
 const MIN_SCALE = 0.7;
 /** Frame-time thresholds (ms) for stepping the resolution scale down / back up. */
@@ -44,7 +47,7 @@ export class View {
     this.basePixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
     this.renderer.setPixelRatio(this.basePixelRatio);
 
-    this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 600);
+    this.camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.1, 600);
     this.camera.rotation.order = 'YXZ';
 
     this.scene.fog = new THREE.Fog(SKY_HORIZON, FOG_NEAR, FOG_FAR);
@@ -71,6 +74,8 @@ export class View {
     const h = window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / Math.max(1, h);
+    // Portrait needs a taller field of view to keep a usable horizontal one.
+    this.camera.fov = this.camera.aspect < 1 ? FOV_PORTRAIT : FOV_LANDSCAPE;
     this.camera.updateProjectionMatrix();
   }
 
