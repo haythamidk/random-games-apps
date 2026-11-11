@@ -35,6 +35,8 @@ Goal: stand in the world on a phone-sized screen, walk, look, and see a working 
 
 End of day 1 build: walk the map, open the bag, rearrange seeded items.
 
+**Status: done.** 24 unit tests and 16 smoke checks pass. Measured in headless software rendering: 23 draw calls, about 11 k triangles on screen. Nothing was cut.
+
 Cut list if short on time: sprint, sky gradient polish, tap-hold split.
 
 ---
@@ -83,7 +85,7 @@ Cut list, in order: undo on the board, siren, generator, Delay / Timer nodes, pi
 | Check | Tool |
 |---|---|
 | Core logic | `vitest` on `core/` |
-| It runs on a phone-shaped screen | Playwright, 844 × 390, touch, screenshot kept in `scrapline/smoke/` |
+| It runs on a phone-shaped screen | `npm run smoke`: Playwright, 844 × 390, synthetic touch; screenshots written to `smoke/shots/` (not committed) |
 | Frame budget has not regressed | Smoke test reads the debug overlay under 4× CPU throttle |
 | Real-device feel | User opens the day's build on their phone and reports the overlay numbers |
 

@@ -1,0 +1,465 @@
+:root {
+  --ink: #0f1a1f;
+  --panel: rgba(15, 26, 31, 0.74);
+  --panel-solid: #16252c;
+  --line: rgba(232, 228, 216, 0.22);
+  --bone: #e8e4d8;
+  --muted: #9fb0b3;
+  --amber: #f2a93b;
+  --teal: #5fd0c5;
+  --coral: #ef6f5e;
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  padding: 0;
+  background: none;
+  touch-action: none;
+}
+
+#scene,
+#input-layer,
+#ui {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#scene {
+  display: block;
+}
+
+#input-layer {
+  touch-action: none;
+}
+
+#ui {
+  pointer-events: none;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+/* ---------- Move stick ---------- */
+
+.stick-base {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+}
+
+.stick-base.on {
+  opacity: 1;
+}
+
+.stick-base::before {
+  content: '';
+  position: absolute;
+  width: 124px;
+  height: 124px;
+  margin: -62px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: rgba(15, 26, 31, 0.28);
+}
+
+.stick-knob {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(232, 228, 216, 0.5);
+  border: 2px solid rgba(232, 228, 216, 0.8);
+  transform: translate(-50%, -50%);
+}
+
+/* ---------- Vitals ---------- */
+
+.vitals {
+  position: absolute;
+  top: calc(10px + var(--safe-t));
+  left: calc(14px + var(--safe-l));
+  display: grid;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--panel);
+  pointer-events: none !important;
+}
+
+.vital {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.vital svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--tone);
+  flex: none;
+}
+
+.vital-health {
+  --tone: var(--coral);
+}
+.vital-charge {
+  --tone: var(--teal);
+}
+.vital-warmth {
+  --tone: var(--amber);
+}
+
+.gauge {
+  position: relative;
+  width: 128px;
+  height: 9px;
+  border-radius: 3px;
+  background: rgba(232, 228, 216, 0.14);
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--tone);
+  transition: width 0.2s linear;
+}
+
+/* Ten segments cut into the bar so it reads at a glance. */
+.gauge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(10% - 2px),
+    var(--ink) calc(10% - 2px),
+    var(--ink) 10%
+  );
+}
+
+.gauge.low .gauge-fill {
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ---------- Reticle ---------- */
+
+.reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  background: rgba(232, 228, 216, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(15, 26, 31, 0.55);
+  pointer-events: none !important;
+}
+
+/* ---------- Slots ---------- */
+
+.slot {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  display: grid;
+  place-items: center;
+}
+
+.slot-icon {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+
+.slot-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.slot-qty {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 2px var(--ink), 0 0 3px var(--ink);
+}
+
+.slot.selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1.5px var(--amber);
+  transform: translateY(-5px) scale(1.06);
+}
+
+.slot.held {
+  border-color: var(--amber);
+  background: rgba(242, 169, 59, 0.22);
+}
+
+.hotbar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(8px + var(--safe-b));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  touch-action: none;
+}
+
+.hotbar .slot {
+  transition: transform 0.1s;
+}
+
+/* ---------- Thumb buttons ---------- */
+
+.btn {
+  position: absolute;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  color: var(--bone);
+}
+
+.btn svg {
+  width: 46%;
+  height: 46%;
+}
+
+.btn.held,
+.btn:active {
+  background: rgba(242, 169, 59, 0.3);
+  border-color: var(--amber);
+}
+
+.btn-act {
+  width: 78px;
+  height: 78px;
+  right: calc(26px + var(--safe-r));
+  bottom: calc(40px + var(--safe-b));
+  border-color: rgba(242, 169, 59, 0.75);
+  color: var(--amber);
+}
+
+.btn-jump {
+  width: 58px;
+  height: 58px;
+  right: calc(118px + var(--safe-r));
+  bottom: calc(22px + var(--safe-b));
+}
+
+.btn-bag {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  top: calc(10px + var(--safe-t));
+  right: calc(14px + var(--safe-r));
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(78px + var(--safe-b));
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none !important;
+  white-space: nowrap;
+}
+
+.toast.on {
+  opacity: 1;
+}
+
+/* ---------- Sheets ---------- */
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 14, 17, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  touch-action: none;
+  /* Above the HUD, so the hotbar and thumb buttons cannot be hit through a sheet. */
+  z-index: 5;
+}
+
+.sheet-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sheet {
+  width: min(400px, 94vw);
+  max-height: 100%;
+  padding: 10px 14px calc(12px + var(--safe-b));
+  border-radius: 16px 16px 0 0;
+  background: var(--panel-solid);
+  border: 1.5px solid var(--line);
+  border-bottom: 0;
+  transform: translateY(16px);
+  transition: transform 0.15s;
+}
+
+.sheet-backdrop.open .sheet {
+  transform: none;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  min-height: 40px;
+}
+
+.sheet-title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.sheet-status {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-close {
+  width: 44px;
+  height: 40px;
+  margin-right: -8px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.sheet-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 54px);
+  gap: 6px;
+  justify-content: center;
+}
+
+.slot-grid .slot {
+  background: rgba(232, 228, 216, 0.06);
+}
+
+/* The first row mirrors the hotbar. */
+.slot-grid .bag-hot {
+  border-color: rgba(242, 169, 59, 0.4);
+  margin-bottom: 6px;
+}
+
+/* ---------- Debug ---------- */
+
+.debug {
+  position: absolute;
+  top: calc(10px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  display: none;
+  pointer-events: none !important;
+}
+
+.debug.on {
+  display: block;
+}
+
+/* ---------- Orientation ---------- */
+
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  background: var(--ink);
+  font-size: 18px;
+  z-index: 10;
+}
+
+@media (orientation: portrait) and (max-width: 700px) {
+  #rotate-hint {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

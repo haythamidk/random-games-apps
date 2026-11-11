@@ -152,6 +152,7 @@ Rule: `core/` never imports from `view/`, `input/` or `ui/`. The view reads core
 - Deterministic: integer or fixed-point state in the core, one seeded PRNG. Makes tests reproducible and saves small.
 - Catch-up: at most 5 ticks per frame; beyond that the sim slows rather than spiralling.
 - No allocation inside `tick()`. All per-tick scratch storage is preallocated.
+- Exception to the fixed tick: **player movement and camera run once per rendered frame**, so touch input has no added latency. Everything else in the world advances on the tick.
 
 ### 4.1 World
 
@@ -395,7 +396,7 @@ Flat-shaded low-poly with **vertex colours and one shared material**: no texture
 ### 8.3 Rendering
 
 - **Instancing**: one `InstancedMesh` per prop type (trees, rocks, belt tile, each item type on belts, wall). Instance buffers update only for tiles that changed.
-- **Terrain**: 8 × 8 chunks of 32 m, frustum culled, two resolutions.
+- **Terrain**: 8 × 8 chunks of 32 m on a 2 m lattice (about 33 k triangles for the whole map), frustum culled and distance culled past the fog. One resolution is enough at this density.
 - **LOD tiers**
 
 | Tier | Distance | Machines / props | Belt items | Enemies |
