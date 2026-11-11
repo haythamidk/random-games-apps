@@ -588,93 +588,115 @@ object Models {
     // ------------------------------------------------------------------ first person
 
     /**
-     * The Waker's gloved right hand holding the builder: a pistol-grip tool with a small tilted screen.
-     * Everything is built from smooth tubes and soft-edged boxes so nothing reads as blocks.
-     * View space: x right, y up, -z forward. The grip sits at the origin.
+     * The Waker's gloved right hand holding the builder: a chunky handheld brick gripped from the side, with a
+     * hinged square screen tipped toward your eyes. Hard panels on the tool, round tubes for the fingers.
+     * Local space: x right, y up, -z forward; the tool body is centred on the origin.
      */
     fun viewTool(): Pair<MeshData, MeshData> {
         val s = MeshBuilder(8192); val g = MeshBuilder()
-        fun glove() = s.color(0.2f, 0.215f, 0.27f).mat(Mat.GRIP)
-        fun pad() = s.color(0.88f, 0.3f, 0.36f).mat(Mat.GRIP)
-        fun shell() = s.color(0.92f, 0.93f, 0.96f).mat(Mat.HULL)
-        fun gun() = s.color(0.25f, 0.27f, 0.33f).mat(Mat.METAL)
+        fun glove() = s.color(0.17f, 0.18f, 0.23f).mat(Mat.GRIP)
+        fun tip() = s.color(0.86f, 0.84f, 0.8f).mat(Mat.GRIP)
+        fun plate() = s.color(0.9f, 0.3f, 0.36f).mat(Mat.HULL)
+        fun shell() = s.color(0.9f, 0.91f, 0.95f).mat(Mat.HULL)
+        fun gun() = s.color(0.2f, 0.215f, 0.26f).mat(Mat.METAL)
+        fun mid() = s.color(0.42f, 0.45f, 0.52f).mat(Mat.METAL)
         fun teal() = s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL)
-        val rake = 0.22f
 
-        // ---- the tool
-        s.push().trs(0f, -0.045f, 0.012f, 0f, rake, 0f)
-        s.color(0.11f, 0.11f, 0.13f).mat(Mat.GRIP); s.softBox(0f, 0f, 0f, 0.036f, 0.112f, 0.05f, 0.45f)
-        s.pop()
-        shell(); s.softBox(0f, 0.036f, -0.07f, 0.06f, 0.062f, 0.2f, 0.3f)
-        gun(); s.softBox(0f, 0.034f, -0.068f, 0.066f, 0.03f, 0.14f, 0.35f)
-        teal(); s.softBox(0f, 0.069f, -0.1f, 0.026f, 0.012f, 0.12f, 0.5f)
-        gun(); s.tube(floatArrayOf(0f, 0.004f, -0.016f, 0f, -0.016f, -0.03f, 0f, -0.014f, -0.056f, 0f, 0.008f, -0.066f), floatArrayOf(0.0045f, 0.0045f, 0.0045f, 0.0045f), 6)
-        // barrel
-        s.push().trs(0f, 0.036f, -0.165f, 0f, -PI_F * 0.5f, 0f)
-        gun(); s.cylinder(0f, 0f, 0f, 0.028f, 0.024f, 0.075f, 18)
-        steel(s); s.cylinder(0f, 0.075f, 0f, 0.018f, 0.018f, 0.05f, 16)
-        gun(); s.torus(0f, 0.024f, 0f, 0.027f, 0.0055f, 18, 8); s.torus(0f, 0.05f, 0f, 0.0255f, 0.0055f, 18, 8)
-        shell(); s.torus(0f, 0.125f, 0f, 0.019f, 0.007f, 18, 8)
+        // ---- body: a dark core dressed in panels
+        gun(); s.box(0f, 0f, 0f, 0.07f, 0.11f, 0.15f)
+        // left face (the one you see most): white plate, inset dark window, stripes, bolts
+        shell(); s.box(-0.0365f, 0.004f, 0f, 0.005f, 0.096f, 0.138f)
+        gun(); s.box(-0.0395f, 0.018f, -0.012f, 0.003f, 0.046f, 0.074f)
+        plate(); s.box(-0.0395f, -0.03f, 0f, 0.003f, 0.012f, 0.13f)
+        teal(); s.box(-0.0395f, 0.018f, 0.046f, 0.003f, 0.046f, 0.012f)
+        mid(); for (k in 0 until 4) s.box(-0.0412f, 0.03f - k * 0.008f, -0.012f, 0.002f, 0.003f, 0.06f)
+        for (bz in floatArrayOf(-0.062f, 0.062f)) for (by in floatArrayOf(-0.04f, 0.046f)) {
+            mid(); s.push().trs(-0.039f, by, bz, 0f, 0f, PI_F * 0.5f); s.cylinder(0f, 0f, 0f, 0.0035f, 0.0035f, 0.003f, 8); s.pop()
+        }
+        // right face plate (under the palm)
+        shell(); s.box(0.0365f, 0.004f, 0f, 0.005f, 0.096f, 0.138f)
+        // top deck with a raised spine and two toggles
+        shell(); s.box(0f, 0.0565f, -0.01f, 0.06f, 0.005f, 0.12f)
+        gun(); s.box(0f, 0.061f, -0.03f, 0.022f, 0.006f, 0.07f)
+        plate(); s.box(-0.02f, 0.061f, 0.02f, 0.01f, 0.006f, 0.016f)
+        teal(); s.box(0.02f, 0.061f, 0.02f, 0.01f, 0.006f, 0.016f)
+        // back face: vent slats and status lights
+        shell(); s.box(0f, 0.004f, 0.0765f, 0.06f, 0.096f, 0.005f)
+        gun(); s.box(0f, -0.012f, 0.0795f, 0.044f, 0.04f, 0.003f)
+        mid(); for (k in 0 until 5) s.box(0f, -0.028f + k * 0.008f, 0.0812f, 0.04f, 0.003f, 0.002f)
+        g.color(0.35f, 1f, 0.95f, 1.3f); g.box(-0.018f, 0.03f, 0.0795f, 0.008f, 0.005f, 0.002f)
+        g.color(1f, 0.45f, 0.5f, 1.2f); g.box(-0.004f, 0.03f, 0.0795f, 0.008f, 0.005f, 0.002f)
+        g.color(1f, 0.85f, 0.4f, 1.1f); g.box(0.01f, 0.03f, 0.0795f, 0.008f, 0.005f, 0.002f)
+        // nose: a stepped emitter block with a lens
+        mid(); s.box(0f, 0.008f, -0.083f, 0.056f, 0.07f, 0.016f)
+        gun(); s.box(0f, 0.008f, -0.096f, 0.04f, 0.05f, 0.012f)
+        s.push().trs(0f, 0.008f, -0.1f, 0f, -PI_F * 0.5f, 0f)
+        mid(); s.cylinder(0f, 0f, 0f, 0.017f, 0.015f, 0.016f, 16)
+        gun(); s.torus(0f, 0.016f, 0f, 0.0135f, 0.004f, 16, 8)
         s.pop()
         g.color(0.35f, 1f, 0.95f, 1.6f)
-        g.push().trs(0f, 0.036f, -0.292f, 0f, -PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.016f, 16, true); g.pop()
-        // rear cap, side power cell
-        gun(); s.softBox(0f, 0.036f, 0.034f, 0.046f, 0.046f, 0.02f, 0.5f)
-        s.color(0.96f, 0.8f, 0.3f).mat(Mat.HULL); s.tube(floatArrayOf(-0.037f, 0.03f, -0.035f, -0.037f, 0.03f, -0.09f), floatArrayOf(0.011f, 0.011f), 10)
-        // the screen: a rounded slate on a short neck, tipped toward your eyes
-        gun(); s.tube(floatArrayOf(0f, 0.062f, -0.01f, 0f, 0.098f, -0.004f), floatArrayOf(0.008f, 0.007f), 8)
-        s.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
-        shell(); s.softBox(0f, -0.003f, 0f, 0.094f, 0.012f, 0.07f, 0.25f)
-        gun(); s.softBox(0f, 0.002f, 0f, 0.086f, 0.008f, 0.062f, 0.2f)
+        g.push().trs(0f, 0.008f, -0.1175f, 0f, -PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.011f, 14, true); g.pop()
+        // belly skid and a short antenna
+        mid(); s.box(0f, -0.058f, -0.01f, 0.05f, 0.006f, 0.11f)
+        gun(); s.tube(floatArrayOf(0.024f, 0.058f, -0.058f, 0.024f, 0.1f, -0.062f), floatArrayOf(0.0028f, 0.0018f), 6)
+        g.color(1f, 0.45f, 0.5f, 1.4f); g.sphere(0.024f, 0.102f, -0.062f, 0.004f, 0.004f, 0.004f, 4, 6)
+
+        // ---- the screen: a square slate on a hinge at the back of the top deck, tipped toward you
+        mid(); s.sphere(0f, 0.066f, 0.052f, 0.012f, 0.012f, 0.012f, 6, 10)
+        s.push().trs(0f, 0.07f, 0.052f, -0.7f, 0.95f, 0f)
+        gun(); s.box(0f, 0.006f, -0.046f, 0.096f, 0.012f, 0.092f)
+        shell(); s.box(0f, 0.0005f, -0.046f, 0.102f, 0.006f, 0.098f)
+        gun(); s.box(-0.05f, 0.016f, -0.046f, 0.004f, 0.02f, 0.084f); s.box(0.05f, 0.016f, -0.046f, 0.004f, 0.02f, 0.084f)
+        plate(); s.box(0f, 0.013f, -0.004f, 0.04f, 0.004f, 0.007f)
         s.pop()
-        g.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
-        g.color(0.12f, 0.5f, 0.5f, 0.45f); g.box(0f, 0.0085f, 0f, 0.072f, 0.001f, 0.049f)
-        g.color(0.7f, 1f, 0.97f, 0.9f)
-        g.box(0f, 0.0097f, 0.007f, 0.024f, 0.001f, 0.015f)
-        g.box(0f, 0.0097f, -0.007f, 0.034f, 0.001f, 0.005f)
-        g.box(-0.027f, 0.0097f, 0f, 0.003f, 0.001f, 0.034f); g.box(0.027f, 0.0097f, 0f, 0.003f, 0.001f, 0.034f)
+        g.push().trs(0f, 0.07f, 0.052f, -0.7f, 0.95f, 0f)
+        g.color(0.05f, 0.2f, 0.22f, 0.3f); g.box(0f, 0.0125f, -0.048f, 0.084f, 0.001f, 0.074f)
+        g.color(0.2f, 0.7f, 0.68f, 0.3f)
+        for (k in -2..2) { g.box(k * 0.016f, 0.0133f, -0.048f, 0.001f, 0.001f, 0.072f); g.box(0f, 0.0133f, -0.048f + k * 0.0145f, 0.082f, 0.001f, 0.001f) }
+        g.color(0.7f, 1f, 0.97f, 0.6f)
+        g.box(0f, 0.0141f, -0.042f, 0.026f, 0.001f, 0.017f)
+        g.box(0f, 0.0141f, -0.058f, 0.04f, 0.001f, 0.0055f)
+        g.box(-0.011f, 0.0141f, -0.028f, 0.005f, 0.001f, 0.009f); g.box(0.011f, 0.0141f, -0.028f, 0.005f, 0.001f, 0.009f)
         g.pop()
 
-        // ---- the hand, in the grip's raked frame
-        s.push().trs(0f, -0.045f, 0.012f, 0f, rake, 0f)
-        // palm and the heel of the thumb
-        glove(); s.softBox(0.014f, 0.0f, 0.03f, 0.072f, 0.092f, 0.042f, 0.55f)
-        s.softBox(0.004f, -0.012f, 0.036f, 0.05f, 0.06f, 0.04f, 0.8f)
-        pad(); s.softBox(0.016f, 0.012f, 0.05f, 0.05f, 0.046f, 0.012f, 0.45f)
-        // four fingers wrap round the front of the grip
+        // ---- the hand: palm on the right face, fingers under the belly and up the left face, thumb over the top edge
+        glove(); s.softBox(0.054f, -0.012f, 0.012f, 0.04f, 0.1f, 0.11f, 0.5f)
+        plate(); s.softBox(0.076f, -0.004f, 0.006f, 0.012f, 0.06f, 0.074f, 0.4f)          // armour on the back of the hand
         for (i in 0 until 4) {
-            val y = 0.034f - i * 0.0235f
-            val r = if (i == 3) 0.0092f else 0.0105f
-            val k = if (i == 0 || i == 3) 0.92f else 1f
+            val z = 0.046f - i * 0.0265f
+            val r = if (i == 3) 0.0095f else 0.0108f
+            val reach = if (i == 0) 0.006f else if (i == 3) -0.004f else 0.012f
             glove()
             s.tube(floatArrayOf(
-                0.036f, y, 0.03f,
-                0.04f, y, 0.0f,
-                0.03f * k, y, -0.03f,
-                0.0f, y - 0.002f, -0.04f * k,
-                -0.024f * k, y - 0.003f, -0.026f,
-                -0.027f * k, y - 0.004f, -0.004f,
-            ), floatArrayOf(r * 1.1f, r * 1.12f, r, r, r * 0.95f, r * 0.85f), 9)
-            // knuckle
-            pad(); s.softBox(0.044f, y, 0.004f, 0.01f, 0.017f, 0.024f, 0.7f)
+                0.056f, -0.05f, z,
+                0.03f, -0.07f, z,
+                -0.012f, -0.072f, z,
+                -0.044f, -0.058f, z,
+                -0.0505f, -0.028f, z,
+                -0.0505f, reach - 0.012f, z,
+            ), floatArrayOf(r * 1.1f, r * 1.1f, r, r, r * 0.97f, r * 0.9f), 10)
+            // pale fingertip pad
+            tip(); s.tube(floatArrayOf(-0.051f, reach - 0.014f, z, -0.0505f, reach + 0.004f, z), floatArrayOf(r * 0.93f, r * 0.8f), 10)
+            // knuckle guard where the finger leaves the palm
+            plate(); s.softBox(0.066f, -0.052f, z, 0.016f, 0.014f, 0.02f, 0.6f)
         }
-        // thumb along the left side, pointing forward and a little up
+        // thumb: short and thick, hooked over the top right edge onto the deck
         glove()
-        s.tube(floatArrayOf(-0.006f, 0.02f, 0.04f, -0.026f, 0.04f, 0.022f, -0.03f, 0.052f, -0.004f, -0.027f, 0.058f, -0.028f), floatArrayOf(0.015f, 0.0135f, 0.0118f, 0.0098f), 10)
-        s.pop()
+        s.tube(floatArrayOf(0.06f, 0.012f, 0.05f, 0.058f, 0.044f, 0.046f, 0.044f, 0.066f, 0.04f, 0.022f, 0.071f, 0.034f), floatArrayOf(0.0165f, 0.015f, 0.0135f, 0.012f), 10)
+        tip(); s.tube(floatArrayOf(0.026f, 0.0712f, 0.035f, 0.012f, 0.0705f, 0.032f), floatArrayOf(0.0112f, 0.0095f), 10)
 
-        // ---- wrist and forearm, coming in from the lower right
-        s.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
-        glove(); s.tube(floatArrayOf(0f, -0.012f, 0f, 0f, 0.03f, 0f), floatArrayOf(0.036f, 0.04f), 14, caps = false)
-        shell(); s.tube(floatArrayOf(0f, 0.026f, 0f, 0f, 0.04f, 0f, 0f, 0.062f, 0f), floatArrayOf(0.046f, 0.05f, 0.049f), 16, caps = false)
-        teal(); s.torus(0f, 0.066f, 0f, 0.048f, 0.006f, 18, 8)
-        s.color(0.19f, 0.21f, 0.27f).mat(Mat.GRIP)
-        s.tube(floatArrayOf(0f, 0.066f, 0f, 0f, 0.2f, 0f, 0f, 0.4f, 0f, 0f, 0.62f, 0f), floatArrayOf(0.046f, 0.052f, 0.06f, 0.066f), 16, caps = false)
-        shell(); s.softBox(0f, 0.2f, -0.05f, 0.056f, 0.15f, 0.022f, 0.4f)
-        s.pop()
-        g.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
-        g.color(0.35f, 1f, 0.95f, 0.8f); g.box(0f, 0.2f, -0.0625f, 0.01f, 0.07f, 0.002f)
-        g.pop()
+        // ---- wrist and sleeve, running down and back to the lower right
+        val ax = 0.52f; val ay = -0.58f; val az = 0.63f
+        fun at(t: Float) = floatArrayOf(0.064f + ax * t, -0.03f + ay * t, 0.03f + az * t)
+        fun seg(t0: Float, t1: Float, r0: Float, r1: Float, n: Int = 16) {
+            val a = at(t0); val b = at(t1)
+            s.tube(floatArrayOf(a[0], a[1], a[2], b[0], b[1], b[2]), floatArrayOf(r0, r1), n, caps = false)
+        }
+        glove(); seg(0.0f, 0.07f, 0.04f, 0.042f)
+        shell(); seg(0.06f, 0.1f, 0.05f, 0.053f)
+        teal(); seg(0.1f, 0.112f, 0.0545f, 0.0545f)
+        shell(); seg(0.112f, 0.15f, 0.053f, 0.054f)
+        s.color(0.16f, 0.17f, 0.22f).mat(Mat.GRIP); seg(0.15f, 0.7f, 0.05f, 0.07f)
         return Pair(s.buildClean(), g.buildClean())
     }
 
