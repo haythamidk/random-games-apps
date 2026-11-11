@@ -1,30 +1,69 @@
 import { add } from './core/inventory';
-import { MoveIntent, updatePlayer } from './core/player';
-import { TICK_DT, createSim, tickSim } from './core/sim';
+import { MoveIntent } from './core/player';
+import { Sim, TICK_DT, createSim, respawn, stepPlayer, tickSim } from './core/sim';
 import { TouchInput } from './input/touch';
-import { Bag } from './ui/bag';
 import { DebugOverlay } from './ui/debug';
 import { Hud } from './ui/hud';
+import { Menu } from './ui/menu';
+import { InventorySheet } from './ui/sheet';
+import { clearGame, loadGame, loadPrefs, saveGame, savePrefs } from './ui/storage';
 import { View } from './view/renderer';
 
 const MAX_FRAME_DT = 0.1;
 const MAX_TICKS_PER_FRAME = 5;
+const AUTOSAVE_MS = 30000;
+const DEFAULT_SEED = 20261111;
 
 const params = new URLSearchParams(location.search);
-const seed = Number(params.get('seed')) || 20261111;
-
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const layer = document.getElementById('input-layer') as HTMLElement;
 const uiRoot = document.getElementById('ui') as HTMLElement;
 
-const sim = createSim(seed);
+// `?fresh` ignores any saved game (used by automated tests); `?seed=` picks the map.
+const fresh = params.has('fresh');
+const sim: Sim = (fresh ? null : loadGame()) ?? createSim(Number(params.get('seed')) || DEFAULT_SEED);
+const prefs = loadPrefs();
+
 const view = new View(canvas, sim);
 const input = new TouchInput(layer);
-const bag = new Bag(uiRoot, sim);
-const hud = new Hud(uiRoot, sim, input, { openBag: () => bag.open() });
+input.sensitivity = prefs.sensitivity;
+
+const sheet = new InventorySheet(uiRoot, sim);
+const menu = new Menu(uiRoot, prefs.sensitivity, {
+  setSensitivity: (value) => {
+    prefs.sensitivity = value;
+    input.sensitivity = value;
+    savePrefs(prefs);
+  },
+  newWorld: () => {
+    saving = false;
+    clearGame();
+    location.reload();
+  },
+});
+const hud = new Hud(uiRoot, sim, input, {
+  openBag: () => sheet.open({ kind: 'craft', station: 'hand' }),
+  openMenu: () => menu.open(),
+  context: (action, entityId) => {
+    if (action === 'rotate') sim.buildRot = (sim.buildRot + 1) & 3;
+    else if (action === 'craft') sheet.open({ kind: 'craft', station: 'workbench' });
+    else if (action === 'open' && entityId) sheet.open({ kind: 'storage', entityId });
+  },
+  respawn: () => respawn(sim),
+});
 const debug = new DebugOverlay(uiRoot);
 input.onThreeFingerTap = () => debug.toggle();
 if (params.has('debug')) debug.toggle();
+
+let saving = !fresh;
+const save = () => {
+  if (saving) saveGame(sim);
+};
+window.setInterval(save, AUTOSAVE_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) save();
+});
+window.addEventListener('pagehide', save);
 
 const intent: MoveIntent = { moveX: 0, moveY: 0, sprint: false, jump: false, lookYaw: 0, lookPitch: 0 };
 let last = performance.now();
@@ -36,7 +75,11 @@ function frame(now: number): void {
   last = now;
 
   input.consume(intent);
-  updatePlayer(sim.player, sim.world, intent, dt);
+  const modal = sheet.isOpen || menu.isOpen;
+  sim.actHeld = input.act && !modal;
+  if (input.actTapped && !modal) sim.actPressed = true;
+  input.actTapped = false;
+  stepPlayer(sim, intent, dt);
 
   acc += dt;
   let ticks = 0;
@@ -50,10 +93,11 @@ function frame(now: number): void {
   if (ticks === MAX_TICKS_PER_FRAME) acc = 0;
   const tickMs = ticks ? (performance.now() - t0) / ticks : 0;
 
-  view.sync(sim);
+  view.sync(sim, dt, now / 1000);
   view.render(frameMs);
   hud.sync(sim);
-  bag.sync();
+  sheet.sync();
+  sim.events.length = 0;
   debug.update(now, frameMs, tickMs, view.stats());
 
   requestAnimationFrame(frame);
@@ -65,10 +109,11 @@ declare global {
   interface Window {
     __scrapline: {
       ready: boolean;
-      sim: typeof sim;
+      sim: Sim;
       perf: typeof debug.sample;
       give(id: number, n: number): number;
-      bagOpen(): boolean;
+      sheetOpen(): boolean;
+      save(): boolean;
     };
   }
 }
@@ -77,5 +122,6 @@ window.__scrapline = {
   sim,
   perf: debug.sample,
   give: (id, n) => add(sim.inventory, id, n),
-  bagOpen: () => bag.isOpen,
+  sheetOpen: () => sheet.isOpen,
+  save: () => saveGame(sim),
 };

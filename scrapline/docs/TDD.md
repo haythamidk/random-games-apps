@@ -87,7 +87,7 @@ The risk a 2D prototype would retire is "are the systems fun and correct", not "
 - UI: plain DOM/CSS overlay for HUD, sheets and the circuit board (Canvas 2D for the board itself). No UI framework.
 - Tests: Vitest for the simulation core; Playwright smoke tests with a phone viewport and synthetic touch.
 - Packaging: Capacitor (Android), landscape-locked, immersive fullscreen.
-- Saves: IndexedDB, single slot, versioned.
+- Saves: localStorage, single slot, versioned.
 
 ### 2.4 Layering
 
@@ -142,7 +142,7 @@ Rule: `core/` never imports from `view/`, `input/` or `ui/`. The view reads core
 
 - **Health**: damage from strays and falls. Restored by ration packs.
 - **Charge**: suit battery. Drained by tools and sprinting. Restored by cells, or by standing near a running generator.
-- **Warmth**: drains outdoors, faster at night. Restored inside the heat radius of a running smelter or generator. This ties survival directly to keeping the factory running rather than to a separate consumable loop.
+- **Warmth**: drains outdoors, four times faster at night. Restored inside the heat radius of a campfire (available from the first minute), and later of a running smelter or generator. This ties survival directly to the base rather than to a separate consumable loop.
 
 ---
 
@@ -341,7 +341,7 @@ Recipes (indicative, tuned on day 2):
 
 ### 6.4 Save format
 
-One JSON document in IndexedDB: version, seed, tick, player (position, vitals, container as two base64 arrays), entity table (kind, cell, rotation, buffers), depleted resource nodes, and the logic graph (node arrays up to the high-water mark and the wire words, base64). Target size under 100 KB. Autosave at dawn and on app background.
+One JSON document in localStorage (chosen over IndexedDB because it is synchronous, so a save made while the app is being backgrounded always completes): version, seed, tick, player (position, vitals, container as two base64 arrays), entity table (kind, cell, rotation, buffers), depleted resource nodes, and the logic graph (node arrays up to the high-water mark and the wire words, base64). Target size under 100 KB. Autosave at dawn and on app background.
 
 ---
 
@@ -369,7 +369,7 @@ Landscape only. All controls sit inside safe-area insets. Minimum target 48 dp, 
 | ACT | Hold | Uses the held item: gather, attack, fire. Hold-to-repeat so mining needs no tapping |
 | Context | Tap | Appears only when the reticle is on something usable; label and icon change (Open, Link, Pick up, Rotate) |
 | Hotbar | Tap slot; swipe up on bar opens bag | Selected slot is enlarged |
-| Build | Tap toggles build mode with the selected kit | In build mode: ghost at reticle on grid, ACT becomes Place, Context becomes Rotate, Jump becomes Cancel |
+| Build | Select a kit on the hotbar | There is no separate build toggle: holding a kit shows the ghost on the targeted grid cell, a tap on ACT places it, and the context button becomes Rotate. Holding ACT on any placed entity packs it back into its kit |
 
 Multi-touch: each control claims its pointer id on touch-down, so moving, looking and holding ACT work together. Haptic tick on place, on gather completion and on taking damage.
 
@@ -406,6 +406,7 @@ Flat-shaded low-poly with **vertex colours and one shared material**: no texture
 | 2 | > 80 m | Hidden in fog | Hidden | Hidden unless targeting the player |
 
 - LOD membership is recomputed for a slice of entities each frame (round robin), not all of them.
+- As built so far: resource nodes and placed entities are instanced per kind and drawn without per-instance culling, because the whole map measures about 31 k triangles in 32 draw calls. The tiered LOD above is switched on only if machines and enemies push past the budget.
 - Simulation does **not** use LOD: far machines tick normally, because the sim is cheap and correctness matters more.
 - **Dynamic resolution**: rolling frame-time average; step pixel ratio down above 20 ms, back up below 14 ms.
 - **Context loss**: on `webglcontextrestored` rebuild all GPU resources from core state.

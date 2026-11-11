@@ -24,6 +24,14 @@ const ICONS: Record<number, string> = {
     '<path d="M7 5h10l1 3-1 11H7L6 8z" fill="#d9c7a3"/><path d="M6.4 8h11.2" stroke="#9b8660" stroke-width="1.2"/><path d="M12 11v5M9.5 13.5h5" stroke="#ef6f5e" stroke-width="1.8"/>',
   [Item.Cell]:
     '<rect x="7" y="6" width="10" height="14" rx="2" fill="#26333a" stroke="#aab6bd" stroke-width="1.4"/><rect x="10" y="3.5" width="4" height="2.5" fill="#aab6bd"/><path d="M13 9l-3 4.5h4L11 18" stroke="#5fd0c5" stroke-width="1.6" fill="none" stroke-linejoin="round"/>',
+  [Item.KitWorkbench]:
+    '<path d="M3 9h18v3H3z" fill="#bfae90"/><path d="M5 12v8M19 12v8" stroke="#55646d" stroke-width="2.2"/><path d="M5 16h14" stroke="#7f8d95" stroke-width="1.6"/><rect x="14" y="5.5" width="4" height="3.5" fill="#f2a93b"/>',
+  [Item.KitCrate]:
+    '<rect x="4" y="9" width="16" height="11" rx="1.2" fill="#3f525c"/><rect x="3" y="6" width="18" height="4" rx="1" fill="#4f9c93"/><rect x="10" y="12.5" width="4" height="2" fill="#d6dbd0"/>',
+  [Item.KitWall]:
+    '<rect x="5" y="4" width="14" height="16" fill="#5d6b73"/><rect x="5" y="3" width="14" height="2.5" fill="#d6dbd0"/><rect x="5" y="18" width="14" height="3" fill="#36424d"/><path d="M12 6v12" stroke="#4b5860" stroke-width="1"/>',
+  [Item.KitCampfire]:
+    '<path d="M12 4c1 3 4 4.5 4 8a4 4 0 01-8 0c0-1.8 1-3 2-4 .2 1.3.8 2 1.4 2.3C11.2 8.5 11.3 6 12 4z" fill="#f2a93b"/><path d="M5 19l14-3M5 16l14 3" stroke="#8a6a4c" stroke-width="2.2" stroke-linecap="round"/>',
 };
 
 export function iconSvg(id: ItemId): string {

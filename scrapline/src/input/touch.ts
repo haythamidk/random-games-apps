@@ -15,6 +15,11 @@ export class TouchInput {
   sensitivity = 1;
   /** True while the action button is held. */
   act = false;
+  /**
+   * Latched when the action button goes down, cleared by the main loop. A quick
+   * tap can start and end between two frames; this keeps it from being lost.
+   */
+  actTapped = false;
   /** Called on a three-finger tap (debug overlay toggle). */
   onThreeFingerTap: (() => void) | null = null;
 

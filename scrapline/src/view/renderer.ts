@@ -1,10 +1,18 @@
 import * as THREE from 'three';
 import { EYE_HEIGHT } from '../core/player';
-import { Sim } from '../core/sim';
+import { Sim, daylight } from '../core/sim';
 import { Terrain, buildTerrain } from './terrain';
+import { WorldView } from './worldview';
 
-const SKY_TOP = 0x4f8296;
-const SKY_HORIZON = 0xc4d6d2;
+const SKY_HORIZON = new THREE.Color(0xc4d6d2);
+const SKY_TOP = new THREE.Color(0x4f8296);
+const NIGHT_HORIZON = new THREE.Color(0x121d26);
+/** Multiplied into the sky dome's vertex colours at night. */
+const NIGHT_SKY_TINT = new THREE.Color(0x1c2a3a);
+const WHITE = new THREE.Color(0xffffff);
+const HEMI_DAY = 1.15;
+const HEMI_NIGHT = 0.32;
+const SUN_DAY = 2.5;
 const FOG_NEAR = 70;
 const FOG_FAR = 200;
 /** Chunks whose bounding sphere is entirely beyond the fog are not drawn. */
@@ -31,7 +39,13 @@ export class View {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   private terrain: Terrain;
+  private world: WorldView;
   private sky: THREE.Mesh;
+  private skyMat: THREE.MeshBasicMaterial;
+  private fog: THREE.Fog;
+  private hemi: THREE.HemisphereLight;
+  private sun: THREE.DirectionalLight;
+  private shownLight = -1;
   private basePixelRatio: number;
   private scale = 1;
   private frameAvg = 16;
@@ -50,18 +64,24 @@ export class View {
     this.camera = new THREE.PerspectiveCamera(FOV_LANDSCAPE, 1, 0.1, 600);
     this.camera.rotation.order = 'YXZ';
 
-    this.scene.fog = new THREE.Fog(SKY_HORIZON, FOG_NEAR, FOG_FAR);
+    this.fog = new THREE.Fog(SKY_HORIZON.getHex(), FOG_NEAR, FOG_FAR);
+    this.scene.fog = this.fog;
     this.scene.background = new THREE.Color(SKY_HORIZON);
 
-    this.scene.add(new THREE.HemisphereLight(0xdfeeee, 0x3f4f50, 1.15));
-    const sun = new THREE.DirectionalLight(0xfff0d6, 2.5);
-    sun.position.set(-0.55, 0.75, 0.35);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight(0xdfeeee, 0x3f4f50, HEMI_DAY);
+    this.scene.add(this.hemi);
+    this.sun = new THREE.DirectionalLight(0xfff0d6, SUN_DAY);
+    this.sun.position.set(-0.55, 0.75, 0.35);
+    this.scene.add(this.sun);
 
     this.terrain = buildTerrain(sim.world);
     this.scene.add(this.terrain.group);
 
+    this.world = new WorldView(sim, this.terrain.material);
+    this.scene.add(this.world.group);
+
     this.sky = buildSky();
+    this.skyMat = this.sky.material as THREE.MeshBasicMaterial;
     this.scene.add(this.sky);
 
     canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
@@ -79,9 +99,13 @@ export class View {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Copies sim state into scene objects. */
-  sync(sim: Sim): void {
+  /** Copies sim state into scene objects. `dt` and `time` are in seconds. */
+  sync(sim: Sim, dt: number, time: number): void {
     const p = sim.player;
+    const light = daylight(sim);
+    this.world.sync(sim, dt, time, light);
+    this.syncDaylight(light);
+
     this.camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
     this.camera.rotation.set(p.pitch, p.yaw, 0);
     this.sky.position.copy(this.camera.position);
@@ -94,6 +118,18 @@ export class View {
       const reach = CHUNK_CULL + s.radius;
       chunks[i].visible = dx * dx + dz * dz < reach * reach;
     }
+  }
+
+  /** Fades sky, fog and lights between day and night. Skips work when nothing changed. */
+  private syncDaylight(light: number): void {
+    const q = Math.round(light * 200) / 200;
+    if (q === this.shownLight) return;
+    this.shownLight = q;
+    this.fog.color.copy(NIGHT_HORIZON).lerp(SKY_HORIZON, q);
+    (this.scene.background as THREE.Color).copy(this.fog.color);
+    this.skyMat.color.copy(NIGHT_SKY_TINT).lerp(WHITE, q);
+    this.hemi.intensity = HEMI_NIGHT + (HEMI_DAY - HEMI_NIGHT) * q;
+    this.sun.intensity = SUN_DAY * q;
   }
 
   /** Renders one frame and adapts the resolution scale to the measured frame time. */
@@ -126,8 +162,8 @@ function buildSky(): THREE.Mesh {
   const geo = new THREE.SphereGeometry(500, 16, 8);
   const pos = geo.getAttribute('position');
   const col = new Float32Array(pos.count * 3);
-  const top = new THREE.Color(SKY_TOP);
-  const horizon = new THREE.Color(SKY_HORIZON);
+  const top = SKY_TOP;
+  const horizon = SKY_HORIZON;
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const t = THREE.MathUtils.clamp(pos.getY(i) / 500, 0, 1);

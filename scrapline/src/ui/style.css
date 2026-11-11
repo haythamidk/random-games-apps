@@ -35,6 +35,10 @@ body {
   -webkit-touch-callout: none;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button {
   font: inherit;
   color: inherit;
@@ -306,6 +310,149 @@ button {
   right: calc(14px + var(--safe-r));
 }
 
+.btn-menu {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  top: calc(10px + var(--safe-t));
+  right: calc(70px + var(--safe-r));
+}
+
+/* Context action: a labelled pill above the action button. */
+.btn-ctx {
+  position: absolute;
+  right: calc(22px + var(--safe-r));
+  bottom: calc(132px + var(--safe-b));
+  min-width: 86px;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--amber);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.btn-ctx:active {
+  filter: brightness(0.85);
+}
+
+/* ---------- Clock ---------- */
+
+.clock {
+  margin-top: 2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.clock.night {
+  color: var(--teal);
+}
+
+/* ---------- Reticle target ---------- */
+
+.target {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 16px);
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  pointer-events: none !important;
+}
+
+.target.on {
+  opacity: 1;
+}
+
+.target-label {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.target-track {
+  width: 72px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(15, 26, 31, 0.6);
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.target.working .target-track {
+  visibility: visible;
+}
+
+.target-bar {
+  height: 100%;
+  width: 0;
+  background: var(--amber);
+}
+
+/* ---------- Pickup feed ---------- */
+
+.feed {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 46px);
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none !important;
+}
+
+.feed.on {
+  opacity: 1;
+}
+
+/* ---------- Death ---------- */
+
+.death {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(8, 14, 17, 0.72);
+  z-index: 6;
+}
+
+.death-card {
+  width: min(340px, 100%);
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--panel-solid);
+  border: 1.5px solid var(--line);
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
+.death-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.death-body {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 /* ---------- Toast ---------- */
 
 .toast {
@@ -320,7 +467,8 @@ button {
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none !important;
-  white-space: nowrap;
+  max-width: 92vw;
+  text-align: center;
 }
 
 .toast.on {
@@ -350,15 +498,21 @@ button {
 }
 
 .sheet {
-  width: min(400px, 94vw);
+  width: min(760px, 96vw);
   max-height: 100%;
-  padding: 10px 14px calc(12px + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px calc(10px + var(--safe-b));
   border-radius: 16px 16px 0 0;
   background: var(--panel-solid);
   border: 1.5px solid var(--line);
   border-bottom: 0;
   transform: translateY(16px);
   transition: transform 0.15s;
+}
+
+.sheet-narrow {
+  width: min(380px, 96vw);
 }
 
 .sheet-backdrop.open .sheet {
@@ -369,8 +523,191 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   min-height: 40px;
+  flex: none;
+}
+
+.sheet-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  justify-content: center;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+.pane {
+  min-width: 0;
+}
+
+/* Side by side when there is room: only the left pane scrolls, the bag stays put. */
+@media (orientation: landscape) {
+  .sheet-body {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .pane-left {
+    overflow-y: auto;
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+
+  .pane-bag {
+    flex: none;
+  }
+}
+
+.pane-left {
+  flex: 1 1 240px;
+  max-width: 354px;
+}
+
+.pane-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 2px 0 6px;
+}
+
+.pane-bag {
+  padding-top: 22px;
+}
+
+/* ---------- Recipes ---------- */
+
+.recipe-list {
+  display: grid;
+  gap: 6px;
+}
+
+.recipe {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  padding: 5px 10px 5px 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: rgba(232, 228, 216, 0.06);
+  text-align: left;
+  touch-action: pan-y;
+  opacity: 0.55;
+}
+
+.recipe.ready {
+  opacity: 1;
+  border-color: rgba(242, 169, 59, 0.7);
+}
+
+.recipe.ready:active {
+  background: rgba(242, 169, 59, 0.25);
+}
+
+.recipe-icon {
+  width: 38px;
+  height: 38px;
+  flex: none;
+}
+
+.recipe-icon svg,
+.cost svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.recipe-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.recipe-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.recipe-costs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.cost svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cost.short {
+  color: var(--coral);
+}
+
+.store-grid {
+  grid-template-columns: repeat(4, 54px);
+  justify-content: start;
+}
+
+/* ---------- Menu ---------- */
+
+.menu-row {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  margin: 4px 0 10px;
+}
+
+.menu-row input[type='range'] {
+  width: 100%;
+  height: 32px;
+  accent-color: var(--amber);
+  touch-action: pan-x;
+}
+
+.menu-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.danger,
+.primary {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.danger {
+  border: 1.5px solid rgba(239, 111, 94, 0.6);
+  color: var(--coral);
+}
+
+.danger.armed {
+  background: var(--coral);
+  color: var(--ink);
+}
+
+.primary {
+  background: var(--amber);
+  color: var(--ink);
 }
 
 .sheet-title {
@@ -445,7 +782,7 @@ button {
 #rotate-hint {
   position: fixed;
   left: 50%;
-  top: calc(96px + var(--safe-t));
+  top: calc(116px + var(--safe-t));
   transform: translateX(-50%);
   display: none;
   padding: 5px 12px;
@@ -471,6 +808,11 @@ button {
   .btn-jump {
     bottom: calc(180px + var(--safe-b));
     right: calc(28px + var(--safe-r));
+  }
+
+  .btn-ctx {
+    bottom: calc(252px + var(--safe-b));
+    right: calc(14px + var(--safe-r));
   }
 
   .toast {

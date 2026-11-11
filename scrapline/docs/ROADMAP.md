@@ -56,6 +56,8 @@ Goal: the Gather → Build half of the loop, complete and saveable.
 
 End of day 2 build: start with nothing, gather, craft tools, build a small base with storage.
 
+**Status: done ahead of schedule on 11 Nov.** 47 unit tests and 38 smoke checks pass. Changes from the plan: a campfire was added as the first heat source so Warmth is survivable before the smelter exists; crafts are instant; the build toggle was dropped in favour of "holding a kit is build mode"; saves use localStorage. Nothing else was cut.
+
 Cut list: pick-up of placed entities (destroy instead), death screen polish, timed crafts (make instant).
 
 ---

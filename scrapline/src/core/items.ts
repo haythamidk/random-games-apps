@@ -12,6 +12,8 @@ export interface ItemDef {
   kind: ItemKind;
   /** Tool properties: tier scales gather speed, gathers is a bitmask of node classes. */
   tool?: { tier: number; gathers: number };
+  /** For kits: the entity kind this item becomes when placed (see core/entities). */
+  places?: number;
   /** Consumable effect in vitals units (0..1000 scale). */
   use?: { health?: number; charge?: number; warmth?: number };
 }
@@ -33,6 +35,10 @@ export const Item = {
   Pick: 9,
   Ration: 10,
   Cell: 11,
+  KitWorkbench: 12,
+  KitCrate: 13,
+  KitWall: 14,
+  KitCampfire: 15,
 } as const;
 
 const defs: ItemDef[] = [
@@ -48,6 +54,11 @@ const defs: ItemDef[] = [
   { id: Item.Pick, key: 'pick', name: 'Pick', stack: 1, kind: 'tool', tool: { tier: 1, gathers: GATHER_ROCK } },
   { id: Item.Ration, key: 'ration', name: 'Ration Pack', stack: 10, kind: 'consumable', use: { health: 350 } },
   { id: Item.Cell, key: 'cell', name: 'Charge Cell', stack: 10, kind: 'consumable', use: { charge: 500 } },
+  // `places` values are EntityKind ids; kept as literals to avoid a circular import.
+  { id: Item.KitWorkbench, key: 'kit_workbench', name: 'Workbench Kit', stack: 5, kind: 'kit', places: 1 },
+  { id: Item.KitCrate, key: 'kit_crate', name: 'Crate Kit', stack: 10, kind: 'kit', places: 2 },
+  { id: Item.KitWall, key: 'kit_wall', name: 'Wall Kit', stack: 30, kind: 'kit', places: 3 },
+  { id: Item.KitCampfire, key: 'kit_campfire', name: 'Campfire Kit', stack: 5, kind: 'kit', places: 4 },
 ];
 
 /** Item definitions indexed by id. */
