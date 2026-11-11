@@ -43,11 +43,11 @@ class Structures {
         }
         val s = MeshBuilder(); val g = MeshBuilder(); val bl = MeshBuilder()
         watcher(s, g, bl)
-        watcherSolid = s.build(); watcherGlow = g.build(); watcherBloom = bl.build()
+        watcherSolid = s.buildClean(); watcherGlow = g.buildClean(); watcherBloom = bl.build()
     }
 
     private fun add(p: Poi, s: MeshBuilder, g: MeshBuilder, r: Float) {
-        geos.add(StructGeo(p, s.build(), if (g.vertexCount > 0) g.build() else null, r))
+        geos.add(StructGeo(p, s.buildClean(), if (g.vertexCount > 0) g.buildClean() else null, r))
     }
 
     private fun hull(b: MeshBuilder) = b.color(0.9f, 0.91f, 0.95f).mat(Mat.HULL)

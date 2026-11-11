@@ -38,6 +38,7 @@ class Settings {
     var musicVolume = 0.7f
     var subtitles = true
     var wrenVoice = true
+    var padLookSpeed = 1f
     /** 0 off, 1 FXAA, 2 MSAA 4x with FXAA. */
     var antiAlias = 2
 
@@ -90,6 +91,7 @@ class Settings {
         musicVolume = p.getFloat("musicVolume", musicVolume)
         subtitles = p.getBoolean("subtitles", subtitles)
         wrenVoice = p.getBoolean("wrenVoice", wrenVoice)
+        padLookSpeed = p.getFloat("padLookSpeed", padLookSpeed)
         antiAlias = p.getInt("antiAlias", antiAlias)
         fxaa = antiAlias >= 1
     }
@@ -127,6 +129,7 @@ class Settings {
             .putFloat("musicVolume", musicVolume)
             .putBoolean("subtitles", subtitles)
             .putBoolean("wrenVoice", wrenVoice)
+            .putFloat("padLookSpeed", padLookSpeed)
             .putInt("antiAlias", antiAlias)
             .apply()
     }

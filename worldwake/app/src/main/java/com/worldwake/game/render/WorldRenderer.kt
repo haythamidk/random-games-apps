@@ -353,7 +353,7 @@ class WorldRenderer(private val game: GameState) {
         val cp = cos(pitch)
         val dx = sin(yaw) * cp; val dy = sin(pitch); val dz = cos(yaw) * cp
         val far = s.viewDistance * CHUNK_SIZE + 260f
-        Mat4.perspective(proj, s.fov, rw.toFloat() / rh, 0.08f, far)
+        Mat4.perspective(proj, s.fov, rw.toFloat() / rh, 0.12f, far)
         Mat4.lookAt(view, camPos.x, camPos.y, camPos.z, camPos.x + dx, camPos.y + dy, camPos.z + dz, 0f, 1f, 0f)
         Mat4.mul(vp, proj, view)
         Mat4.invert(invVp, vp)
@@ -726,7 +726,9 @@ class WorldRenderer(private val game: GameState) {
             lit.f1("u_emissiveScale", e)
             lit.f1("u_frostTop", 0f)
             lit.f1("u_specular", 0f)
+            glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1f, -2f)
             glow.draw()
+            glDisable(GL_POLYGON_OFFSET_FILL)
         }
     }
 
@@ -784,7 +786,9 @@ class WorldRenderer(private val game: GameState) {
                 lit.f1("u_specular", 0.35f); lit.f1("u_emissiveScale", 0f); lit.f1("u_frostTop", 0.5f)
                 podBase.draw()
                 lit.f1("u_frostTop", 0f); lit.f1("u_emissiveScale", 1f)
+                glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1f, -2f)
                 podBaseGlow.draw()
+                glDisable(GL_POLYGON_OFFSET_FILL)
                 for (sd in 0 until 4) {
                     val st = game.sideState(pl, sd)
                     podSideMatrix(pl, sd, model)
@@ -813,10 +817,12 @@ class WorldRenderer(private val game: GameState) {
             m.solid.draw()
             lit.f1("u_frostTop", 0f)
             if (m.glow != null) {
+                glEnable(GL_POLYGON_OFFSET_FILL); glPolygonOffset(-1f, -2f)
                 val on = if (t.power < 0f) (0.25f + 0.75f * eff) else 1f
                 val bl = if (t == BuildType.BEACON) (0.4f + 0.6f * smoothstep(0.6f, 1f, sin(time * 2.2f + pl.id))) else if (t.cat == Cat.HEAT) flick else 1f
                 lit.f1("u_emissiveScale", on * bl * 1.3f)
                 m.glow.draw()
+                glDisable(GL_POLYGON_OFFSET_FILL)
             }
             if (m.spin != null) {
                 placedMatrix(pl, model, time * m.set.spinSpeed * (if (t.power < 0f) eff else 1f))

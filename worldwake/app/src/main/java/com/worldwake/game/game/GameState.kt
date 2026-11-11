@@ -138,6 +138,8 @@ class GameState(val settings: Settings) {
     private var alarmTimer = 0f
     private var menuAngle = 0f
     private var prevJump = false
+    private var padLookVX = 0f
+    private var padLookVY = 0f
     private val nrm = FloatArray(3)
     private val aim = Vec3()
     private val eye = Vec3()
@@ -376,9 +378,14 @@ class GameState(val settings: Settings) {
         p.yaw -= frame.lookX * 0.0045f * sens
         p.pitch -= frame.lookY * 0.0045f * sens * inv
         // gamepad right stick, with a little response curve
-        val lx = frame.padLookX; val ly = frame.padLookY
-        p.yaw -= lx * abs(lx) * 2.6f * sens * dt
-        p.pitch -= ly * abs(ly) * 1.9f * sens * inv * dt
+        // gamepad: a gentle curve so small tilts are slow and precise, eased so the view never jerks
+        val ps = settings.padLookSpeed
+        fun curve(v: Float) = v * (0.22f + 0.78f * v * v)
+        val k = clamp01(dt * 16f)
+        padLookVX += (curve(frame.padLookX) - padLookVX) * k
+        padLookVY += (curve(frame.padLookY) - padLookVY) * k
+        p.yaw -= padLookVX * 2.7f * ps * dt
+        p.pitch -= padLookVY * 1.7f * ps * inv * dt
         p.pitch = clamp(p.pitch, -1.45f, 1.45f)
         if (p.yaw > PI_F) p.yaw -= TWO_PI
         if (p.yaw < -PI_F) p.yaw += TWO_PI
@@ -496,6 +503,12 @@ class GameState(val settings: Settings) {
         p.vel.y -= grav * dt
         if (p.inWater && p.vel.y < -2.2f) p.vel.y = -2.2f
         p.pos.y += p.vel.y * dt
+        val roofPod = podAt(p.pos.x, p.pos.z)
+        if (roofPod != null && p.pos.y >= roofPod.y - 0.3f && p.pos.y < roofPod.y + POD_HEIGHT - 0.5f) {
+            // inside a pod the ceiling is solid: your head stops under it
+            val maxFeet = roofPod.y + POD_HEIGHT - 0.3f - 1.78f
+            if (p.pos.y > maxFeet) { p.pos.y = maxFeet; if (p.vel.y > 0f) p.vel.y = 0f }
+        }
         val g = groundAt(p.pos.x, p.pos.z, p.pos.y + 0.6f)
         val wasGround = p.onGround
         if (p.pos.y <= g) {
@@ -663,8 +676,8 @@ class GameState(val settings: Settings) {
         }
         if (p.sheltered || breathable) p.o2 = min(p.o2Max, p.o2 + p.o2Max * 0.28f * dt)
         else p.o2 = max(0f, p.o2 - dt)
-        p.water = max(0f, p.water - dt * 100f / (15f * 60f))
-        p.food = max(0f, p.food - dt * 100f / (24f * 60f))
+        p.water = max(0f, p.water - dt * 100f / (15f * 60f) * (if (p.has(Item.CANTEEN)) 0.6f else 1f))
+        p.food = max(0f, p.food - dt * 100f / (24f * 60f) * (if (p.has(Item.LINER)) 0.6f else 1f))
 
         // supplies are used automatically when a need gets low
         if (p.water < 18f && p.inv.remove(Item.WATER)) { p.water = min(100f, p.water + 48f); sound?.play(Sfx.DRINK, 0.5f); note("Drank a water flask") }
@@ -1035,6 +1048,7 @@ class GameState(val settings: Settings) {
             if (abs(pl.x - p.pos.x) > 9f || abs(pl.z - p.pos.z) > 9f) continue
             val usable = deconMode || pl.inv != null || pl.type == BuildType.FABRICATOR
             if (!usable) continue
+            if (pl.type.indoor && !(p.indoors && abs(p.pos.y - pl.y) < 1.2f)) continue
             val cy = pl.y + min(pl.type.height * 0.5f, 1.4f)
             val d = sqrt((pl.x - eye.x) * (pl.x - eye.x) + (cy - eye.y) * (cy - eye.y) + (pl.z - eye.z) * (pl.z - eye.z))
             val reach = (if (pl.type == BuildType.POD) 7.5f else 4.2f) + pl.type.radius

@@ -117,6 +117,7 @@ class UiManager(
         setPadding(dp(14f), dp(5f), dp(14f), dp(5f))
         setOnClickListener { game.sound?.play(Sfx.UI, 0.5f); onClick() }
         stateListAnimator = null
+        isFocusableInTouchMode = false
     }
 
     private fun vbox(pad: Float = 0f): LinearLayout = LinearLayout(act).apply {
@@ -149,9 +150,31 @@ class UiManager(
         return null
     }
 
+    /** True while the player is driving the menus with a controller or keyboard rather than touch. */
+    var padMode = false
+        set(v) { if (field != v) { field = v; if (!v) current?.findFocus()?.clearFocus() else if (current?.findFocus() == null) firstButton(current)?.requestFocus() } }
+
+    private fun allButtons(v: View?, out: ArrayList<View>) {
+        if (v is Button && v.isEnabled && v.isFocusable) out.add(v)
+        if (v is ViewGroup) for (i in 0 until v.childCount) allButtons(v.getChildAt(i), out)
+    }
+
+    /** Moves focus one step with a stick; scrolls with the other. */
+    fun moveFocus(direction: Int) {
+        val c = current ?: return
+        val f = c.findFocus()
+        if (f == null) { firstButton(c)?.requestFocus(); return }
+        f.focusSearch(direction)?.requestFocus()
+    }
+
+    fun scrollBy(dy: Int) { findScroll(current)?.smoothScrollBy(0, dy) }
+
     private fun show(v: View, name: String, back: (() -> Unit)?, again: () -> Unit) {
         val same = current != null && screen == name
         val scrollY = if (same) findScroll(current)?.scrollY ?: 0 else 0
+        val oldButtons = ArrayList<View>()
+        if (same) allButtons(current, oldButtons)
+        val focusIdx = oldButtons.indexOfFirst { it.isFocused }
         if (!same && name != "main") game.sound?.play(Sfx.UI_OPEN, 0.5f)
         current?.let { root.removeView(it) }
         current = v
@@ -163,7 +186,11 @@ class UiManager(
         v.setPadding(safeL, 0, safeR, 0)
         root.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
         if (scrollY > 0) findScroll(v)?.let { s -> s.post { s.scrollTo(0, scrollY) } }
-        if (game.settings.controls != ControlScheme.TOUCH) v.post { firstButton(v)?.requestFocus() }
+        if (padMode) v.post {
+            // after a rebuild the same button keeps the focus, so a list never jumps back to the top
+            val now = ArrayList<View>(); allButtons(v, now)
+            (now.getOrNull(focusIdx) ?: firstButton(v))?.requestFocus()
+        }
     }
 
     fun close() {
@@ -685,7 +712,8 @@ class UiManager(
         fun onOff(b: Boolean) = if (b) "On" else "Off"
         list.addView(label("CONTROLS", 11.5f, TEAL, true), lp(margin = 4f))
         cycle("Control scheme", s.controls.label) { s.controls = ControlScheme.entries[(s.controls.ordinal + 1) % ControlScheme.entries.size] }
-        step("Look sensitivity", String.format("%.1f", s.lookSensitivity), { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.3f) }, { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(3f) })
+        step("Controller look speed", String.format("%.1f", s.padLookSpeed), { s.padLookSpeed = (s.padLookSpeed - 0.1f).coerceAtLeast(0.3f) }, { s.padLookSpeed = (s.padLookSpeed + 0.1f).coerceAtMost(2.5f) })
+        step("Touch look sensitivity", String.format("%.1f", s.lookSensitivity), { s.lookSensitivity = (s.lookSensitivity - 0.1f).coerceAtLeast(0.3f) }, { s.lookSensitivity = (s.lookSensitivity + 0.1f).coerceAtMost(3f) })
         cycle("Invert look up and down", onOff(s.invertY)) { s.invertY = !s.invertY }
         cycle("Run when the stick is pushed fully", onOff(s.autoSprint)) { s.autoSprint = !s.autoSprint }
         step("Touch button opacity", (s.touchOpacity * 100).toInt().toString() + "%", { s.touchOpacity = (s.touchOpacity - 0.1f).coerceAtLeast(0.2f) }, { s.touchOpacity = (s.touchOpacity + 0.1f).coerceAtMost(1f) })

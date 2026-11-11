@@ -118,7 +118,9 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         subtitleLayout = null; objectiveLayout = null; feedLayout = null
     }
 
-    private val touchMode get() = game.settings.controls == ControlScheme.TOUCH
+    /** Set while a controller is being used: touch buttons hide and button hints show. */
+    @Volatile var padActive = false
+    private val touchMode get() = game.settings.controls == ControlScheme.TOUCH && !padActive
     private val building get() = game.buildType != null || game.deconMode
 
     // ------------------------------------------------------------------ input
@@ -386,9 +388,17 @@ class HudView(ctx: Context, private val game: GameState, private val input: Inpu
         }
 
         if (touchMode) drawTouch(c)
-        else if (building) {
-            small.textAlign = Paint.Align.CENTER; small.color = Color.argb(220, 255, 255, 255)
-            c.drawText(if (g.deconMode) "RT take apart   B cancel" else "RT place   LB / RB rotate   D-pad switch   B cancel", cx, h - 16 * d, small)
+        else {
+            val hint = when {
+                g.deconMode -> "RT take apart     B cancel"
+                g.buildType != null -> "RT place     LB / RB turn     D-pad ◀ ▶ switch     B cancel"
+                g.targetKind != TargetKind.NONE -> "X use     A jump     RB build     Y pack"
+                else -> "RB build     LB craft     Y pack     D-pad ▲ map     B take apart"
+            }
+            small.textAlign = Paint.Align.CENTER; small.color = Color.argb(205, 255, 255, 255)
+            small.setShadowLayer(3 * d, 0f, 0f, Color.BLACK)
+            c.drawText(hint, cx, h - 14 * d, small)
+            small.clearShadowLayer()
         }
         drawTop(c)
         if (g.settings.showFps) { small.textAlign = Paint.Align.LEFT; small.color = Color.WHITE; c.drawText("${g.fps} fps", 14 * d + safeL, h - 8 * d, small) }

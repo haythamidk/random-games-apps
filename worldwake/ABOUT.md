@@ -53,16 +53,16 @@ Things worth knowing:
 | Left stick / right stick | Move / look |
 | A / Cross | Jump, hold for jetpack |
 | X / Square | Use |
-| RT / R2 | Place, use |
-| LT / L2 | Take-apart mode |
-| RB, LB | Build menu, craft menu. While building: turn the piece |
-| D-pad left, right | Previous, next blueprint in the same group |
-| D-pad up, down | Build menu, map |
 | Y / Triangle | Pack |
-| B / Circle | Cancel, back |
-| Start | Pause |
+| B / Circle | Cancel. With nothing to cancel: take-apart mode |
+| RT / R2 | Use, place |
+| LT / L2 | Run (hold) |
+| RB, LB | Build menu, craft menu. With a blueprint in hand: turn it |
+| D-pad | Up map, down planet, left journal, right craft. With a blueprint in hand: left and right swap it |
+| Stick clicks | Left: run on/off. Right: skip what WREN is saying |
+| Start, Select | Pause, map |
 
-In menus, LB and RB switch tabs.
+In menus the left stick or D-pad moves the highlight, the right stick scrolls, A picks, B goes back, and LB and RB switch tabs. The game switches between touch and controller by itself the moment you use either.
 
 **Keyboard and mouse:** WASD, Space, Shift to run, E use, F or left click to place, R or the wheel to turn, Q cancel, X take-apart mode, B build, C craft, Tab pack, M map, P planet, J journal, Esc pause.
 

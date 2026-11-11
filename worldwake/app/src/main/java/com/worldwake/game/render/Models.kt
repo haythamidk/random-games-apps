@@ -8,7 +8,9 @@ import com.worldwake.game.engine.TWO_PI
 import com.worldwake.game.engine.beam
 import com.worldwake.game.engine.capsule
 import com.worldwake.game.engine.dome
+import com.worldwake.game.engine.softBox
 import com.worldwake.game.engine.torus
+import com.worldwake.game.engine.tube
 import com.worldwake.game.game.BuildType
 import com.worldwake.game.game.POD_CELL
 import com.worldwake.game.game.POD_FLOOR
@@ -35,7 +37,7 @@ object Models {
     private class B {
         val s = MeshBuilder(1024); val g = MeshBuilder(); val sp = MeshBuilder(); val gl = MeshBuilder()
         var spinY = 0f; var spinSpeed = 1f; var axisX = false
-        fun set() = ModelSet(s.build(), if (g.vertexCount > 0) g.build() else null, if (sp.vertexCount > 0) sp.build() else null,
+        fun set() = ModelSet(s.buildClean(), if (g.vertexCount > 0) g.buildClean() else null, if (sp.vertexCount > 0) sp.buildClean() else null,
             if (gl.vertexCount > 0) gl.build() else null, spinY, spinSpeed, axisX)
     }
 
@@ -501,12 +503,12 @@ object Models {
         val s = MeshBuilder(1024); val g = MeshBuilder()
         val h = POD_CELL * 0.5f
         val top = POD_HEIGHT
-        dark(s); s.box(0f, POD_FLOOR * 0.5f, 0f, POD_CELL, POD_FLOOR, POD_CELL)
+        dark(s); s.box(0f, POD_FLOOR * 0.5f, 0f, POD_CELL - 0.02f, POD_FLOOR, POD_CELL - 0.02f)
         s.color(0.5f, 0.52f, 0.58f).mat(Mat.METAL); s.box(0f, POD_FLOOR + 0.005f, 0f, POD_CELL - 0.5f, 0.01f, POD_CELL - 0.5f)
         // roof slab with a raised hump and a rounded rim
-        hull(s); s.box(0f, top - 0.12f, 0f, POD_CELL, 0.24f, POD_CELL)
+        hull(s); s.box(0f, top - 0.12f, 0f, POD_CELL - 0.05f, 0.24f, POD_CELL - 0.05f)
         s.box(0f, top + 0.12f, 0f, POD_CELL - 1.0f, 0.24f, POD_CELL - 1.0f)
-        teal(s); s.box(0f, top - 0.3f, 0f, POD_CELL + 0.08f, 0.1f, POD_CELL + 0.08f)
+        teal(s); s.box(0f, top - 0.3f, 0f, POD_CELL - 0.01f, 0.1f, POD_CELL - 0.01f)
         dark(s); s.box(1.3f, top + 0.36f, -1.2f, 1.0f, 0.3f, 0.8f); s.cylinder(-1.6f, top + 0.24f, 1.5f, 0.03f, 0.02f, 1.4f, 5)
         g.color(0.35f, 1f, 0.95f, 1.4f); g.sphere(-1.6f, top + 1.66f, 1.5f, 0.05f, 0.05f, 0.05f, 4, 6)
         // ceiling light panel
@@ -518,7 +520,7 @@ object Models {
             s.beam(x * (h - 0.35f), -0.1f, z * (h - 0.35f), x * (h - 1.5f), -0.9f, z * (h - 0.35f), 0.07f)
         }
         dark(s); s.box(0f, -0.13f, 0f, POD_CELL - 0.6f, 0.2f, POD_CELL - 0.6f)
-        return Pair(s.build(), g.build())
+        return Pair(s.buildClean(), g.buildClean())
     }
 
     /** One wall on the +x side. kind 0 = window wall, 1 = door wall, 2 = open frame to the next pod. */
@@ -561,7 +563,7 @@ object Models {
                 dark(s); s.box(x + 0.07f, y0 + 0.01f, 0f, 0.42f, 0.02f, span - 0.9f)
             }
         }
-        return Triple(s.build(), if (g.vertexCount > 0) g.build() else null, if (gl.vertexCount > 0) gl.build() else null)
+        return Triple(s.buildClean(), if (g.vertexCount > 0) g.buildClean() else null, if (gl.vertexCount > 0) gl.build() else null)
     }
 
     /** Ramp outside a door on the +x side. It drops one unit over its length; scale Y by the real drop. */
@@ -580,97 +582,100 @@ object Models {
         s.flatQuad(x1, y - 1f, w, x1, y - 1.6f, w, x1, y - 1.6f, -w, x1, y - 1f, -w)
         gold(s)
         s.beam(x0, y + 0.02f, w, x1, y - 0.98f, w, 0.07f); s.beam(x0, y + 0.02f, -w, x1, y - 0.98f, -w, 0.07f)
-        return s.build()
+        return s.buildClean()
     }
 
     // ------------------------------------------------------------------ first person
 
     /**
      * The Waker's gloved right hand holding the builder: a pistol-grip tool with a small tilted screen.
+     * Everything is built from smooth tubes and soft-edged boxes so nothing reads as blocks.
      * View space: x right, y up, -z forward. The grip sits at the origin.
      */
     fun viewTool(): Pair<MeshData, MeshData> {
-        val s = MeshBuilder(2048); val g = MeshBuilder()
-        fun glove() = s.color(0.25f, 0.27f, 0.34f).mat(Mat.GRIP)
-        fun pad() = s.color(0.9f, 0.3f, 0.34f).mat(Mat.GRIP)
+        val s = MeshBuilder(8192); val g = MeshBuilder()
+        fun glove() = s.color(0.2f, 0.215f, 0.27f).mat(Mat.GRIP)
+        fun pad() = s.color(0.88f, 0.3f, 0.36f).mat(Mat.GRIP)
         fun shell() = s.color(0.92f, 0.93f, 0.96f).mat(Mat.HULL)
-        fun gun() = s.color(0.26f, 0.28f, 0.34f).mat(Mat.METAL)
+        fun gun() = s.color(0.25f, 0.27f, 0.33f).mat(Mat.METAL)
+        fun teal() = s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL)
+        val rake = 0.22f
 
         // ---- the tool
-        // grip, raked back like a pistol
-        s.push().trs(0f, -0.045f, 0.012f, 0f, 0.22f, 0f)
-        gun(); s.box(0f, 0f, 0f, 0.034f, 0.105f, 0.046f)
-        s.color(0.1f, 0.1f, 0.12f).mat(Mat.GRIP); s.box(0f, -0.005f, 0.001f, 0.038f, 0.08f, 0.04f)
+        s.push().trs(0f, -0.045f, 0.012f, 0f, rake, 0f)
+        s.color(0.11f, 0.11f, 0.13f).mat(Mat.GRIP); s.softBox(0f, 0f, 0f, 0.036f, 0.112f, 0.05f, 0.45f)
         s.pop()
-        // body
-        shell(); s.box(0f, 0.035f, -0.075f, 0.058f, 0.058f, 0.21f)
-        gun(); s.box(0f, 0.035f, -0.07f, 0.064f, 0.03f, 0.15f)
-        s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL); s.box(0f, 0.067f, -0.1f, 0.03f, 0.008f, 0.12f)
-        gun(); s.box(0f, 0.004f, -0.045f, 0.012f, 0.03f, 0.05f)   // trigger guard
-        // barrel: a stepped emitter with cooling rings
-        s.push().trs(0f, 0.035f, -0.18f, 0f, -PI_F * 0.5f, 0f)
-        gun(); s.cylinder(0f, 0f, 0f, 0.027f, 0.024f, 0.07f, 12)
-        steel(s); s.cylinder(0f, 0.07f, 0f, 0.019f, 0.019f, 0.05f, 12)
-        gun(); s.torus(0f, 0.025f, 0f, 0.028f, 0.005f, 12, 5); s.torus(0f, 0.05f, 0f, 0.026f, 0.005f, 12, 5)
-        shell(); s.cylinder(0f, 0.12f, 0f, 0.025f, 0.021f, 0.022f, 12)
+        shell(); s.softBox(0f, 0.036f, -0.07f, 0.06f, 0.062f, 0.2f, 0.3f)
+        gun(); s.softBox(0f, 0.034f, -0.068f, 0.066f, 0.03f, 0.14f, 0.35f)
+        teal(); s.softBox(0f, 0.069f, -0.1f, 0.026f, 0.012f, 0.12f, 0.5f)
+        gun(); s.tube(floatArrayOf(0f, 0.004f, -0.016f, 0f, -0.016f, -0.03f, 0f, -0.014f, -0.056f, 0f, 0.008f, -0.066f), floatArrayOf(0.0045f, 0.0045f, 0.0045f, 0.0045f), 6)
+        // barrel
+        s.push().trs(0f, 0.036f, -0.165f, 0f, -PI_F * 0.5f, 0f)
+        gun(); s.cylinder(0f, 0f, 0f, 0.028f, 0.024f, 0.075f, 18)
+        steel(s); s.cylinder(0f, 0.075f, 0f, 0.018f, 0.018f, 0.05f, 16)
+        gun(); s.torus(0f, 0.024f, 0f, 0.027f, 0.0055f, 18, 8); s.torus(0f, 0.05f, 0f, 0.0255f, 0.0055f, 18, 8)
+        shell(); s.torus(0f, 0.125f, 0f, 0.019f, 0.007f, 18, 8)
         s.pop()
         g.color(0.35f, 1f, 0.95f, 1.6f)
-        g.push().trs(0f, 0.035f, -0.324f, 0f, -PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.017f, 12, true); g.pop()
-        // rear cap and a small power cell on the side
-        shell(); s.box(0f, 0.035f, 0.034f, 0.05f, 0.05f, 0.012f)
-        gun(); s.box(0f, 0.035f, 0.042f, 0.036f, 0.036f, 0.006f)
-        s.color(0.96f, 0.8f, 0.3f).mat(Mat.HULL); s.push().trs(-0.036f, 0.03f, -0.03f, 0f, -PI_F * 0.5f, 0f); s.cylinder(0f, 0f, 0f, 0.011f, 0.011f, 0.06f, 8); s.pop()
-        // the screen: a little slate on an arm, tipped toward your eyes
-        gun(); s.box(0f, 0.075f, -0.01f, 0.014f, 0.03f, 0.014f)
+        g.push().trs(0f, 0.036f, -0.292f, 0f, -PI_F * 0.5f, 0f); g.disc(0f, 0f, 0f, 0.016f, 16, true); g.pop()
+        // rear cap, side power cell
+        gun(); s.softBox(0f, 0.036f, 0.034f, 0.046f, 0.046f, 0.02f, 0.5f)
+        s.color(0.96f, 0.8f, 0.3f).mat(Mat.HULL); s.tube(floatArrayOf(-0.037f, 0.03f, -0.035f, -0.037f, 0.03f, -0.09f), floatArrayOf(0.011f, 0.011f), 10)
+        // the screen: a rounded slate on a short neck, tipped toward your eyes
+        gun(); s.tube(floatArrayOf(0f, 0.062f, -0.01f, 0f, 0.098f, -0.004f), floatArrayOf(0.008f, 0.007f), 8)
         s.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
-        gun(); s.box(0f, 0f, 0f, 0.084f, 0.008f, 0.06f)
-        shell(); s.box(0f, -0.006f, 0f, 0.089f, 0.005f, 0.065f)
+        shell(); s.softBox(0f, -0.003f, 0f, 0.094f, 0.012f, 0.07f, 0.25f)
+        gun(); s.softBox(0f, 0.002f, 0f, 0.086f, 0.008f, 0.062f, 0.2f)
         s.pop()
         g.push().trs(0f, 0.105f, 0.0f, 0f, 0.62f, 0f)
-        g.color(0.12f, 0.5f, 0.5f, 0.45f); g.box(0f, 0.0048f, 0f, 0.074f, 0.001f, 0.05f)
-        // build glyph: a little pod with a roof
+        g.color(0.12f, 0.5f, 0.5f, 0.45f); g.box(0f, 0.0085f, 0f, 0.072f, 0.001f, 0.049f)
         g.color(0.7f, 1f, 0.97f, 0.9f)
-        g.box(0f, 0.0058f, 0.007f, 0.026f, 0.001f, 0.016f)
-        g.box(0f, 0.0058f, -0.007f, 0.036f, 0.001f, 0.005f)
-        g.box(-0.029f, 0.0058f, 0f, 0.003f, 0.001f, 0.038f); g.box(0.029f, 0.0058f, 0f, 0.003f, 0.001f, 0.038f)
+        g.box(0f, 0.0097f, 0.007f, 0.024f, 0.001f, 0.015f)
+        g.box(0f, 0.0097f, -0.007f, 0.034f, 0.001f, 0.005f)
+        g.box(-0.027f, 0.0097f, 0f, 0.003f, 0.001f, 0.034f); g.box(0.027f, 0.0097f, 0f, 0.003f, 0.001f, 0.034f)
         g.pop()
 
-        // ---- the hand wrapped around the grip
-        s.push().trs(0f, -0.045f, 0.012f, 0f, 0.22f, 0f)
-        // palm behind and to the right of the grip
-        glove(); s.box(0.012f, 0.004f, 0.03f, 0.07f, 0.082f, 0.034f)
-        s.sphere(0.03f, -0.01f, 0.03f, 0.03f, 0.04f, 0.028f, 5, 8)        // heel of the thumb
-        pad(); s.box(0.014f, 0.012f, 0.05f, 0.05f, 0.04f, 0.006f)           // back-of-hand plate
-        // four fingers curl round the front: each is three short segments
+        // ---- the hand, in the grip's raked frame
+        s.push().trs(0f, -0.045f, 0.012f, 0f, rake, 0f)
+        // palm and the heel of the thumb
+        glove(); s.softBox(0.014f, 0.0f, 0.03f, 0.072f, 0.092f, 0.042f, 0.55f)
+        s.softBox(0.004f, -0.012f, 0.036f, 0.05f, 0.06f, 0.04f, 0.8f)
+        pad(); s.softBox(0.016f, 0.012f, 0.05f, 0.05f, 0.046f, 0.012f, 0.45f)
+        // four fingers wrap round the front of the grip
         for (i in 0 until 4) {
-            val y = 0.036f - i * 0.0235f
-            val len = if (i == 0 || i == 3) 0.9f else 1f
+            val y = 0.034f - i * 0.0235f
+            val r = if (i == 3) 0.0092f else 0.0105f
+            val k = if (i == 0 || i == 3) 0.92f else 1f
             glove()
-            s.box(0.03f, y, 0.006f, 0.018f, 0.02f, 0.05f)                    // along the right side
-            s.box(0.012f * len, y, -0.03f, 0.05f * len, 0.02f, 0.02f)        // across the front
-            s.box(-0.022f * len, y, -0.016f, 0.016f, 0.019f, 0.03f)          // fingertip back round the left
-            pad(); s.box(0.041f, y, 0.008f, 0.004f, 0.014f, 0.026f)          // knuckle pad
+            s.tube(floatArrayOf(
+                0.036f, y, 0.03f,
+                0.04f, y, 0.0f,
+                0.03f * k, y, -0.03f,
+                0.0f, y - 0.002f, -0.04f * k,
+                -0.024f * k, y - 0.003f, -0.026f,
+                -0.027f * k, y - 0.004f, -0.004f,
+            ), floatArrayOf(r * 1.1f, r * 1.12f, r, r, r * 0.95f, r * 0.85f), 9)
+            // knuckle
+            pad(); s.softBox(0.044f, y, 0.004f, 0.01f, 0.017f, 0.024f, 0.7f)
         }
-        // index finger rests on the trigger
-        glove(); s.box(0.012f, 0.058f, -0.036f, 0.046f, 0.019f, 0.02f)
-        // thumb lies along the left side, pointing forward
-        s.push().trs(-0.024f, 0.045f, 0.012f, 0.25f, -0.15f, 0f)
-        glove(); s.box(0f, 0f, -0.012f, 0.02f, 0.022f, 0.05f); s.sphere(0f, 0f, -0.04f, 0.011f, 0.012f, 0.014f, 4, 6)
-        s.pop()
+        // thumb along the left side, pointing forward and a little up
+        glove()
+        s.tube(floatArrayOf(-0.006f, 0.02f, 0.04f, -0.026f, 0.04f, 0.022f, -0.03f, 0.052f, -0.004f, -0.027f, 0.058f, -0.028f), floatArrayOf(0.015f, 0.0135f, 0.0118f, 0.0098f), 10)
         s.pop()
 
         // ---- wrist and forearm, coming in from the lower right
         s.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
-        glove(); s.cylinder(0f, 0f, 0f, 0.034f, 0.036f, 0.035f, 12, caps = false)
-        shell(); s.cylinder(0f, 0.03f, 0f, 0.046f, 0.048f, 0.03f, 12)
-        s.color(0.22f, 0.74f, 0.7f).mat(Mat.HULL); s.cylinder(0f, 0.06f, 0f, 0.049f, 0.049f, 0.012f, 12, caps = false)
-        s.color(0.2f, 0.22f, 0.28f).mat(Mat.GRIP); s.cylinder(0f, 0.072f, 0f, 0.047f, 0.06f, 0.5f, 12, caps = false)
-        shell(); s.box(0f, 0.2f, -0.052f, 0.05f, 0.14f, 0.012f)              // forearm plate
-        g.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
-        g.color(0.35f, 1f, 0.95f, 0.8f); g.box(0f, 0.2f, -0.0595f, 0.01f, 0.07f, 0.002f)
-        g.pop()
+        glove(); s.tube(floatArrayOf(0f, -0.012f, 0f, 0f, 0.03f, 0f), floatArrayOf(0.036f, 0.04f), 14, caps = false)
+        shell(); s.tube(floatArrayOf(0f, 0.026f, 0f, 0f, 0.04f, 0f, 0f, 0.062f, 0f), floatArrayOf(0.046f, 0.05f, 0.049f), 16, caps = false)
+        teal(); s.torus(0f, 0.066f, 0f, 0.048f, 0.006f, 18, 8)
+        s.color(0.19f, 0.21f, 0.27f).mat(Mat.GRIP)
+        s.tube(floatArrayOf(0f, 0.066f, 0f, 0f, 0.2f, 0f, 0f, 0.4f, 0f, 0f, 0.62f, 0f), floatArrayOf(0.046f, 0.052f, 0.06f, 0.066f), 16, caps = false)
+        shell(); s.softBox(0f, 0.2f, -0.05f, 0.056f, 0.15f, 0.022f, 0.4f)
         s.pop()
-        return Pair(s.build(), g.build())
+        g.push().trs(0.016f, -0.07f, 0.05f, 0.38f, 2.0f, 0f)
+        g.color(0.35f, 1f, 0.95f, 0.8f); g.box(0f, 0.2f, -0.0625f, 0.01f, 0.07f, 0.002f)
+        g.pop()
+        return Pair(s.buildClean(), g.buildClean())
     }
 
     fun cube(): MeshData { val b = MeshBuilder(24); b.color(1f, 1f, 1f); b.box(0f, 0f, 0f, 1f, 1f, 1f); return b.build() }

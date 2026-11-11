@@ -255,21 +255,37 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
 
     // ------------------------------------------------------------------ keys
 
+    /** Switches the whole UI between controller and touch the moment either is used. */
+    private fun setPad(on: Boolean) {
+        if (padActive == on) return
+        padActive = on
+        hud.padActive = on
+        ui.padMode = on
+    }
+    private var padActive = false
+    private var triggerKeys = false
+    private var lastHatMs = 0L
+
+    private fun isPadKey(e: KeyEvent): Boolean =
+        (e.source and InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD || (e.source and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+            (e.source and InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD || KeyEvent.isGamepadButton(e.keyCode)
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         val down = event.action == KeyEvent.ACTION_DOWN
         val first = down && event.repeatCount == 0
+        if (isPadKey(event) && code != KeyEvent.KEYCODE_BACK) setPad(true)
         if (ui.isOpen) {
             if (first) {
                 when (code) {
                     KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK -> { if (!ui.back() && ui.screen == "main") return super.dispatchKeyEvent(event); return true }
-                    KeyEvent.KEYCODE_BUTTON_A -> { currentFocus?.performClick(); return true }
+                    KeyEvent.KEYCODE_BUTTON_A -> { (currentFocus ?: run { ui.moveFocus(View.FOCUS_DOWN); null })?.performClick(); return true }
                     KeyEvent.KEYCODE_BUTTON_L1 -> { if (ui.cycleTab(-1)) return true }
                     KeyEvent.KEYCODE_BUTTON_R1 -> { if (ui.cycleTab(1)) return true }
-                    KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> { if (ui.screen == "pause") onResumeGame(); return true }
-                    KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_SELECT -> { if (ui.screen == "game") { onResumeGame(); return true } }
+                    KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> { if (ui.screen == "pause" || ui.screen == "game" || ui.screen == "storage") onResumeGame(); return true }
+                    KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_SELECT -> { if (ui.screen == "game" || ui.screen == "storage") { onResumeGame(); return true } }
                 }
-            } else if (!down && (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_BUTTON_B)) return true
+            } else if (code == KeyEvent.KEYCODE_BUTTON_A || code == KeyEvent.KEYCODE_BUTTON_B) return true
             return super.dispatchKeyEvent(event)
         }
         if (!game.started) return super.dispatchKeyEvent(event)
@@ -277,6 +293,12 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         return super.dispatchKeyEvent(event)
     }
 
+    /**
+     * Every pad button does something in play, whatever else is going on:
+     * A jump, X use, Y pack, B cancel or take-apart mode, RT use/place, LT run, LB craft, RB build,
+     * D-pad map / planet / journal / craft, stick clicks run and skip, Start pause, Select map.
+     * While a blueprint is in hand LB/RB turn it and D-pad left/right swap it.
+     */
     private fun handleGameKey(code: Int, down: Boolean, first: Boolean): Boolean {
         fun act(a: Action) { if (first) input.push(a) }
         val build = game.buildType != null
@@ -286,21 +308,29 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
             KeyEvent.KEYCODE_A -> { input.kA = down; input.updateKeys() }
             KeyEvent.KEYCODE_S -> { input.kS = down; input.updateKeys() }
             KeyEvent.KEYCODE_D -> { input.kD = down; input.updateKeys() }
-            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT, KeyEvent.KEYCODE_BUTTON_THUMBL -> input.sprintHeld = down
+            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> input.sprintHeld = down
+            KeyEvent.KEYCODE_BUTTON_THUMBL -> if (first) input.sprintHeld = !input.sprintHeld
+            KeyEvent.KEYCODE_BUTTON_THUMBR -> act(Action.SKIP_DIALOG)
             KeyEvent.KEYCODE_SPACE -> { input.keyJump = down; act(Action.JUMP) }
             KeyEvent.KEYCODE_BUTTON_A -> { input.padJump = down; act(Action.JUMP) }
             KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_BUTTON_X -> act(Action.INTERACT)
-            KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_BUTTON_R2 -> act(Action.PLACE)
-            KeyEvent.KEYCODE_R, KeyEvent.KEYCODE_BUTTON_R1 -> if (build) act(Action.ROTATE) else if (first && code == KeyEvent.KEYCODE_BUTTON_R1) openGameMenu("build")
+            KeyEvent.KEYCODE_F -> act(Action.PLACE)
+            KeyEvent.KEYCODE_BUTTON_R2 -> { triggerKeys = true; act(Action.PLACE) }
+            KeyEvent.KEYCODE_BUTTON_L2 -> { triggerKeys = true; input.sprintHeld = down }
+            KeyEvent.KEYCODE_R -> act(Action.ROTATE)
+            KeyEvent.KEYCODE_BUTTON_R1 -> if (build) act(Action.ROTATE) else if (first) openGameMenu("build")
             KeyEvent.KEYCODE_BUTTON_L1 -> if (build) act(Action.ROTATE_BACK) else if (first) openGameMenu("craft")
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_Q -> if (busy) act(Action.CANCEL)
-            KeyEvent.KEYCODE_X, KeyEvent.KEYCODE_BUTTON_L2 -> act(Action.DECON_TOGGLE)
-            KeyEvent.KEYCODE_DPAD_LEFT -> act(Action.PREV_BUILD)
-            KeyEvent.KEYCODE_DPAD_RIGHT -> act(Action.NEXT_BUILD)
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_B -> if (first) openGameMenu("build")
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_M -> if (first) openGameMenu("map")
+            KeyEvent.KEYCODE_BUTTON_B -> if (busy) act(Action.CANCEL) else act(Action.DECON_TOGGLE)
+            KeyEvent.KEYCODE_Q -> if (busy) act(Action.CANCEL)
+            KeyEvent.KEYCODE_X -> act(Action.DECON_TOGGLE)
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (first) dpad(-1, 0)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (first) dpad(1, 0)
+            KeyEvent.KEYCODE_DPAD_UP -> if (first) dpad(0, -1)
+            KeyEvent.KEYCODE_DPAD_DOWN -> if (first) dpad(0, 1)
+            KeyEvent.KEYCODE_B -> if (first) openGameMenu("build")
+            KeyEvent.KEYCODE_M, KeyEvent.KEYCODE_BUTTON_SELECT -> if (first) openGameMenu("map")
             KeyEvent.KEYCODE_P -> if (first) openGameMenu("planet")
-            KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_SELECT -> if (first) openGameMenu("pack")
+            KeyEvent.KEYCODE_TAB, KeyEvent.KEYCODE_I, KeyEvent.KEYCODE_BUTTON_Y -> if (first) openGameMenu("pack")
             KeyEvent.KEYCODE_C -> if (first) openGameMenu("craft")
             KeyEvent.KEYCODE_J -> if (first) openGameMenu("journal")
             KeyEvent.KEYCODE_ENTER -> act(Action.SKIP_DIALOG)
@@ -312,45 +342,84 @@ class MainActivity : Activity(), GameUi, UiManager.Callbacks {
         return true
     }
 
+    /** One D-pad press, whether it arrived as a key or as a hat axis (some pads send both). */
+    private fun dpad(dx: Int, dy: Int) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastHatMs < 120) return
+        lastHatMs = now
+        if (game.buildType != null && dx != 0) { input.push(if (dx < 0) Action.PREV_BUILD else Action.NEXT_BUILD); return }
+        when {
+            dy < 0 -> openGameMenu("map")
+            dy > 0 -> openGameMenu("planet")
+            dx < 0 -> openGameMenu("journal")
+            else -> openGameMenu("craft")
+        }
+    }
+
     // ------------------------------------------------------------------ gamepad sticks and triggers
 
+    /** Stick value with the dead zone removed and the rest stretched back to the full range. */
     private fun axis(e: MotionEvent, dev: InputDevice?, a: Int): Float {
-        val range = dev?.getMotionRange(a, e.source) ?: return e.getAxisValue(a)
         val v = e.getAxisValue(a)
-        return if (abs(v) > range.flat.coerceAtLeast(0.12f)) v else 0f
+        val dz = (dev?.getMotionRange(a, e.source)?.flat ?: 0f).coerceAtLeast(0.14f)
+        val m = abs(v)
+        if (m <= dz) return 0f
+        return (if (v < 0) -1f else 1f) * ((m - dz) / (1f - dz)).coerceAtMost(1f)
     }
 
     private var trigR = false
     private var trigL = false
+    private var navX = 0
+    private var navY = 0
+    private var navNextMs = 0L
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
-        if (ui.isOpen || !game.started) return super.dispatchGenericMotionEvent(ev)
         val src = ev.source
-        if ((src and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK && ev.action == MotionEvent.ACTION_MOVE) {
-            val dev = ev.device
-            val lx = axis(ev, dev, MotionEvent.AXIS_X)
-            val ly = axis(ev, dev, MotionEvent.AXIS_Y)
-            input.setPadMove(lx, -ly)
-            var rx = axis(ev, dev, MotionEvent.AXIS_Z)
-            var ry = axis(ev, dev, MotionEvent.AXIS_RZ)
-            if (rx == 0f && ry == 0f) { rx = axis(ev, dev, MotionEvent.AXIS_RX); ry = axis(ev, dev, MotionEvent.AXIS_RY) }
-            input.setPadLook(rx, ry)
-            // triggers that report as axes rather than buttons
+        val stick = (src and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK && ev.action == MotionEvent.ACTION_MOVE
+        if (!stick) return super.dispatchGenericMotionEvent(ev)
+        val dev = ev.device
+        val lx = axis(ev, dev, MotionEvent.AXIS_X)
+        val ly = axis(ev, dev, MotionEvent.AXIS_Y)
+        var rx = axis(ev, dev, MotionEvent.AXIS_Z)
+        var ry = axis(ev, dev, MotionEvent.AXIS_RZ)
+        if (rx == 0f && ry == 0f && dev?.getMotionRange(MotionEvent.AXIS_LTRIGGER) != null) { rx = axis(ev, dev, MotionEvent.AXIS_RX); ry = axis(ev, dev, MotionEvent.AXIS_RY) }
+        val hx = ev.getAxisValue(MotionEvent.AXIS_HAT_X)
+        val hy = ev.getAxisValue(MotionEvent.AXIS_HAT_Y)
+        if (abs(lx) + abs(ly) + abs(rx) + abs(ry) + abs(hx) + abs(hy) > 0.3f) setPad(true)
+
+        if (ui.isOpen || !game.started) {
+            // menus: the left stick or D-pad moves the highlight, the right stick scrolls
+            val nx = if (hx < -0.5f || lx < -0.6f) -1 else if (hx > 0.5f || lx > 0.6f) 1 else 0
+            val ny = if (hy < -0.5f || ly < -0.6f) -1 else if (hy > 0.5f || ly > 0.6f) 1 else 0
+            val now = android.os.SystemClock.uptimeMillis()
+            if (nx != navX || ny != navY || (now >= navNextMs && (nx != 0 || ny != 0))) {
+                val fresh = nx != navX || ny != navY
+                navX = nx; navY = ny
+                if (ny != 0) ui.moveFocus(if (ny < 0) View.FOCUS_UP else View.FOCUS_DOWN)
+                else if (nx != 0) ui.moveFocus(if (nx < 0) View.FOCUS_LEFT else View.FOCUS_RIGHT)
+                navNextMs = now + (if (fresh) 380 else 130)
+            }
+            if (abs(ry) > 0.25f) ui.scrollBy((ry * 46f * resources.displayMetrics.density).toInt())
+            hatX = hx; hatY = hy
+            return true
+        }
+        input.setPadMove(lx, -ly)
+        input.setPadLook(rx, ry)
+        // triggers that report as axes rather than buttons
+        if (!triggerKeys) {
             val rt = maxOf(ev.getAxisValue(MotionEvent.AXIS_RTRIGGER), ev.getAxisValue(MotionEvent.AXIS_GAS)) > 0.45f
             val lt = maxOf(ev.getAxisValue(MotionEvent.AXIS_LTRIGGER), ev.getAxisValue(MotionEvent.AXIS_BRAKE)) > 0.45f
             if (rt && !trigR) input.push(Action.PLACE)
-            if (lt && !trigL) input.push(Action.DECON_TOGGLE)
+            if (lt != trigL) input.sprintHeld = lt
             trigR = rt; trigL = lt
-            val hx = ev.getAxisValue(MotionEvent.AXIS_HAT_X)
-            val hy = ev.getAxisValue(MotionEvent.AXIS_HAT_Y)
-            if (hx != hatX) { if (hx < -0.5f) input.push(Action.PREV_BUILD) else if (hx > 0.5f) input.push(Action.NEXT_BUILD); hatX = hx }
-            if (hy != hatY) { if (hy < -0.5f) openGameMenu("build") else if (hy > 0.5f) openGameMenu("map"); hatY = hy }
-            return true
         }
-        return super.dispatchGenericMotionEvent(ev)
+        if (hx != hatX) { if (hx < -0.5f) dpad(-1, 0) else if (hx > 0.5f) dpad(1, 0); hatX = hx }
+        if (hy != hatY) { if (hy < -0.5f) dpad(0, -1) else if (hy > 0.5f) dpad(0, 1); hatY = hy }
+        return true
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.isFromSource(InputDevice.SOURCE_TOUCHSCREEN) && ev.actionMasked == MotionEvent.ACTION_DOWN) setPad(false)
         if (ev.isFromSource(InputDevice.SOURCE_MOUSE) && wantsCapture() && ev.actionMasked == MotionEvent.ACTION_DOWN) {
             updatePointerCapture()
             return true

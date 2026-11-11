@@ -40,6 +40,8 @@ enum class Item(val label: String, val color: Int, val kind: ItemKind, val icon:
     JETPACK("Jetpack", 0xFFFFB060.toInt(), ItemKind.UPGRADE, Icon.JET, "Hold jump in the air to fly for a while."),
     SCANNER("Ore Scanner", 0xFF7FF2FF.toInt(), ItemKind.UPGRADE, Icon.SCAN, "Marks nearby ore on your visor."),
     LAMP("Suit Lamp", 0xFFFFF2B0.toInt(), ItemKind.UPGRADE, Icon.LAMP, "A much brighter light at night."),
+    CANTEEN("Recycler Canteen", 0xFF58B7F0.toInt(), ItemKind.UPGRADE, Icon.FLASK, "The suit recycles moisture. Water lasts much longer."),
+    LINER("Nutrient Liner", 0xFFFF9E7A.toInt(), ItemKind.UPGRADE, Icon.FOOD, "Slow-release nutrients in the suit. Food lasts much longer."),
     ;
 
     val isUpgrade get() = kind == ItemKind.UPGRADE
@@ -70,6 +72,8 @@ object Recipes {
         Recipe(Item.PACK_3, 1, costs(Item.ALUMINIUM to 3, Item.TITANIUM to 2, Item.MOTOR to 1), stage = 2, needs = Item.PACK_2),
         Recipe(Item.PACK_4, 1, costs(Item.OSMIUM to 3, Item.CELL to 2, Item.CORE to 1), stage = 5, needs = Item.PACK_3),
         Recipe(Item.LAMP, 1, costs(Item.GLASS to 1, Item.CIRCUIT to 1), stage = 0),
+        Recipe(Item.CANTEEN, 1, costs(Item.GLASS to 2, Item.ALLOY to 2, Item.ICE to 3), stage = 1),
+        Recipe(Item.LINER, 1, costs(Item.SPORE to 3, Item.CIRCUIT to 1, Item.GLASS to 1), stage = 2),
         Recipe(Item.BOOTS, 1, costs(Item.ALLOY to 2, Item.MOTOR to 1), stage = 1),
         Recipe(Item.SCANNER, 1, costs(Item.CIRCUIT to 2, Item.LENS to 1), stage = 2),
         Recipe(Item.JETPACK, 1, costs(Item.CELL to 2, Item.MOTOR to 2, Item.ALUMINIUM to 3), stage = 3),

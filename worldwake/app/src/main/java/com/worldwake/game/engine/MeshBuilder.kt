@@ -230,6 +230,13 @@ class MeshBuilder(initialVerts: Int = 256) {
     fun vertexFloat(index: Int, offset: Int): Float = v[index * VERTEX_FLOATS + offset]
 
     fun build(): MeshData = MeshData(v, vertexCount, idx, indexCount)
+
+    /** Builds a model mesh and separates faces that would otherwise flicker against each other. */
+    fun buildClean(): MeshData = MeshData(v, vertexCount, idx, indexCount).also {
+        // a lifted face can land on a third one, so repeat with a different step until nothing overlaps
+        var eps = 0.006f
+        for (pass in 0 until 5) { if (Coplanar.lift(it, eps).pairs == 0) break; eps *= 0.73f }
+    }
 }
 
 /** Texture array layers; vertices reference them through a negative emissive channel. */
@@ -314,5 +321,93 @@ fun MeshBuilder.beam(x0: Float, y0: Float, z0: Float, x1: Float, y1: Float, z1: 
     val yaw = kotlin.math.atan2(dx, dz)
     val pitch = -kotlin.math.atan2(dy, sqrt(dx * dx + dz * dz))
     push(); trs((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, yaw, pitch, 0f); box(0f, 0f, 0f, w, w, len); pop()
+    return this
+}
+
+/**
+ * A smooth tube through [pts] (x, y, z triples) with a radius per point and rounded ends.
+ * Used for fingers, arms and pipes: anything that should read as round rather than boxy.
+ */
+fun MeshBuilder.tube(pts: FloatArray, radii: FloatArray, seg: Int = 10, caps: Boolean = true): MeshBuilder {
+    val n = radii.size
+    if (n < 2) return this
+    // centre line with extra shrinking rings at both ends for the round caps
+    val cx = ArrayList<Float>(); val cy = ArrayList<Float>(); val cz = ArrayList<Float>(); val cr = ArrayList<Float>()
+    fun dir(i: Int, out: FloatArray) {
+        val a = if (i == 0) 0 else i - 1; val b = if (i == n - 1) n - 1 else i + 1
+        var dx = pts[b * 3] - pts[a * 3]; var dy = pts[b * 3 + 1] - pts[a * 3 + 1]; var dz = pts[b * 3 + 2] - pts[a * 3 + 2]
+        val l = sqrt(dx * dx + dy * dy + dz * dz).coerceAtLeast(1e-6f)
+        out[0] = dx / l; out[1] = dy / l; out[2] = dz / l
+    }
+    val d = FloatArray(3)
+    val capSteps = if (caps) 3 else 0
+    dir(0, d)
+    for (k in capSteps downTo 1) {
+        val a = k.toFloat() / capSteps * (PI_F * 0.5f)
+        cx.add(pts[0] - d[0] * radii[0] * sin(a)); cy.add(pts[1] - d[1] * radii[0] * sin(a)); cz.add(pts[2] - d[2] * radii[0] * sin(a)); cr.add(radii[0] * cos(a).coerceAtLeast(0.02f))
+    }
+    for (i in 0 until n) { cx.add(pts[i * 3]); cy.add(pts[i * 3 + 1]); cz.add(pts[i * 3 + 2]); cr.add(radii[i]) }
+    dir(n - 1, d)
+    val e = (n - 1) * 3
+    for (k in 1..capSteps) {
+        val a = k.toFloat() / capSteps * (PI_F * 0.5f)
+        cx.add(pts[e] + d[0] * radii[n - 1] * sin(a)); cy.add(pts[e + 1] + d[1] * radii[n - 1] * sin(a)); cz.add(pts[e + 2] + d[2] * radii[n - 1] * sin(a)); cr.add(radii[n - 1] * cos(a).coerceAtLeast(0.02f))
+    }
+    val m = cr.size
+    // a frame carried along the line so the tube does not twist
+    var ux = 0f; var uy = 1f; var uz = 0f
+    val base = vertexCount
+    for (i in 0 until m) {
+        val a = if (i == 0) 0 else i - 1; val b = if (i == m - 1) m - 1 else i + 1
+        var tx = cx[b] - cx[a]; var ty = cy[b] - cy[a]; var tz = cz[b] - cz[a]
+        val tl = sqrt(tx * tx + ty * ty + tz * tz).coerceAtLeast(1e-6f)
+        tx /= tl; ty /= tl; tz /= tl
+        // side = t x u, then u = side x t
+        var sx = ty * uz - tz * uy; var sy = tz * ux - tx * uz; var sz = tx * uy - ty * ux
+        var sl = sqrt(sx * sx + sy * sy + sz * sz)
+        if (sl < 1e-4f) { ux = 1f; uy = 0f; uz = 0f; sx = ty * uz - tz * uy; sy = tz * ux - tx * uz; sz = tx * uy - ty * ux; sl = sqrt(sx * sx + sy * sy + sz * sz).coerceAtLeast(1e-6f) }
+        sx /= sl; sy /= sl; sz /= sl
+        ux = sy * tz - sz * ty; uy = sz * tx - sx * tz; uz = sx * ty - sy * tx
+        // slope of the radius tilts the normals on the caps
+        val dr = (cr[b] - cr[a]) / tl
+        for (j in 0..seg) {
+            val ang = j * TWO_PI / seg
+            val c = cos(ang); val s = sin(ang)
+            val nx = sx * c + ux * s; val ny = sy * c + uy * s; val nz = sz * c + uz * s
+            vertex(cx[i] + nx * cr[i], cy[i] + ny * cr[i], cz[i] + nz * cr[i], nx - tx * dr, ny - ty * dr, nz - tz * dr)
+        }
+    }
+    val row = seg + 1
+    for (i in 0 until m - 1) for (j in 0 until seg) {
+        val a = base + i * row + j; val b = a + row
+        tri(a, b, b + 1); tri(a, b + 1, a + 1)
+    }
+    return this
+}
+
+/**
+ * A box with rounded edges and corners (a superellipsoid). [round] is 0..1: 0.2 is a soft-cornered slab,
+ * 1 is an ellipsoid. Smooth shaded, so it never shows hard facets.
+ */
+fun MeshBuilder.softBox(cx: Float, cy: Float, cz: Float, sx: Float, sy: Float, sz: Float, round: Float = 0.3f, rings: Int = 10, seg: Int = 16): MeshBuilder {
+    fun pw(v: Float, e: Float): Float = (if (v < 0f) -1f else 1f) * Math.pow(kotlin.math.abs(v).toDouble(), e.toDouble()).toFloat()
+    val e = round.coerceIn(0.08f, 1f)
+    val base = vertexCount
+    for (ri in 0..rings) {
+        val phi = -PI_F * 0.5f + PI_F * ri / rings
+        for (si in 0..seg) {
+            val th = TWO_PI * si / seg
+            val cp = cos(phi); val sp = sin(phi); val ct = cos(th); val stt = sin(th)
+            val x = pw(cp, e) * pw(ct, e); val y = pw(sp, e); val z = pw(cp, e) * pw(stt, e)
+            // the normal of a superellipsoid uses the complementary exponent
+            val nx = pw(cp, 2f - e) * pw(ct, 2f - e) / sx; val ny = pw(sp, 2f - e) / sy; val nz = pw(cp, 2f - e) * pw(stt, 2f - e) / sz
+            vertex(cx + x * sx * 0.5f, cy + y * sy * 0.5f, cz + z * sz * 0.5f, nx, ny, nz)
+        }
+    }
+    val row = seg + 1
+    for (ri in 0 until rings) for (si in 0 until seg) {
+        val a = base + ri * row + si; val b = a + row
+        tri(a, b, b + 1); tri(a, b + 1, a + 1)
+    }
     return this
 }

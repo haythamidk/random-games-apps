@@ -35,10 +35,35 @@ class ItemIcon(private val item: Item) : Drawable() {
         c.drawPath(path, p)
     }
 
+    private val shade = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /**
+     * The flat shapes are drawn into a layer, then one diagonal light-to-dark wash and a soft highlight are laid
+     * over only the painted pixels. Corners are rounded. The result reads as a lit object instead of flat tiles.
+     */
     override fun draw(c: Canvas) {
         val b = bounds
         val s = min(b.width(), b.height()).toFloat()
         val cx = b.exactCenterX(); val cy = b.exactCenterY()
+        // contact shadow
+        p.shader = null; p.pathEffect = null; p.style = Paint.Style.FILL
+        p.color = Color.argb(70, 0, 0, 0)
+        r.set(cx - s * 0.3f, cy + s * 0.3f, cx + s * 0.3f, cy + s * 0.42f); c.drawOval(r, p)
+        val layer = c.saveLayer(b.left.toFloat(), b.top.toFloat(), b.right.toFloat(), b.bottom.toFloat(), null)
+        p.pathEffect = android.graphics.CornerPathEffect(s * 0.05f)
+        drawShapes(c, s, cx, cy)
+        p.pathEffect = null
+        shade.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_ATOP)
+        shade.shader = android.graphics.LinearGradient(cx - s * 0.4f, cy - s * 0.42f, cx + s * 0.36f, cy + s * 0.42f,
+            intArrayOf(Color.argb(120, 255, 255, 255), Color.argb(0, 255, 255, 255), Color.argb(110, 0, 0, 20)), floatArrayOf(0f, 0.48f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        c.drawRect(b, shade)
+        shade.shader = android.graphics.RadialGradient(cx - s * 0.14f, cy - s * 0.18f, s * 0.2f, Color.argb(95, 255, 255, 255), Color.argb(0, 255, 255, 255), android.graphics.Shader.TileMode.CLAMP)
+        c.drawRect(b, shade)
+        shade.shader = null; shade.xfermode = null
+        c.restoreToCount(layer)
+    }
+
+    private fun drawShapes(c: Canvas, s: Float, cx: Float, cy: Float) {
         val col = item.color
         val dark = shade(col, 0.6f); val light = shade(col, 1.25f)
         p.style = Paint.Style.FILL
