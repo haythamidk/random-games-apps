@@ -684,7 +684,7 @@ object Models {
 
         // ---- wrist, cuff and a long sleeve running back toward your shoulder
         val wx = 0.02f; val wy = -0.04f; val wz = 0.05f
-        val ax = 0.2f; val ay = -0.26f; val az = 0.94f
+        val ax = 0.03f; val ay = -0.3f; val az = 0.95f
         fun seg(t0: Float, t1: Float, r0: Float, r1: Float, n: Int = 18) =
             s.tube(floatArrayOf(wx + ax * t0, wy + ay * t0, wz + az * t0, wx + ax * t1, wy + ay * t1, wz + az * t1), floatArrayOf(r0, r1), n, caps = false)
         glove(); seg(-0.01f, 0.06f, 0.036f, 0.04f)

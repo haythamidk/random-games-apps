@@ -1071,10 +1071,10 @@ class WorldRenderer(private val game: GameState) {
         val kick = game.toolKick
         val k = sin(kick * PI_F) * kick
         val building = game.buildType != null || game.deconMode
-        val ox = 0.27f + bobX
+        val ox = 0.22f + bobX
         val oy = -0.17f + bobY + k * 0.03f + (if (building) 0.03f else 0f)
         val oz = -0.46f + k * 0.05f
-        Mat4.fromTRS(local, ox, oy, oz, 0.3f, 0.2f + k * 0.2f, -0.16f, 1f, 1f, 1f)
+        Mat4.fromTRS(local, ox, oy, oz, -0.34f, 0.16f + k * 0.2f, 0f, 1f, 1f, 1f)
         Mat4.mul(model, invView, local)
         lit.m4("u_model", model)
         lit.f1("u_emissiveScale", 0f)
