@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { hash2 } from '../core/rng';
+import { Item } from '../core/items';
+import { Deposit } from '../core/nodes';
 import { CELL, GRID_N, WORLD_SIZE, World } from '../core/world';
 
 export const CHUNK_SIZE = 32;
@@ -11,6 +13,9 @@ const FROST = new THREE.Color(0xd6dbd0);
 const LICHEN = new THREE.Color(0x4f7c74);
 const SLATE = new THREE.Color(0x36424d);
 const RIDGE = new THREE.Color(0x8e9aa0);
+// Deposits stain the ground so they can be found from a distance.
+const ORE_STAIN = new THREE.Color(0x8f5b42);
+const COAL_STAIN = new THREE.Color(0x24292d);
 
 export interface Terrain {
   group: THREE.Group;
@@ -22,7 +27,7 @@ export interface Terrain {
  * Builds the terrain as CHUNKS_PER_SIDE² flat-shaded meshes that share one
  * vertex-colour material. Each chunk is frustum culled on its own.
  */
-export function buildTerrain(world: World): Terrain {
+export function buildTerrain(world: World, deposits: readonly Deposit[]): Terrain {
   const material = new THREE.MeshLambertMaterial({ vertexColors: true });
   const group = new THREE.Group();
   const chunks: THREE.Mesh[] = [];
@@ -65,6 +70,14 @@ export function buildTerrain(world: World): Terrain {
         const highT = THREE.MathUtils.clamp((avgH - 18) / 14, 0, 1);
         color.lerp(RIDGE, highT * 0.6);
         color.offsetHSL(0, 0, jitter * 0.07);
+        const mx = (a.x + b.x + c.x) / 3;
+        const mz = (a.z + b.z + c.z) / 3;
+        for (const d of deposits) {
+          const dist = Math.hypot(mx - d.x, mz - d.z);
+          if (dist < d.radius + 0.8) {
+            color.lerp(d.item === Item.IronOre ? ORE_STAIN : COAL_STAIN, dist < d.radius ? 0.85 : 0.4);
+          }
+        }
 
         for (const p of [a, b, c]) {
           pos[v * 3] = p.x;

@@ -1,8 +1,17 @@
-import { ENTITY_DEFS, Entities, createEntities, entityAt, inBounds, placeEntity, removeEntity } from './entities';
+import { MAX_STRAYS, Strays, createStrays, damageStray, tickStrays } from './enemies';
+import {
+  BELT_SLOTS, ENTITY_DEFS, Entities, EntityKind, createEntities, entityAt, inBounds, placeEntity, removeEntity,
+} from './entities';
 import { Container, add, createContainer, removeFromSlot, space } from './inventory';
 import { ITEMS, Item } from './items';
+import {
+  Graph, LogicHost, NodeType, addNode, addWire, createGraph, findWire, inputValue, inputWired, removeNode,
+  removeWireAt, stepGraph,
+} from './logic/graph';
+import { BeltOrder, createBeltOrder, tickMachines } from './machines';
 import { BUCKET, NODE_DEFS, Nodes, bucketIndex, generateNodes } from './nodes';
 import { EYE_HEIGHT, MoveIntent, Player, createPlayer, updatePlayer } from './player';
+import { Rng } from './rng';
 import { WORLD_SIZE, World, createWorld, heightAt } from './world';
 
 export const TICK_HZ = 20;
@@ -28,6 +37,13 @@ const SWING_TICKS_HAND = 14;
 const SWING_TICKS_TOOL = 5;
 const SWING_CHARGE_COST = 3;
 const DISMANTLE_TICKS = 18;
+const HIT_TICKS = 8;
+const HIT_DAMAGE_HAND = 14;
+const HIT_DAMAGE_TOOL = 34;
+/** Default detection radius of a proximity sensor, metres. */
+export const SENSOR_RANGE = 8;
+/** The night warning fires this many ticks before dusk. */
+const DUSK_WARNING_TICKS = 60 * TICK_HZ;
 
 /** Survival gauges, each an integer 0..VITAL_MAX. */
 export interface Vitals {
@@ -36,12 +52,12 @@ export interface Vitals {
   warmth: number;
 }
 
-export const TargetType = { None: 0, Node: 1, Entity: 2, Ground: 3 } as const;
+export const TargetType = { None: 0, Node: 1, Entity: 2, Ground: 3, Stray: 4 } as const;
 
 /** What the reticle is on. Reused every frame; never reallocated. */
 export interface Target {
   type: number;
-  /** Node index or entity id. */
+  /** Node index, entity id or stray index. */
   id: number;
   /** Build cell under the reticle (valid for Ground and Entity). */
   cx: number;
@@ -78,6 +94,27 @@ export const Ev = {
   /** a = node kind */
   NeedTool: 8,
   Died: 9,
+  /** a = source entity id */
+  LinkStart: 10,
+  /** a = source entity id, b = target entity id */
+  Linked: 11,
+  Unlinked: 12,
+  /** a = reason: 1 nothing to send, 2 nothing to receive, 3 circuit is full */
+  LinkBad: 13,
+  /** a = turret entity id, b = stray index */
+  Shot: 14,
+  /** a = stray index, b = 1 if a turret did it */
+  StrayDown: 15,
+  /** A stray hit the player. */
+  Bite: 16,
+  /** One minute until night. */
+  Dusk: 17,
+  /** a = nights survived so far */
+  Dawn: 18,
+  /** a = stray index */
+  StrayHit: 19,
+  /** A drill was aimed at ground with no deposit. */
+  NeedDeposit: 20,
 } as const;
 
 /** Whole game state. Everything the view and UI show is read from here. */
@@ -105,6 +142,24 @@ export interface Sim {
   dead: boolean;
   /** Flat [code, a, b] triples; the main loop clears it after the view and UI have read it. */
   events: number[];
+
+  rng: Rng;
+  /** Item id a drill extracts on each build cell, 0 where there is no deposit. */
+  deposits: Uint8Array;
+  beltOrder: BeltOrder;
+  graph: Graph;
+  host: LogicHost;
+  strays: Strays;
+  /** Entity chosen as the source of the wire being made with the Linker, or 0. */
+  linkFrom: number;
+  /** Nights lived through without dying. */
+  nights: number;
+  /** Set if the player died during the current night. */
+  diedTonight: boolean;
+  /** Callbacks handed to the threat tick; created once so ticking never allocates. */
+  onShot: (turret: number, stray: number) => void;
+  onDown: (stray: number, byTurret: boolean) => void;
+  onBite: () => void;
 }
 
 export function createSim(seed: number): Sim {
@@ -113,11 +168,22 @@ export function createSim(seed: number): Sim {
   // Starting kit salvaged from the drop pod.
   add(inventory, Item.Ration, 2);
   add(inventory, Item.Cell, 1);
-  return {
+  const nodes = generateNodes(world, seed);
+  const deposits = new Uint8Array(WORLD_SIZE * WORLD_SIZE);
+  for (const d of nodes.deposits) {
+    const r = Math.ceil(d.radius);
+    for (let cz = Math.floor(d.z) - r; cz <= Math.floor(d.z) + r; cz++) {
+      for (let cx = Math.floor(d.x) - r; cx <= Math.floor(d.x) + r; cx++) {
+        if (!inBounds(cx, cz)) continue;
+        if (Math.hypot(cx + 0.5 - d.x, cz + 0.5 - d.z) <= d.radius) deposits[cz * WORLD_SIZE + cx] = d.item;
+      }
+    }
+  }
+  const sim: Sim = {
     seed,
     tick: 0,
     world,
-    nodes: generateNodes(world, seed),
+    nodes,
     entities: createEntities(),
     player: createPlayer(world),
     inventory,
@@ -131,7 +197,90 @@ export function createSim(seed: number): Sim {
     sprinting: false,
     dead: false,
     events: [],
+    rng: new Rng(seed ^ 0xa11ce),
+    deposits,
+    beltOrder: createBeltOrder(),
+    graph: createGraph(),
+    host: { sense: () => {}, drive: () => {} },
+    strays: createStrays(),
+    linkFrom: 0,
+    nights: 0,
+    diedTonight: false,
+    onShot: (turret, stray) => emit(sim, Ev.Shot, turret, stray),
+    onDown: (stray, byTurret) => {
+      emit(sim, Ev.StrayDown, stray, byTurret ? 1 : 0);
+      // Wrecks near the player sometimes leave a usable circuit behind.
+      const st = sim.strays;
+      const near = Math.hypot(st.x[stray] - sim.player.x, st.z[stray] - sim.player.z) < 15;
+      if (near && sim.rng.next() < 0.5 && add(sim.inventory, Item.Circuit, 1) === 0) emit(sim, Ev.Gather, Item.Circuit, 1);
+    },
+    onBite: () => emit(sim, Ev.Bite),
   };
+  sim.host = createHost(sim);
+  return sim;
+}
+
+/** Connects Device nodes in the logic graph to the entities they stand for. */
+function createHost(sim: Sim): LogicHost {
+  const es = sim.entities;
+  const g = sim.graph;
+  return {
+    sense(entity, node, out, base) {
+      if (es.kind[entity] !== EntityKind.Sensor) {
+        out[base] = es.active[entity];
+        return;
+      }
+      // Proximity sensor: nearest stray, or the player unless set to strays only.
+      const x = es.cx[entity] + 0.5;
+      const z = es.cz[entity] + 0.5;
+      const range = g.param[node * 2] || SENSOR_RANGE;
+      let best = range;
+      const st = sim.strays;
+      for (let i = 0; i < MAX_STRAYS; i++) {
+        if (!st.alive[i]) continue;
+        const d = Math.hypot(st.x[i] - x, st.z[i] - z);
+        if (d < best) best = d;
+      }
+      if (g.param[node * 2 + 1] === 0 && !sim.dead) {
+        const d = Math.hypot(sim.player.x - x, sim.player.z - z);
+        if (d < best) best = d;
+      }
+      const seen = best < range;
+      out[base] = seen ? 1 : 0;
+      out[base + 1] = seen ? Math.round(best * 10) : 0;
+      es.active[entity] = seen ? 1 : 0;
+    },
+    drive(entity, node) {
+      const def = ENTITY_DEFS[es.kind[entity]];
+      if (def.ins.length === 0) return;
+      // Machines and belts run unless a wire says otherwise; turrets and lamps need a signal.
+      es.enabled[entity] = inputWired(g, node, 0) ? (inputValue(g, node, 0) > 0 ? 1 : 0) : needsSignal(es.kind[entity]) ? 0 : 1;
+    },
+  };
+}
+
+function needsSignal(kind: number): boolean {
+  return kind === EntityKind.Turret || kind === EntityKind.Lamp;
+}
+
+/** Gives an entity a node in the logic graph if it has none. Returns the node id, or 0 if the graph is full. */
+export function ensureNode(sim: Sim, entity: number): number {
+  const es = sim.entities;
+  if (es.node[entity] !== 0) return es.node[entity];
+  const g = sim.graph;
+  const id = addNode(g, NodeType.Device, entity);
+  if (id === 0) return 0;
+  // Lay new devices out on the circuit board in rows of five.
+  g.bx[id] = ((id - 1) % 5) * 150;
+  g.by[id] = Math.floor((id - 1) / 5) * 110;
+  if (es.kind[entity] === EntityKind.Sensor) g.param[id * 2] = SENSOR_RANGE;
+  es.node[entity] = id;
+  return id;
+}
+
+/** Flips a switch entity. */
+export function toggleSwitch(sim: Sim, entity: number): void {
+  if (sim.entities.kind[entity] === EntityKind.Switch) sim.entities.active[entity] ^= 1;
 }
 
 function emit(sim: Sim, code: number, a = 0, b = 0): void {
@@ -222,7 +371,7 @@ function collide(sim: Sim): void {
       const id = entityAt(es, cx, cz);
       if (id === 0) continue;
       const def = ENTITY_DEFS[es.kind[id]];
-      if (def.heat > 0) continue; // fires are walk-through
+      if (!def.solid) continue;
       if (p.y > es.y[id] + def.height) continue;
       // Closest point on the cell's square to the player.
       const qx = p.x < cx ? cx : p.x > cx + 1 ? cx + 1 : p.x;
@@ -272,10 +421,25 @@ export function updateTarget(sim: Sim): void {
   let px = ox;
   let py = oy;
   let pz = oz;
+  const st = sim.strays;
   for (let d = RAY_STEP; d <= REACH; d += RAY_STEP) {
     px = ox + dx * d;
     py = oy + dy * d;
     pz = oz + dz * d;
+
+    if (st.count > 0) {
+      for (let i = 0; i < MAX_STRAYS; i++) {
+        if (!st.alive[i]) continue;
+        const sx = px - st.x[i];
+        const sy = py - st.y[i];
+        const sz = pz - st.z[i];
+        if (sx * sx + sy * sy + sz * sz < 0.75 * 0.75) {
+          t.type = TargetType.Stray;
+          t.id = i;
+          return;
+        }
+      }
+    }
 
     const cx = Math.floor(px);
     const cz = Math.floor(pz);
@@ -318,13 +482,14 @@ export function updateTarget(sim: Sim): void {
   t.type = TargetType.Ground;
   t.cx = Math.floor(px);
   t.cz = Math.floor(pz);
-  t.buildable = canBuildAt(sim, t.cx, t.cz);
+  t.buildable = canBuildAt(sim, t.cx, t.cz, ITEMS[selectedItem(sim)].places ?? 0);
 }
 
-/** Whether an entity may be placed on a build cell. */
-export function canBuildAt(sim: Sim, cx: number, cz: number): boolean {
+/** Whether an entity (of `kind`, if given) may be placed on a build cell. */
+export function canBuildAt(sim: Sim, cx: number, cz: number, kind = 0): boolean {
   if (!inBounds(cx, cz) || cx < 3 || cz < 3 || cx > WORLD_SIZE - 4 || cz > WORLD_SIZE - 4) return false;
   if (entityAt(sim.entities, cx, cz) !== 0) return false;
+  if (kind === EntityKind.Drill && sim.deposits[cz * WORLD_SIZE + cx] === 0) return false;
 
   const w = sim.world;
   const h0 = heightAt(w, cx, cz);
@@ -366,8 +531,25 @@ export function tickSim(sim: Sim): void {
     sim.actPressed = false;
     return;
   }
+  const wasNight = isNight(sim) || sim.tick % CYCLE_TICKS === 0;
   tickActions(sim);
+  tickMachines(sim);
+  if (sim.tick % 2 === 0) stepGraph(sim.graph, sim.host);
+  tickThreat(sim, wasNight);
   tickVitals(sim);
+}
+
+/** Runs the strays and turrets, and announces dusk and dawn. */
+function tickThreat(sim: Sim, wasNight: boolean): void {
+  const phase = sim.tick % CYCLE_TICKS;
+  const night = phase >= DAY_TICKS;
+  if (phase === DAY_TICKS - DUSK_WARNING_TICKS) emit(sim, Ev.Dusk);
+  if (phase === DAY_TICKS) sim.diedTonight = false;
+  if (phase === 0 && wasNight && sim.tick > 0) {
+    if (!sim.diedTonight) sim.nights++;
+    emit(sim, Ev.Dawn, sim.nights, sim.diedTonight ? 0 : 1);
+  }
+  tickStrays(sim, night, Math.floor(sim.tick / CYCLE_TICKS), sim.onShot, sim.onDown, sim.onBite);
 }
 
 function tickActions(sim: Sim): void {
@@ -381,16 +563,29 @@ function tickActions(sim: Sim): void {
   if (def.kind === 'kit' && def.places && sim.target.type !== TargetType.Entity) {
     resetWork(sim);
     const { cx, cz } = sim.target;
-    if (pressed && sim.target.type === TargetType.Ground && canBuildAt(sim, cx, cz)) {
-      const y = heightAt(sim.world, cx + 0.5, cz + 0.5);
-      const id = placeEntity(sim.entities, def.places, cx, cz, sim.buildRot, y);
-      if (id !== 0) {
-        removeFromSlot(inv, sim.selected, 1);
-        emit(sim, Ev.Placed, id, def.places);
+    if (pressed && sim.target.type === TargetType.Ground) {
+      if (canBuildAt(sim, cx, cz, def.places)) {
+        const y = heightAt(sim.world, cx + 0.5, cz + 0.5);
+        const id = placeEntity(sim.entities, def.places, cx, cz, sim.buildRot, y);
+        if (id !== 0) {
+          if (needsSignal(def.places)) sim.entities.enabled[id] = 0;
+          if (ENTITY_DEFS[def.places].autoNode) ensureNode(sim, id);
+          removeFromSlot(inv, sim.selected, 1);
+          emit(sim, Ev.Placed, id, def.places);
+        }
+      } else if (def.places === EntityKind.Drill && canBuildAt(sim, cx, cz)) {
+        emit(sim, Ev.NeedDeposit);
       }
     }
     return;
   }
+
+  if (def.kind === 'linker') {
+    resetWork(sim);
+    if (pressed) tickLinker(sim);
+    return;
+  }
+  sim.linkFrom = 0;
 
   if (def.kind === 'consumable' && def.use) {
     resetWork(sim);
@@ -425,6 +620,18 @@ function tickActions(sim: Sim): void {
   if (t.type === TargetType.Node && sim.nodes.hp[t.id] === 0) {
     w.progress = 0;
     w.need = 0;
+  } else if (t.type === TargetType.Stray) {
+    if (!sim.strays.alive[t.id]) {
+      w.progress = 0;
+      w.need = 0;
+    } else {
+      w.need = HIT_TICKS;
+      if (++w.progress >= w.need) {
+        w.progress = 0;
+        emit(sim, Ev.StrayHit, t.id);
+        if (damageStray(sim, t.id, def.tool ? HIT_DAMAGE_TOOL : HIT_DAMAGE_HAND)) sim.onDown(t.id, false);
+      }
+    }
   } else if (t.type === TargetType.Entity && sim.entities.kind[t.id] === 0) {
     w.progress = 0;
     w.need = 0;
@@ -497,13 +704,72 @@ function dismantle(sim: Sim, id: number): void {
       }
     }
   }
+  if (kind === EntityKind.Belt) {
+    for (let s = id * BELT_SLOTS; s < (id + 1) * BELT_SLOTS; s++) {
+      if (es.belt[s] === 0) continue;
+      if (add(inv, es.belt[s], 1) > 0) {
+        warnOnce(sim, Ev.BagFull);
+        return;
+      }
+      es.belt[s] = 0;
+    }
+  }
   if (space(inv, def.kit) === 0) {
     warnOnce(sim, Ev.BagFull);
     return;
   }
   add(inv, def.kit, 1);
+  if (es.node[id] !== 0) removeNode(sim.graph, es.node[id]);
+  if (sim.linkFrom === id) sim.linkFrom = 0;
   removeEntity(es, id);
   emit(sim, Ev.Removed, id, kind);
+}
+
+/**
+ * One press of the Linker. The first press on something that can send a signal
+ * picks it as the source; the second press on something that can receive one
+ * wires them together, or unwires them if they already were.
+ */
+function tickLinker(sim: Sim): void {
+  const t = sim.target;
+  const es = sim.entities;
+  if (t.type !== TargetType.Entity) {
+    sim.linkFrom = 0;
+    return;
+  }
+  const def = ENTITY_DEFS[es.kind[t.id]];
+  if (sim.linkFrom === 0 || es.kind[sim.linkFrom] === 0) {
+    if (def.outs.length === 0) {
+      emit(sim, Ev.LinkBad, def.ins.length > 0 ? 1 : 0);
+      return;
+    }
+    sim.linkFrom = t.id;
+    emit(sim, Ev.LinkStart, t.id);
+    return;
+  }
+  const from = sim.linkFrom;
+  sim.linkFrom = 0;
+  if (from === t.id) return;
+  if (def.ins.length === 0) {
+    emit(sim, Ev.LinkBad, 2);
+    return;
+  }
+  const a = ensureNode(sim, from);
+  const b = ensureNode(sim, t.id);
+  if (a === 0 || b === 0) {
+    emit(sim, Ev.LinkBad, 3);
+    return;
+  }
+  const g = sim.graph;
+  const existing = findWire(g, a, 0, b, 0);
+  if (existing >= 0) {
+    removeWireAt(g, existing);
+    emit(sim, Ev.Unlinked, from, t.id);
+  } else if (addWire(g, a, 0, b, 0)) {
+    emit(sim, Ev.Linked, from, t.id);
+  } else {
+    emit(sim, Ev.LinkBad, 3);
+  }
 }
 
 /** True when the player stands within the heat radius of a fire or running machine. */
@@ -511,8 +777,9 @@ export function nearHeat(sim: Sim): boolean {
   const es = sim.entities;
   const p = sim.player;
   for (let id = 1; id < es.high; id++) {
-    const heat = ENTITY_DEFS[es.kind[id]].heat;
-    if (heat === 0) continue;
+    const def = ENTITY_DEFS[es.kind[id]];
+    const heat = def.heat;
+    if (heat === 0 || (!def.alwaysHot && !es.active[id])) continue;
     const dx = es.cx[id] + 0.5 - p.x;
     const dz = es.cz[id] + 0.5 - p.z;
     if (dx * dx + dz * dz < heat * heat) return true;
@@ -546,6 +813,7 @@ function tickVitals(sim: Sim): void {
   if (v.health <= 0) {
     v.health = 0;
     sim.dead = true;
+    sim.diedTonight = true;
     resetWork(sim);
     emit(sim, Ev.Died);
   }

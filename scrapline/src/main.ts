@@ -93,7 +93,7 @@ function frame(now: number): void {
   if (ticks === MAX_TICKS_PER_FRAME) acc = 0;
   const tickMs = ticks ? (performance.now() - t0) / ticks : 0;
 
-  view.sync(sim, dt, now / 1000);
+  view.sync(sim, dt, now / 1000, acc / TICK_DT);
   view.render(frameMs);
   hud.sync(sim);
   sheet.sync();

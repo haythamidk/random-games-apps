@@ -282,6 +282,7 @@ describe('vitals and day cycle', () => {
     expect(daylight(sim)).toBe(1);
 
     sim.tick = DAY_TICKS + 700;
+    sim.strays.spawned = 99; // keep the night's strays out of a warmth test
     sim.vitals.warmth = VITAL_MAX;
     expect(isNight(sim)).toBe(true);
     expect(daylight(sim)).toBe(0);

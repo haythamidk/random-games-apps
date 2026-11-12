@@ -1,7 +1,7 @@
 /** Item ids are u16; 0 always means "empty slot". */
 export type ItemId = number;
 
-export type ItemKind = 'resource' | 'part' | 'tool' | 'kit' | 'consumable';
+export type ItemKind = 'resource' | 'part' | 'tool' | 'kit' | 'consumable' | 'linker';
 
 export interface ItemDef {
   id: ItemId;
@@ -39,6 +39,14 @@ export const Item = {
   KitCrate: 13,
   KitWall: 14,
   KitCampfire: 15,
+  KitSmelter: 16,
+  KitDrill: 17,
+  KitBelt: 18,
+  KitSensor: 19,
+  KitTurret: 20,
+  KitLamp: 21,
+  KitSwitch: 22,
+  Linker: 23,
 } as const;
 
 const defs: ItemDef[] = [
@@ -59,6 +67,14 @@ const defs: ItemDef[] = [
   { id: Item.KitCrate, key: 'kit_crate', name: 'Crate Kit', stack: 10, kind: 'kit', places: 2 },
   { id: Item.KitWall, key: 'kit_wall', name: 'Wall Kit', stack: 30, kind: 'kit', places: 3 },
   { id: Item.KitCampfire, key: 'kit_campfire', name: 'Campfire Kit', stack: 5, kind: 'kit', places: 4 },
+  { id: Item.KitSmelter, key: 'kit_smelter', name: 'Smelter Kit', stack: 5, kind: 'kit', places: 5 },
+  { id: Item.KitDrill, key: 'kit_drill', name: 'Drill Kit', stack: 5, kind: 'kit', places: 6 },
+  { id: Item.KitBelt, key: 'kit_belt', name: 'Belt Kit', stack: 50, kind: 'kit', places: 7 },
+  { id: Item.KitSensor, key: 'kit_sensor', name: 'Sensor Kit', stack: 10, kind: 'kit', places: 8 },
+  { id: Item.KitTurret, key: 'kit_turret', name: 'Turret Kit', stack: 5, kind: 'kit', places: 9 },
+  { id: Item.KitLamp, key: 'kit_lamp', name: 'Lamp Kit', stack: 10, kind: 'kit', places: 10 },
+  { id: Item.KitSwitch, key: 'kit_switch', name: 'Switch Kit', stack: 10, kind: 'kit', places: 11 },
+  { id: Item.Linker, key: 'linker', name: 'Linker', stack: 1, kind: 'linker' },
 ];
 
 /** Item definitions indexed by id. */

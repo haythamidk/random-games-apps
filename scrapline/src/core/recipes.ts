@@ -18,6 +18,16 @@ const list: Omit<Recipe, 'id'>[] = [
   { station: 'hand', inputs: [[Item.Wood, 8], [Item.Stone, 4]], output: [Item.KitWorkbench, 1] },
   { station: 'workbench', inputs: [[Item.Wood, 6]], output: [Item.KitCrate, 1] },
   { station: 'workbench', inputs: [[Item.Stone, 4], [Item.Wood, 1]], output: [Item.KitWall, 2] },
+  { station: 'workbench', inputs: [[Item.Stone, 12]], output: [Item.KitSmelter, 1] },
+  { station: 'workbench', inputs: [[Item.IronIngot, 2]], output: [Item.Gear, 1] },
+  { station: 'workbench', inputs: [[Item.IronIngot, 1], [Item.Coal, 1]], output: [Item.Circuit, 1] },
+  { station: 'workbench', inputs: [[Item.IronIngot, 1], [Item.Gear, 1]], output: [Item.KitBelt, 4] },
+  { station: 'workbench', inputs: [[Item.IronIngot, 4], [Item.Gear, 2]], output: [Item.KitDrill, 1] },
+  { station: 'workbench', inputs: [[Item.Circuit, 1], [Item.Wood, 1]], output: [Item.Linker, 1] },
+  { station: 'workbench', inputs: [[Item.Circuit, 1], [Item.IronIngot, 1]], output: [Item.KitSensor, 1] },
+  { station: 'workbench', inputs: [[Item.Circuit, 1]], output: [Item.KitSwitch, 1] },
+  { station: 'workbench', inputs: [[Item.IronIngot, 1], [Item.Coal, 1]], output: [Item.KitLamp, 1] },
+  { station: 'workbench', inputs: [[Item.Circuit, 2], [Item.IronIngot, 4], [Item.Gear, 2]], output: [Item.KitTurret, 1] },
 ];
 
 export const RECIPES: readonly Recipe[] = list.map((r, id) => ({ ...r, id }));

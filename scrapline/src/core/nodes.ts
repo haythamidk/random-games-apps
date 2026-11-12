@@ -44,6 +44,15 @@ export interface Nodes {
   hp: Uint8Array;
   /** Node ids per spatial bucket, row-major. Built once; depleted nodes stay listed. */
   buckets: Uint16Array[];
+  /** Ground patches a drill can extract from without ever running dry. */
+  deposits: Deposit[];
+}
+
+export interface Deposit {
+  x: number;
+  z: number;
+  radius: number;
+  item: ItemId;
 }
 
 export function bucketIndex(x: number, z: number): number {
@@ -105,6 +114,22 @@ export function generateNodes(world: World, seed: number): Nodes {
     kinds.push(kind);
   }
 
+  // Two deposits within a short walk of spawn, each ringed by a few hand-minable
+  // nodes of the same resource, so the first factory has somewhere to go.
+  const deposits: Deposit[] = [
+    { x: half + 24.5, z: half - 16.5, radius: 3.2, item: Item.IronOre },
+    { x: half - 22.5, z: half + 20.5, radius: 3.2, item: Item.Coal },
+  ];
+  for (const d of deposits) {
+    const kind = d.item === Item.IronOre ? NodeKind.Ore : NodeKind.Coal;
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + 0.4;
+      xs.push(d.x + Math.cos(a) * (d.radius + 2.2));
+      zs.push(d.z + Math.sin(a) * (d.radius + 2.2));
+      kinds.push(kind);
+    }
+  }
+
   for (const s of SCATTER) {
     for (let c = 0; c < s.clusters; c++) {
       let cx = 0;
@@ -116,6 +141,10 @@ export function generateNodes(world: World, seed: number): Nodes {
         ok = Math.hypot(cx - half, cz - half) >= s.minFromSpawn && slopeAt(world, cx, cz) < 0.5;
       }
       if (!ok) continue;
+      // Every other ore and coal cluster sits beside a deposit of its own.
+      if ((s.kind === NodeKind.Ore || s.kind === NodeKind.Coal) && c % 2 === 0) {
+        deposits.push({ x: Math.floor(cx) + 0.5, z: Math.floor(cz) + 0.5, radius: 2.6, item: s.kind === NodeKind.Ore ? Item.IronOre : Item.Coal });
+      }
       for (let n = 0; n < s.perCluster; n++) {
         for (let tries = 0; tries < 12; tries++) {
           const a = rng.range(0, Math.PI * 2);
@@ -125,6 +154,7 @@ export function generateNodes(world: World, seed: number): Nodes {
           if (slopeAt(world, x, z) > 0.55) continue;
           if (Math.hypot(x - half, z - half) < 6) continue;
           if (tooClose(x, z, 2.4)) continue;
+          if (deposits.some((d) => Math.hypot(d.x - x, d.z - z) < d.radius + 0.4)) continue;
           xs.push(x);
           zs.push(z);
           kinds.push(s.kind);
@@ -145,6 +175,7 @@ export function generateNodes(world: World, seed: number): Nodes {
     rot: new Float32Array(count),
     hp: new Uint8Array(count),
     buckets: [],
+    deposits,
   };
   const lists: number[][] = [];
   for (let i = 0; i < BUCKETS_PER_SIDE * BUCKETS_PER_SIDE; i++) lists.push([]);

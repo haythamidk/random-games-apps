@@ -74,7 +74,7 @@ export class View {
     this.sun.position.set(-0.55, 0.75, 0.35);
     this.scene.add(this.sun);
 
-    this.terrain = buildTerrain(sim.world);
+    this.terrain = buildTerrain(sim.world, sim.nodes.deposits);
     this.scene.add(this.terrain.group);
 
     this.world = new WorldView(sim, this.terrain.material);
@@ -99,11 +99,11 @@ export class View {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Copies sim state into scene objects. `dt` and `time` are in seconds. */
-  sync(sim: Sim, dt: number, time: number): void {
+  /** Copies sim state into scene objects. `dt` and `time` are in seconds; `alpha` is progress through the current tick. */
+  sync(sim: Sim, dt: number, time: number, alpha: number): void {
     const p = sim.player;
     const light = daylight(sim);
-    this.world.sync(sim, dt, time, light);
+    this.world.sync(sim, dt, time, light, alpha);
     this.syncDaylight(light);
 
     this.camera.position.set(p.x, p.y + EYE_HEIGHT, p.z);
