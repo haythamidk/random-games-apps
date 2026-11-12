@@ -920,13 +920,35 @@ button {
   color: var(--bone);
 }
 
-/* ---------- Debug ---------- */
+/* ---------- Next-step guide ---------- */
 
-.debug {
+.guide {
   position: absolute;
   top: calc(10px + var(--safe-t));
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: min(46vw, 420px);
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none !important;
+}
+
+.guide:empty {
+  display: none;
+}
+
+/* ---------- Debug ---------- */
+
+.debug {
+  position: absolute;
+  top: calc(118px + var(--safe-t));
+  left: calc(14px + var(--safe-l));
   margin: 0;
   padding: 6px 10px;
   border-radius: 8px;
@@ -945,9 +967,8 @@ button {
 /* Portrait stays playable; the hint only suggests turning the phone. */
 #rotate-hint {
   position: fixed;
-  left: 50%;
-  top: calc(116px + var(--safe-t));
-  transform: translateX(-50%);
+  top: calc(66px + var(--safe-t));
+  right: calc(14px + var(--safe-r));
   display: none;
   padding: 5px 12px;
   border-radius: 999px;
@@ -977,6 +998,11 @@ button {
   .btn-ctx {
     bottom: calc(252px + var(--safe-b));
     right: calc(14px + var(--safe-r));
+  }
+
+  .guide {
+    top: calc(148px + var(--safe-t));
+    max-width: 88vw;
   }
 
   .toast {

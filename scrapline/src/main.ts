@@ -4,6 +4,7 @@ import { Sim, TICK_DT, createSim, respawn, stepPlayer, tickSim, toggleSwitch } f
 import { TouchInput } from './input/touch';
 import { Board } from './ui/board';
 import { DebugOverlay } from './ui/debug';
+import { Guide } from './ui/guide';
 import { Hud } from './ui/hud';
 import { Menu } from './ui/menu';
 import { InventorySheet } from './ui/sheet';
@@ -54,6 +55,7 @@ const hud = new Hud(uiRoot, sim, input, {
   },
   respawn: () => respawn(sim),
 });
+const guide = new Guide(uiRoot);
 const board = new Board(uiRoot, sim);
 const debug = new DebugOverlay(uiRoot);
 input.onThreeFingerTap = () => debug.toggle();
@@ -100,6 +102,7 @@ function frame(now: number): void {
   view.sync(sim, dt, now / 1000, acc / TICK_DT);
   view.render(frameMs);
   hud.sync(sim);
+  guide.sync(sim);
   sheet.sync();
   board.draw();
   sim.events.length = 0;
