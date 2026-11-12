@@ -1,0 +1,41 @@
+name: Scrapline native APK
+
+on:
+  push:
+    paths:
+      - 'scrapline-native/**'
+      - '.github/workflows/scrapline-native-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scrapline-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Simulation tests
+        run: gradle :core:test
+
+      - name: Assemble debug APK
+        run: gradle :android:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scrapline-native-debug-apk
+          path: scrapline-native/android/build/outputs/apk/debug/android-debug.apk
+          if-no-files-found: error
