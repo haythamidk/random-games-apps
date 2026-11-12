@@ -15,7 +15,7 @@ const VITAL_GLYPHS = {
 type VitalKey = keyof typeof VITAL_GLYPHS;
 const VITAL_KEYS: VitalKey[] = ['health', 'charge', 'warmth'];
 
-export type ContextAction = '' | 'rotate' | 'craft' | 'open';
+export type ContextAction = '' | 'rotate' | 'craft' | 'open' | 'toggle' | 'circuit';
 
 export interface HudCallbacks {
   openBag(): void;
@@ -24,7 +24,11 @@ export interface HudCallbacks {
   respawn(): void;
 }
 
-const CONTEXT_LABEL: Record<ContextAction, string> = { '': '', rotate: 'Rotate', craft: 'Use', open: 'Open' };
+const CONTEXT_LABEL: Record<ContextAction, string> = {
+  '': '', rotate: 'Rotate', craft: 'Use', open: 'Open', toggle: 'Flip', circuit: 'Circuit',
+};
+
+const LINK_BAD = ['That cannot be wired', 'That only receives signals. Start from a sensor or switch', 'That only sends signals. Pick something to drive', 'The circuit is full'];
 
 /** Always-on overlay: vitals, clock, reticle target, hotbar and the thumb buttons. */
 export class Hud {
@@ -49,6 +53,9 @@ export class Hud {
   private ctxAction: ContextAction = '';
   private death: HTMLElement;
   private shownDead = false;
+  private dawn: HTMLElement;
+  private dawnBody: HTMLElement;
+  private hurt: HTMLElement;
 
   constructor(root: HTMLElement, private sim: Sim, input: TouchInput, cb: HudCallbacks) {
     const vitals = el('div', 'vitals');
@@ -141,6 +148,29 @@ export class Hud {
     card.append(h, body, again);
     this.death.appendChild(card);
     root.appendChild(this.death);
+
+    this.dawn = el('div', 'death');
+    this.dawn.hidden = true;
+    const dawnCard = el('div', 'death-card');
+    const dawnTitle = el('div', 'death-title');
+    dawnTitle.textContent = 'You held the night';
+    this.dawnBody = el('div', 'death-body');
+    const onward = document.createElement('button');
+    onward.type = 'button';
+    onward.className = 'primary';
+    onward.textContent = 'Keep building';
+    onward.addEventListener('click', () => (this.dawn.hidden = true));
+    dawnCard.append(dawnTitle, this.dawnBody, onward);
+    this.dawn.appendChild(dawnCard);
+    root.appendChild(this.dawn);
+
+    this.hurt = el('div', 'hurt');
+    root.appendChild(this.hurt);
+  }
+
+  /** True while a card that needs an answer is covering the screen. */
+  get blocking(): boolean {
+    return !this.dawn.hidden;
   }
 
   select(i: number): void {
@@ -149,7 +179,8 @@ export class Hud {
     if (inv.counts[i] > 0) {
       const def = itemDef(inv.ids[i]);
       const hint = def.kind === 'kit' ? ' · aim at the ground and press the action button'
-        : def.kind === 'consumable' ? ' · press the action button to use' : '';
+        : def.kind === 'consumable' ? ' · press the action button to use'
+        : def.kind === 'linker' ? ' · press on a sensor or switch, then on what it should drive' : '';
       this.showToast(def.name + hint);
     }
   }
@@ -159,6 +190,18 @@ export class Hud {
     this.toast.classList.add('on');
     window.clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => this.toast.classList.remove('on'), 1800);
+  }
+
+  private entityName(id: number): string {
+    return ENTITY_DEFS[this.sim.entities.kind[id]].name || 'it';
+  }
+
+  /** Brief red edge when the player is hit. */
+  private flashHurt(): void {
+    this.hurt.classList.remove('on');
+    // Reading layout restarts the CSS animation when hits come close together.
+    void this.hurt.offsetWidth;
+    this.hurt.classList.add('on');
   }
 
   /** Running "+3 Deadwood" tally that merges repeated pickups of one item. */
@@ -187,6 +230,21 @@ export class Hud {
       else if (code === Ev.NeedTool) this.showToast(`${NODE_DEFS[ev[i + 1]].name} needs a pick`);
       else if (code === Ev.Used) this.showToast(`Used ${itemDef(ev[i + 1]).name}`);
       else if (code === Ev.Removed) this.showToast(`Packed up ${ENTITY_DEFS[ev[i + 2]].name}`);
+      else if (code === Ev.LinkStart) this.showToast(`From ${this.entityName(ev[i + 1])}. Now press on what it should drive`);
+      else if (code === Ev.Linked) this.showToast(`${this.entityName(ev[i + 1])} now drives ${this.entityName(ev[i + 2])}`);
+      else if (code === Ev.Unlinked) this.showToast(`Unwired ${this.entityName(ev[i + 1])} from ${this.entityName(ev[i + 2])}`);
+      else if (code === Ev.LinkBad) this.showToast(LINK_BAD[ev[i + 1]] ?? LINK_BAD[0]);
+      else if (code === Ev.NeedDeposit) this.showToast('Drills only work on stained ground: an ore or coal deposit');
+      else if (code === Ev.Dusk) this.showToast('One minute to nightfall. Strays wake in the dark');
+      else if (code === Ev.StrayDown && ev[i + 2] === 1) this.showToast('Turret took down a stray');
+      else if (code === Ev.Bite) this.flashHurt();
+      else if (code === Ev.Dawn && ev[i + 2] === 1) {
+        const n = ev[i + 1];
+        this.dawnBody.textContent = n === 1
+          ? 'First night survived. The strays shut down at sunrise. The next night brings more of them.'
+          : `${n} nights survived. Each one brings more strays than the last.`;
+        this.dawn.hidden = false;
+      }
     }
 
     for (const key of VITAL_KEYS) {
@@ -228,7 +286,8 @@ export class Hud {
 
     let action: ContextAction = '';
     const held = ITEMS[selectedItem(sim)];
-    if (held.kind === 'kit') action = 'rotate';
+    if (held.kind === 'linker') action = 'circuit';
+    else if (held.kind === 'kit') action = 'rotate';
     else if (sim.target.type === TargetType.Entity) action = ENTITY_DEFS[sim.entities.kind[sim.target.id]].use;
     if (action !== this.ctxAction) {
       this.ctxAction = action;

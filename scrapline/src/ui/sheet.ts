@@ -1,6 +1,7 @@
 import { ENTITY_DEFS } from '../core/entities';
 import { Container, count, moveSlot } from '../core/inventory';
 import { itemDef } from '../core/items';
+import { machineStatus } from '../core/machines';
 import { Recipe, Station, craft, hasInputs, recipesFor } from '../core/recipes';
 import { HOTBAR_SIZE, INVENTORY_SIZE, Sim } from '../core/sim';
 import { iconSvg } from './icons';
@@ -31,6 +32,9 @@ export class InventorySheet {
   private bagSlots: SlotView[] = [];
   private storeSlots: SlotView[] = [];
   private store: Container | null = null;
+  private storeEntity = 0;
+  private machineLine: HTMLElement | null = null;
+  private shownMachine = '';
   private rows: RecipeRow[] = [];
   private heldFrom: Container | null = null;
   private heldSlot = -1;
@@ -90,6 +94,9 @@ export class InventorySheet {
     this.rows = [];
     this.storeSlots = [];
     this.store = null;
+    this.storeEntity = 0;
+    this.machineLine = null;
+    this.shownMachine = '';
 
     if (mode.kind === 'craft') {
       this.title.textContent = mode.station === 'workbench' ? 'Workbench' : 'Bag';
@@ -97,6 +104,7 @@ export class InventorySheet {
     } else {
       const es = this.sim.entities;
       this.store = es.containers[mode.entityId];
+      this.storeEntity = mode.entityId;
       this.title.textContent = ENTITY_DEFS[es.kind[mode.entityId]].name;
       this.buildStorage();
     }
@@ -114,7 +122,21 @@ export class InventorySheet {
     if (!this.isOpen) return;
     const inv = this.sim.inventory;
     for (const slot of this.bagSlots) slot.sync(inv);
-    if (this.store) for (const slot of this.storeSlots) slot.sync(this.store);
+    if (this.store) {
+      // The machine or crate may have been packed up by something else while open.
+      if (this.sim.entities.containers[this.storeEntity] !== this.store) {
+        this.close();
+        return;
+      }
+      for (const slot of this.storeSlots) slot.sync(this.store);
+      if (this.machineLine) {
+        const text = machineStatus(this.sim, this.storeEntity);
+        if (text !== this.shownMachine) {
+          this.machineLine.textContent = text;
+          this.shownMachine = text;
+        }
+      }
+    }
     for (const row of this.rows) this.syncRow(row);
     if (this.heldFrom && this.heldFrom.counts[this.heldSlot] === 0) this.drop();
   }
@@ -196,16 +218,32 @@ export class InventorySheet {
 
   private buildStorage(): void {
     if (!this.store) return;
+    const names = ENTITY_DEFS[this.sim.entities.kind[this.storeEntity]].slotNames;
     const label = div('pane-label');
-    label.textContent = 'Stored here';
-    const grid = div('slot-grid store-grid');
+    label.textContent = names ? 'Inside the machine' : 'Stored here';
+    const grid = div(names ? 'slot-grid machine-grid' : 'slot-grid store-grid');
     for (let i = 0; i < this.store.size; i++) {
       const slot = new SlotView(i);
       this.bindSlot(slot, () => this.store!);
-      grid.appendChild(slot.el);
       this.storeSlots.push(slot);
+      if (names) {
+        // Machines label each slot so it is clear what goes where.
+        const cell = div('machine-slot');
+        const name = div('machine-slot-name');
+        name.textContent = names[i] ?? '';
+        cell.append(slot.el, name);
+        grid.appendChild(cell);
+      } else {
+        grid.appendChild(slot.el);
+      }
     }
     this.left.append(label, grid);
+    if (names) {
+      this.machineLine = div('machine-status');
+      const tip = div('machine-tip');
+      tip.textContent = 'It pushes finished items onto a belt placed in front of it. Belts pointing into it feed it.';
+      this.left.append(this.machineLine, tip);
+    }
   }
 
   // ---------------------------------------------------------------- tap to move

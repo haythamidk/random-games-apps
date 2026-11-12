@@ -178,6 +178,8 @@ Common state per machine: `kind`, `recipe`, `progress`, `enabled` (driven by log
 | Crate | 16-slot container; accepts from belts, feeds belts |
 | Generator | Burns coal, provides Charge aura and heat |
 
+As built for the slice: drill, smelter, crate and belts. A drill must stand on a deposit (ground stained rust for ore, black for coal) and never runs dry. Machines push finished items into a belt in front of them; belts pointing into a smelter or crate feed it. The assembler and generator are deferred.
+
 Every machine exposes an `enabled` logic input and a `busy`/`full` logic output so it can participate in the wiring system without special cases.
 
 ---
@@ -255,6 +257,15 @@ Two entry points, same graph underneath.
 - **Palette**: bottom sheet with logic nodes; tap to drop at screen centre.
 - **Inspector**: tapping a node's gear opens a sheet with its one or two parameters as steppers and sliders, never text entry.
 - Undo/redo stack of 32 edits. Edits apply to the live graph immediately; there is no compile step.
+
+### 5.4.1 As built
+
+- The Link tool is an item, the **Linker**. Press the action button on a source, then on a target: the two are wired on their first ports, or unwired if they already were. While it is in hand, direct device-to-device wires are drawn as lines in the world and the context button opens the circuit board.
+- The board is one shared canvas for the whole base. Sensors, switches, lamps and turrets appear on it as soon as they are placed; machines and belts appear once they are wired or the board is opened while aiming at them.
+- A device wired straight to another acts in the same logic tick; every logic node in between adds one tick (100 ms).
+- Machines and belts run unless a wire tells them not to. Turrets and lamps do nothing until a wire tells them to.
+- A proximity sensor reports `seen` and `range` (distance in decimetres). Its radius and whether it reacts to the player are set on the board.
+- Not built yet: undo, Counter / Compare / Latch nodes (a latch can already be made from two OR nodes in a loop), and drawing wires that pass through logic nodes in the world view.
 
 ### 5.5 MVP node set
 

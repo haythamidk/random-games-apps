@@ -261,7 +261,7 @@ function check(name, ok, detail = '') {
   await page.locator('.btn-ctx').tap();
   await sleep(300);
   const title = await page.locator('.sheet-backdrop.open .sheet-title').innerText();
-  check('workbench opens with bench recipes', title === 'Workbench' && (await page.locator('.recipe').count()) === 6, title);
+  check('workbench opens with bench recipes', title === 'Workbench' && (await page.locator('.recipe').count()) === 16, title);
   await page.locator('.recipe[data-recipe="4"]').tap(); // crate kit
   await page.locator('.recipe[data-recipe="5"]').tap(); // wall kit x2
   check('bench recipes craft', (await countOf(ITEM.KitCrate)) === 1 && (await countOf(ITEM.KitWall)) === 2);
@@ -345,6 +345,288 @@ function check(name, ok, detail = '') {
   check('reset asks for a second tap', /again/i.test(await page.locator('.danger').innerText()));
   await page.locator('.sheet-backdrop.open .sheet-close').tap();
   await sleep(250);
+
+  // ================= Day 3 =================
+  const I = { Wood: 1, Stone: 2, Ore: 3, Coal: 4, Ingot: 5, KitCrate: 13, KitSmelter: 16, KitDrill: 17, KitBelt: 18, KitSensor: 19, KitTurret: 20, KitLamp: 21, KitSwitch: 22, Linker: 23 };
+  /** Empties the bag and fills it so that item k of the list sits in slot k. */
+  const setBag = (items) =>
+    game((items) => {
+      const inv = window.__scrapline.sim.inventory;
+      inv.ids.fill(0);
+      inv.counts.fill(0);
+      items.forEach(([id, n], k) => {
+        inv.ids[k] = id;
+        inv.counts[k] = n;
+      });
+    }, items);
+  const target = () =>
+    game(() => {
+      const t = window.__scrapline.sim.target;
+      return { type: t.type, id: t.id, cx: t.cx, cz: t.cz };
+    });
+  /** Stands south of a build cell and tilts the view until the reticle is on it. */
+  const aimCell = async (cx, cz, wantEntity = false) => {
+    await game(([cx, cz]) => {
+      const p = window.__scrapline.sim.player;
+      p.x = cx + 0.5; p.z = cz + 3.2; p.yaw = 0; p.vx = 0; p.vz = 0;
+    }, [cx, cz]);
+    let lo = -1.25;
+    let hi = -0.15;
+    for (let k = 0; k < 14; k++) {
+      const pitch = (lo + hi) / 2;
+      await game((pitch) => (window.__scrapline.sim.player.pitch = pitch), pitch);
+      await sleep(90);
+      const t = await target();
+      const hit = t.type === 2 || t.type === 3;
+      if (hit && t.cx === cx && t.cz === cz && (t.type === 2) === wantEntity) return true;
+      if (!hit || t.cz < cz) hi = pitch; // looking too far: tilt down
+      else lo = pitch;
+    }
+    return false;
+  };
+  const entityAtCell = (cx, cz) => game(([cx, cz]) => window.__scrapline.sim.entities.grid[cz * 256 + cx], [cx, cz]);
+  const placeAt = async (hotSlot, cx, cz, rot = 0) => {
+    await page.locator('.hotbar .slot').nth(hotSlot).tap();
+    await game((rot) => (window.__scrapline.sim.buildRot = rot), rot);
+    const aimed = await aimCell(cx, cz);
+    await page.locator('.btn-act').tap();
+    await sleep(220);
+    const id = await entityAtCell(cx, cz);
+    return aimed ? id : 0;
+  };
+  const activeOf = (id) => game((id) => window.__scrapline.sim.entities.active[id], id);
+  const toastText = () => page.locator('.toast').innerText();
+
+  // --- 3.1 smelter, hand fed through the machine panel
+  await game(() => (window.__scrapline.sim.vitals.warmth = 1000));
+  await setBag([[I.KitSmelter, 1], [I.Ore, 6], [I.Coal, 3]]);
+  const smelter = await placeAt(0, 124, 133);
+  check('smelter is placed', smelter > 0);
+  await aimCell(124, 133, true);
+  check('context button offers Open on the smelter', (await page.locator('.btn-ctx').innerText()) === 'Open');
+  await page.locator('.btn-ctx').tap();
+  await sleep(300);
+  const slotNames = await page.locator('.machine-slot-name').allInnerTexts();
+  check('machine panel labels its slots', slotNames.join(',') === 'Ore,Coal,Out', slotNames.join(','));
+  check('machine panel says what it needs', (await page.locator('.machine-status').innerText()) === 'Needs iron ore');
+  await page.locator('.pane-bag .slot').nth(1).tap();
+  await page.locator('.machine-grid .slot').nth(0).tap();
+  await page.locator('.pane-bag .slot').nth(2).tap();
+  await page.locator('.machine-grid .slot').nth(1).tap();
+  await sleep(600);
+  const smeltStatus = await page.locator('.machine-status').innerText();
+  check('smelter starts once it has ore and coal', /^Smelting/.test(smeltStatus), smeltStatus);
+  await shot('09-smelter.png');
+  await sleep(5200);
+  const ingots = await game((id) => window.__scrapline.sim.entities.containers[id].counts[2], smelter);
+  check('smelter turns ore into ingots', ingots >= 1, `${ingots} ingot(s)`);
+  await page.locator('.sheet-backdrop.open .sheet-close').tap();
+  await sleep(250);
+
+  // --- 3.2 drill -> belts -> crate on the ore deposit
+  const dep = await game(() => {
+    const d = window.__scrapline.sim.nodes.deposits.find((x) => x.item === 3);
+    return { cx: Math.floor(d.x), cz: Math.floor(d.z) };
+  });
+  await setBag([[I.KitDrill, 2], [I.KitBelt, 3], [I.KitCrate, 1]]);
+  await page.locator('.hotbar .slot').nth(0).tap();
+  await aimCell(124, 135);
+  await page.locator('.btn-act').tap();
+  await sleep(250);
+  check('a drill cannot go on plain ground, and says why',
+    (await entityAtCell(124, 135)) === 0 && /deposit/.test(await toastText()), await toastText());
+  // The line runs toward -X (rot 1), away from the ore boulders that ring the deposit.
+  const drill = await placeAt(0, dep.cx, dep.cz, 1);
+  check('drill is placed on the deposit', drill > 0);
+  let belts = 0;
+  for (let k = 1; k <= 3; k++) if (await placeAt(1, dep.cx - k, dep.cz, 1)) belts++;
+  const lineCrate = await placeAt(2, dep.cx - 4, dep.cz);
+  check('belts and crate are placed in a line', belts === 3 && lineCrate > 0, `${belts} belts`);
+  await sleep(6500);
+  await shot('10-belts.png');
+  const delivered = await game((id) => {
+    const c = window.__scrapline.sim.entities.containers[id];
+    let n = 0;
+    for (let i = 0; i < c.size; i++) if (c.ids[i] === 3) n += c.counts[i];
+    return n;
+  }, lineCrate);
+  check('drill, belts and crate run unattended', delivered >= 1, `${delivered} ore delivered`);
+
+  // --- 3.4 Linker: switch -> lamp in the world
+  await setBag([[I.KitSwitch, 1], [I.KitLamp, 1], [I.Linker, 1], [I.KitSensor, 1], [I.KitTurret, 1]]);
+  const sw = await placeAt(0, 126, 133);
+  const lamp = await placeAt(1, 128, 133);
+  check('switch and lamp are placed', sw > 0 && lamp > 0);
+  await page.locator('.hotbar .slot').nth(2).tap();
+  await aimCell(126, 133, true);
+  await page.locator('.btn-act').tap();
+  await sleep(200);
+  check('first Linker press picks the source', /^From Switch/.test(await toastText()), await toastText());
+  await aimCell(128, 133, true);
+  await page.locator('.btn-act').tap();
+  await sleep(200);
+  check('second Linker press wires source to target',
+    (await game(() => window.__scrapline.sim.graph.wireCount)) === 1 && /Switch now drives Lamp/.test(await toastText()), await toastText());
+  await page.locator('.hotbar .slot').nth(5).tap(); // empty hand
+  await aimCell(126, 133, true);
+  check('context button offers Flip on the switch', (await page.locator('.btn-ctx').innerText()) === 'Flip');
+  await page.locator('.btn-ctx').tap();
+  await sleep(400);
+  check('flipping the switch lights the lamp', (await activeOf(lamp)) === 1);
+  await game(() => (window.__scrapline.sim.tick = 16800 + 600));
+  await sleep(500);
+  await shot('11-lamp.png');
+  await game(() => (window.__scrapline.sim.tick = 3000));
+
+  // --- 3.5 circuit board: put a NOT between them, by touch
+  await page.locator('.hotbar .slot').nth(2).tap();
+  check('context button offers Circuit with the Linker in hand', (await page.locator('.btn-ctx').innerText()) === 'Circuit');
+  await page.locator('.btn-ctx').tap();
+  await sleep(300);
+  check('circuit board opens', await game(() => window.__scrapline.boardOpen()));
+  const nodeOf = (id) => game((id) => window.__scrapline.sim.entities.node[id], id);
+  const port = (node, p, output) => game(([node, p, output]) => window.__scrapline.port(node, p, output), [node, p, output]);
+  const tapAt = async (pt) => {
+    await page.touchscreen.tap(pt.x, pt.y);
+    await sleep(120);
+  };
+  const swNode = await nodeOf(sw);
+  const lampNode = await nodeOf(lamp);
+  // tap the lamp's input to select the wire into it, then remove that wire
+  await tapAt(await port(lampNode, 0, false));
+  await page.locator('.chip[data-action="remove-wire"]').tap();
+  await sleep(120);
+  check('a wire can be selected and removed', (await game(() => window.__scrapline.sim.graph.wireCount)) === 0);
+  await page.locator('.chip[data-add="4"]').tap(); // + NOT
+  await sleep(150);
+  const notNode = await game(() => {
+    const g = window.__scrapline.sim.graph;
+    for (let n = g.high - 1; n > 0; n--) if (g.type[n] === 4) return n;
+    return 0;
+  });
+  check('palette adds a logic node', notNode > 0);
+  // put the new node to the right of the lamp, clear of the other ports and the toolbars
+  await game(([n, a]) => {
+    const g = window.__scrapline.sim.graph;
+    g.bx[n] = g.bx[a] + 150; g.by[n] = g.by[a];
+  }, [notNode, lampNode]);
+  await sleep(150);
+  // tap-tap wiring: switch.out -> NOT.in
+  await tapAt(await port(swNode, 0, true));
+  const hintMid = await page.locator('.board-hint').innerText();
+  await tapAt(await port(notNode, 0, false));
+  check('tap an output then an input makes a wire', (await game(() => window.__scrapline.sim.graph.wireCount)) === 1 && /tap the input/.test(hintMid), hintMid);
+  // drag wiring: NOT.out -> lamp.in. The wire's end floats 48 px above the finger.
+  const fromPt = await port(notNode, 0, true);
+  const toPt = await port(lampNode, 0, false);
+  await touch('touchStart', [{ x: fromPt.x, y: fromPt.y, id: 9 }]);
+  for (let k = 1; k <= 8; k++) {
+    await touch('touchMove', [{ x: fromPt.x + ((toPt.x - fromPt.x) * k) / 8, y: fromPt.y + ((toPt.y + 48 - fromPt.y) * k) / 8, id: 9 }]);
+    await sleep(20);
+  }
+  await shot('12-board-drag.png');
+  await touch('touchEnd', []);
+  await sleep(200);
+  check('dragging from an output to an input makes a wire', (await game(() => window.__scrapline.sim.graph.wireCount)) === 2);
+  await sleep(500);
+  check('the lamp now does the opposite of the switch', (await activeOf(sw)) === 1 && (await activeOf(lamp)) === 0);
+  // a Delay node: select it and change its setting
+  await page.locator('.chip[data-add="5"]').tap();
+  await sleep(150);
+  const before3 = await page.locator('.board-bar').innerText();
+  await page.locator('.chip[data-action="more"]').tap();
+  await sleep(120);
+  const after3 = await page.locator('.board-bar').innerText();
+  check('a node setting can be stepped', /Wait 1\.0 s/.test(before3) && /Wait 1\.2 s/.test(after3), `${before3.replace(/\s+/g, ' ')} -> ${after3.replace(/\s+/g, ' ')}`);
+  await page.locator('.chip[data-action="remove-node"]').tap();
+  await sleep(120);
+  check('a logic node can be removed', (await game(() => {
+    const g = window.__scrapline.sim.graph;
+    let n = 0;
+    for (let i = 1; i < g.high; i++) if (g.type[i] === 5) n++;
+    return n;
+  })) === 0);
+  await shot('13-board.png');
+  await page.locator('.board-close').tap();
+  await sleep(250);
+  check('circuit board closes', !(await game(() => window.__scrapline.boardOpen())));
+  await page.locator('.hotbar .slot').nth(5).tap();
+  await aimCell(126, 133, true);
+  await page.locator('.btn-ctx').tap(); // flip off -> NOT -> lamp on
+  await sleep(600);
+  check('flipping the switch off lights the lamp through the NOT', (await activeOf(sw)) === 0 && (await activeOf(lamp)) === 1);
+
+  // --- 3.6 the night: sensor -> turret defends without the player doing anything
+  const sensor = await placeAt(3, 130, 133);
+  const turret = await placeAt(4, 132, 133);
+  check('sensor and turret are placed', sensor > 0 && turret > 0);
+  await page.locator('.hotbar .slot').nth(2).tap();
+  await aimCell(130, 133, true);
+  await page.locator('.btn-act').tap();
+  await sleep(200);
+  await aimCell(132, 133, true);
+  await page.locator('.btn-act').tap();
+  await sleep(200);
+  check('sensor is wired to the turret', /Sensor now drives Turret/.test(await toastText()), await toastText());
+  await page.locator('.hotbar .slot').nth(5).tap();
+  await game(() => {
+    const s = window.__scrapline.sim;
+    s.tick = 16800 + 95; // night; the first stray spawns within a few ticks
+    s.vitals.health = 1000;
+    s.vitals.warmth = 1000;
+    s.player.x = 131.5; s.player.z = 135.5; s.player.pitch = -0.1;
+  });
+  let downed = false;
+  let sawStray = false;
+  for (let k = 0; k < 90 && !downed; k++) {
+    await sleep(500);
+    const st = await game(() => {
+      const s = window.__scrapline.sim;
+      s.vitals.warmth = 1000;
+      return { count: s.strays.count, spawned: s.strays.spawned };
+    });
+    if (st.count > 0 && !sawStray) {
+      sawStray = true;
+      await shot('14-night-stray.png');
+    }
+    downed = /Turret took down a stray/.test(await toastText());
+  }
+  const healthAfter = await game(() => window.__scrapline.sim.vitals.health);
+  check('strays come at night', sawStray);
+  check('the wired turret destroys a stray on its own', downed);
+  check('the player was never touched', healthAfter === 1000, `${healthAfter}`);
+  await shot('15-turret.png');
+
+  // dawn: strays shut down and the night is counted
+  await game(() => (window.__scrapline.sim.tick = 21600 - 30));
+  await sleep(2500);
+  const dawnShown = await page.locator('.death-title', { hasText: 'You held the night' }).isVisible();
+  check('surviving to dawn shows the night-held card', dawnShown && (await game(() => window.__scrapline.sim.nights)) === 1);
+  await shot('16-dawn.png');
+  await page.locator('.primary', { hasText: 'Keep building' }).tap();
+  await sleep(200);
+  check('strays are gone at dawn', (await game(() => window.__scrapline.sim.strays.count)) === 0);
+
+  // the whole base survives a save and reload
+  const saved3 = await game(() => {
+    const ok = window.__scrapline.save();
+    const s = window.__scrapline.sim;
+    let n = 0;
+    for (let id = 1; id < s.entities.high; id++) if (s.entities.kind[id]) n++;
+    return { ok, entities: n, wires: s.graph.wireCount };
+  });
+  await page.goto(base + '?debug=1');
+  await page.waitForFunction(() => window.__scrapline && window.__scrapline.ready, null, { timeout: 15000 });
+  await sleep(700);
+  const loaded3 = await game(() => {
+    const s = window.__scrapline.sim;
+    let n = 0;
+    for (let id = 1; id < s.entities.high; id++) if (s.entities.kind[id]) n++;
+    return { entities: n, wires: s.graph.wireCount, nights: s.nights };
+  });
+  check('factory and circuits survive a reload',
+    saved3.ok && loaded3.entities === saved3.entities && loaded3.wires === saved3.wires && loaded3.wires === 3 && loaded3.nights === 1,
+    JSON.stringify(loaded3));
 
   // --- frame budget signal under CPU throttle (software GL here, so informational)
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });

@@ -1,7 +1,8 @@
 import { add } from './core/inventory';
 import { MoveIntent } from './core/player';
-import { Sim, TICK_DT, createSim, respawn, stepPlayer, tickSim } from './core/sim';
+import { Sim, TICK_DT, createSim, respawn, stepPlayer, tickSim, toggleSwitch } from './core/sim';
 import { TouchInput } from './input/touch';
+import { Board } from './ui/board';
 import { DebugOverlay } from './ui/debug';
 import { Hud } from './ui/hud';
 import { Menu } from './ui/menu';
@@ -48,9 +49,12 @@ const hud = new Hud(uiRoot, sim, input, {
     if (action === 'rotate') sim.buildRot = (sim.buildRot + 1) & 3;
     else if (action === 'craft') sheet.open({ kind: 'craft', station: 'workbench' });
     else if (action === 'open' && entityId) sheet.open({ kind: 'storage', entityId });
+    else if (action === 'toggle' && entityId) toggleSwitch(sim, entityId);
+    else if (action === 'circuit') board.open(entityId);
   },
   respawn: () => respawn(sim),
 });
+const board = new Board(uiRoot, sim);
 const debug = new DebugOverlay(uiRoot);
 input.onThreeFingerTap = () => debug.toggle();
 if (params.has('debug')) debug.toggle();
@@ -75,7 +79,7 @@ function frame(now: number): void {
   last = now;
 
   input.consume(intent);
-  const modal = sheet.isOpen || menu.isOpen;
+  const modal = sheet.isOpen || menu.isOpen || board.isOpen || hud.blocking;
   sim.actHeld = input.act && !modal;
   if (input.actTapped && !modal) sim.actPressed = true;
   input.actTapped = false;
@@ -97,6 +101,7 @@ function frame(now: number): void {
   view.render(frameMs);
   hud.sync(sim);
   sheet.sync();
+  board.draw();
   sim.events.length = 0;
   debug.update(now, frameMs, tickMs, view.stats());
 
@@ -113,6 +118,9 @@ declare global {
       perf: typeof debug.sample;
       give(id: number, n: number): number;
       sheetOpen(): boolean;
+      boardOpen(): boolean;
+      /** Screen position of a port on the circuit board. */
+      port(node: number, port: number, output: boolean): { x: number; y: number };
       save(): boolean;
     };
   }
@@ -123,5 +131,7 @@ window.__scrapline = {
   perf: debug.sample,
   give: (id, n) => add(sim.inventory, id, n),
   sheetOpen: () => sheet.isOpen,
+  boardOpen: () => board.isOpen,
+  port: (node, port, output) => board.portPosition(node, port, output),
   save: () => saveGame(sim),
 };

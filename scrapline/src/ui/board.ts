@@ -71,6 +71,8 @@ export class Board {
   private downX = 0;
   private downY = 0;
   private moved = false;
+  /** Output port a drag started on; it only becomes `from` once the finger actually moves. */
+  private dragPort: Port | null = null;
   private dragNode = 0;
   private dragDX = 0;
   private dragDY = 0;
@@ -324,7 +326,7 @@ export class Board {
     const node = out ? 0 : this.nodeAt(p.x, p.y);
     if (out) {
       this.mode = 'wire';
-      this.from = out;
+      this.dragPort = out;
       this.wireX = p.x;
       this.wireY = p.y - DRAG_LIFT;
     } else if (node && !this.portAt(p.x, p.y, false)) {
@@ -364,6 +366,7 @@ export class Board {
       g.bx[this.dragNode] = Math.round(wx / GRID) * GRID;
       g.by[this.dragNode] = Math.round(wy / GRID) * GRID;
     } else if (this.mode === 'wire') {
+      this.from = this.dragPort;
       this.wireX = p.x;
       this.wireY = p.y - DRAG_LIFT;
     }

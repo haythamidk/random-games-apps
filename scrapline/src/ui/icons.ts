@@ -32,6 +32,22 @@ const ICONS: Record<number, string> = {
     '<rect x="5" y="4" width="14" height="16" fill="#5d6b73"/><rect x="5" y="3" width="14" height="2.5" fill="#d6dbd0"/><rect x="5" y="18" width="14" height="3" fill="#36424d"/><path d="M12 6v12" stroke="#4b5860" stroke-width="1"/>',
   [Item.KitCampfire]:
     '<path d="M12 4c1 3 4 4.5 4 8a4 4 0 01-8 0c0-1.8 1-3 2-4 .2 1.3.8 2 1.4 2.3C11.2 8.5 11.3 6 12 4z" fill="#f2a93b"/><path d="M5 19l14-3M5 16l14 3" stroke="#8a6a4c" stroke-width="2.2" stroke-linecap="round"/>',
+  [Item.KitSmelter]:
+    '<rect x="4" y="9" width="16" height="11" fill="#4a5560"/><rect x="3.5" y="8" width="17" height="2" fill="#d6dbd0"/><rect x="10" y="3" width="4" height="5" fill="#36424d"/><rect x="8" y="13" width="8" height="4" fill="#f2a93b"/>',
+  [Item.KitDrill]:
+    '<rect x="4" y="15" width="16" height="5" fill="#36424d"/><rect x="8" y="6" width="8" height="9" fill="#4f9c93"/><rect x="10" y="3.5" width="4" height="2.5" fill="#f2a93b"/><path d="M12 20v2" stroke="#aab6bd" stroke-width="2"/>',
+  [Item.KitBelt]:
+    '<rect x="3" y="9" width="18" height="7" rx="1" fill="#2f3a42"/><path d="M3 9h18M3 16h18" stroke="#4f9c93" stroke-width="1.8"/><path d="M8 12.5h6m-2.2-2.2 2.2 2.2-2.2 2.2" fill="none" stroke="#d6dbd0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  [Item.KitSensor]:
+    '<path d="M12 21V10" stroke="#7f8d95" stroke-width="2"/><circle cx="12" cy="8" r="3" fill="#4f9c93"/><path d="M6.5 5a7 7 0 000 6M17.5 5a7 7 0 010 6" fill="none" stroke="#5fd0c5" stroke-width="1.5" stroke-linecap="round"/>',
+  [Item.KitTurret]:
+    '<path d="M6 20l1.5-6h9L18 20z" fill="#36424d"/><rect x="8" y="9" width="8" height="5" fill="#5d6b73"/><path d="M12 11.5H21" stroke="#20272e" stroke-width="2.4" stroke-linecap="round"/><rect x="10.5" y="6.5" width="2.5" height="2.5" fill="#f2a93b"/>',
+  [Item.KitLamp]:
+    '<path d="M12 21V9" stroke="#7f8d95" stroke-width="2"/><path d="M8 9h8l-1.5-4h-5z" fill="#f2a93b"/><path d="M9 21h6" stroke="#36424d" stroke-width="2" stroke-linecap="round"/>',
+  [Item.KitSwitch]:
+    '<rect x="7" y="5" width="10" height="14" rx="2" fill="#5d6b73"/><rect x="10" y="8" width="4" height="8" rx="2" fill="#26333a"/><circle cx="12" cy="10" r="2" fill="#5fd0c5"/>',
+  [Item.Linker]:
+    '<circle cx="6" cy="17" r="2.5" fill="#f2a93b"/><circle cx="18" cy="7" r="2.5" fill="#5fd0c5"/><path d="M8 16c4-1 4-7 8-8" fill="none" stroke="#e8e4d8" stroke-width="1.8" stroke-linecap="round"/>',
 };
 
 export function iconSvg(id: ItemId): string {

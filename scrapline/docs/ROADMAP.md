@@ -78,6 +78,10 @@ Goal: the Automate → Defend half, including the signature wiring mechanic, and
 
 End of day 3 build: the full 15–20 minute slice described in TDD section 0.
 
+**Status: 3.1 to 3.6 done on 12 Nov; 3.7 (packaging) in progress.** 77 unit tests and 72 smoke checks pass. In the smoke test, synthetic touches build and run a drill, belt and crate line, wire a switch to a lamp with the Linker, rewire it through a NOT node on the circuit board by tap and by drag, and a sensor-driven turret destroys a stray at night without the player being touched.
+
+Cut from the day 3 list, as planned for a tight day: undo on the board, siren, generator. Also deferred: the assembler, turret ammunition, and strays interacting with walls (they fly over them, so walls are shelter and layout only for now).
+
 Cut list, in order: undo on the board, siren, generator, Delay / Timer nodes, pinch zoom (fixed zoom levels instead). Not cuttable: 3.2, 3.3, 3.4, 3.6.
 
 ---
