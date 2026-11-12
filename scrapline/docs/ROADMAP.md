@@ -78,7 +78,9 @@ Goal: the Automate → Defend half, including the signature wiring mechanic, and
 
 End of day 3 build: the full 15–20 minute slice described in TDD section 0.
 
-**Status: 3.1 to 3.6 done on 12 Nov; 3.7 (packaging) in progress.** 77 unit tests and 72 smoke checks pass. In the smoke test, synthetic touches build and run a drill, belt and crate line, wire a switch to a lamp with the Linker, rewire it through a NOT node on the circuit board by tap and by drag, and a sensor-driven turret destroys a stray at night without the player being touched.
+**Status: done on 12 Nov, a day early.** 77 unit tests and 72 smoke checks pass. In the smoke test, synthetic touches build and run a drill, belt and crate line, wire a switch to a lamp with the Linker, rewire it through a NOT node on the circuit board by tap and by drag, and a sensor-driven turret destroys a stray at night without the player being touched.
+
+Packaging (3.7): the Capacitor Android project is in `android/`, landscape-locked and full screen. A debug APK (4.3 MB, package `app.scrapline.game`, minimum Android 7) was built in the cloud session and inspected: it carries the web build, is debug-signed and declares landscape. It has **not** been run on a phone or emulator yet, so first-launch behaviour and real frame rate are still unverified. A GitHub Actions workflow (`Scrapline APK`) rebuilds it on every push.
 
 Cut from the day 3 list, as planned for a tight day: undo on the board, siren, generator. Also deferred: the assembler, turret ammunition, and strays interacting with walls (they fly over them, so walls are shelter and layout only for now).
 

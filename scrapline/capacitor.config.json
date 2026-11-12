@@ -1,0 +1,8 @@
+{
+  "appId": "app.scrapline.game",
+  "appName": "Scrapline",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0f1a1f"
+  }
+}

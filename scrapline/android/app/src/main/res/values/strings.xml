@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Scrapline</string>
+    <string name="title_activity_main">Scrapline</string>
+    <string name="package_name">app.scrapline.game</string>
+    <string name="custom_url_scheme">app.scrapline.game</string>
+</resources>
